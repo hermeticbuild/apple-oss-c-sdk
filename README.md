@@ -262,14 +262,14 @@ SDK Gen overlay and builds `@llvm-project//llvm:llvm` for both macOS targets.
 It accepts the SDK Gen tree, LLVM libc++ inputs, and any TBD amendment as
 explicit external paths; no SDK-derived TBD is stored in this repository.
 
-Local qualification on 2026-11-17: 150/150 C smoke probes passed;
+Earlier full-staging qualification on 2026-11-17: 150/150 C smoke probes passed;
 the C smoke compiled to both Mach-O architectures with no SDK header in either
 dependency file. LLVM 23.1.2 built for arm64 and x86_64 using the restricted
 composition (419 TBDs, no SDK Gen headers); both binaries ran. Repeating both
 builds with the C installation overlaid on the full SDK Gen tree also passed.
-The restricted composition contains no headers beyond this C installation,
+That restricted composition contained no headers beyond the full C installation,
 LLVM's libc++ headers, and the five LLVM libunwind headers. The latest
-read-only comparison with SDK Gen 27.0 found 641 shared `usr/include` C paths:
+full-staging comparison with SDK Gen 27.0 found 641 shared `usr/include` C paths:
 561 byte-identical and 80 different. The standalone tree has 217 paths absent
 from SDK Gen; SDK Gen has 218 paths absent from the standalone tree after
 accounting for three Clang resource headers. SDK Gen emits 1,699
