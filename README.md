@@ -80,6 +80,41 @@ of the combined file and every root. The combined run reached 12 `xlocale/*`
 headers that the independent runs did not. Resource headers stay compiler-owned. The local reference
 manifest is validation evidence, not a generation input.
 
+## Full SDK C-header inventory
+
+Run this read-only path audit periodically with the same pinned Clang and a
+freshly built C installation:
+
+```sh
+python3 audit_sdk_c_headers.py --clang "$LLVM_CLANG" \
+  --sdk /absolute/path/to/MacOSX26.5.sdk \
+  --installation /tmp/apple-oss-c-headers \
+  --reference /tmp/apple-c-reference-26.5.json \
+  --out inventories/macosx26.5.json
+```
+
+The checked-in `inventories/macosx26.5.json` is a versioned path database of
+every file entry under SDK `usr/include`. Each path records whether it is
+installed, absent, or outside this C-header scope, plus an `include`, `omit`,
+or `review` disposition, its source, and a reason. `include` means retain in
+this installation; it does not assert that every consumer needs the header.
+The script excludes `c++/`, `objc/`,
+non-`.h` files, and symlinks into frameworks from C-installation candidates;
+their paths and reasons remain visible in the database. Reviewed directory
+rules in `inputs/sdk-header-decisions.tsv` omit bundled libraries and SDK
+module shims from the core C installation. A `review` decision is explicitly
+unfinished; the current 26.5 snapshot has 278 such paths. Use
+`--require-decisions` as a gate once all paths have been assessed.
+
+The report flags Clang resource overlaps and `#include_next` use; it never
+silently treats a compiler overlap as installed. An optional `--reference`
+marks paths reached by the C probe or queried during preprocessing, after
+checking the SDK version. Directory totals help prioritize review. The
+snapshot records paths and counts, never SDK header contents. Re-run it for
+each SDK version and review the diff; a path's presence alone does not prove
+that it is needed or that its contents are licensed for redistribution.
+Compilation and API behavior remain the job of the C probe and LLVM build.
+
 `inputs/header-sources.tsv` maps 162 installed header paths to pinned Apple
 source or an Apple generation path. Other closure candidates come from the
 explicit source groups and trees in `install_c.py`. Libc headers use

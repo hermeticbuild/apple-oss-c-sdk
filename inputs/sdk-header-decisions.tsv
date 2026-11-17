@@ -1,0 +1,13 @@
+pattern	decision	reason
+_modules/*	omit	SDK Clang module shims; module compilation is outside the textual C-header installation.
+net-snmp/*	omit	Bundled Net-SNMP library API; separate dependency, outside the standalone macOS C runtime headers.
+apache2/*	omit	Bundled Apache HTTP Server API; separate dependency, outside the standalone macOS C runtime headers.
+apr-1/*	omit	Bundled Apache Portable Runtime API; separate dependency, outside the standalone macOS C runtime headers.
+libxml/*	omit	Bundled libxml2 API; separate dependency, outside the standalone macOS C runtime headers.
+libxslt/*	omit	Bundled libxslt API; separate dependency, outside the standalone macOS C runtime headers.
+libexslt/*	omit	Bundled libexslt API; separate dependency, outside the standalone macOS C runtime headers.
+unicode/*	omit	Bundled ICU API; separate dependency, outside the standalone macOS C runtime headers.
+curl/*	omit	Bundled libcurl API; separate dependency, outside the standalone macOS C runtime headers.
+cups/*	omit	Bundled CUPS API; separate dependency, outside the standalone macOS C runtime headers.
+pcap/*	omit	Bundled libpcap API; separate dependency, outside the standalone macOS C runtime headers.
+editline/*	omit	Bundled libedit API; separate dependency, outside the standalone macOS C runtime headers.
