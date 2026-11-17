@@ -16,6 +16,20 @@ both architectures. The path comparison reports 35 unique absent files:
 | XPC | 11 | No `apple-oss-distributions/libxpc` or `xpc` repository identified. Keep unresolved. |
 | `tgmath.h` | 1 | Clang's resource `tgmath.h` uses `#include_next` on hosted Apple targets. The generated installation compiles using its fallback, but no independent Apple OSS source for the SDK's extra header was located. Keep as API parity gap. |
 
+Final source sweep: the current `apple-oss-distributions` repository inventory
+has `CF` and `Libm`, but no named SIMD or XPC source repository; its
+[`distribution-macOS` submodule manifest](https://github.com/apple-oss-distributions/distribution-macOS/blob/main/.gitmodules)
+also has no SIMD or XPC component. The current `CF`, `Libm`, and `Libc`
+source trees do not contain the absent header basenames. Historical
+`swift-corelibs-foundation` tags do contain `CFAttributedString.h` and
+`CFNotificationCenter.h`, but their [Swift 5.0 build script](https://github.com/swiftlang/swift-corelibs-foundation/blob/swift-5.0-RELEASE/build.py)
+states that it does not distinguish public and private CoreFoundation
+headers. `CFAttributedString.h` compiles with this older CF set in isolation;
+`CFNotificationCenter.h` does not because the CF enum macros differ. Those
+historical sources are leads for a compatible derivation, not proof that
+they were the macOS SDK's installed headers. The search remains open for
+every missing path.
+
 CoreFoundation paths: `CFAttributedString.h`, `CFCGTypes.h`,
 `CFFileDescriptor.h`, `CFFileSecurity.h`, `CFNotificationCenter.h`,
 `CFStringTokenizer.h`, `CFURLEnumerator.h`, each under
