@@ -6,10 +6,22 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from audit_sdk_c_headers import audit, closure_paths, path_digest
+from audit_sdk_c_headers import (audit, closure_paths, path_digest,
+                                 xnu_public_install_provenance)
 
 
 class SdkHeaderAuditTest(unittest.TestCase):
+    def test_public_install_evidence_requires_xnu_makefile(self):
+        self.assertTrue(xnu_public_install_provenance({
+            "origin": "sources/xnu/bsd/sys/socket.h",
+            "selection": "bsd/sys/Makefile:INSTALL_MI_LIST"}))
+        self.assertFalse(xnu_public_install_provenance({
+            "origin": "sources/xnu/bsd/sys/proc_private.h",
+            "selection": "SOURCE_TREES"}))
+        self.assertFalse(xnu_public_install_provenance({
+            "origin": "sources/Libc/include/socket.h",
+            "selection": "bsd/sys/Makefile:INSTALL_MI_LIST"}))
+
     def test_inventory_keeps_missing_resource_headers_and_review_state(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -84,7 +96,24 @@ class SdkHeaderAuditTest(unittest.TestCase):
             reached = audit(sdk, installation, resource, {"probe.h"}, set(),
                             [], known, generated_closure={"extra.h"})
             self.assertEqual(reached["installation_only"][0]["review_status"],
+                             "pending")
+            self.assertTrue(reached["installation_only"][0]["in_generated_probe_closure"])
+            extra_rule = {"path": "extra.h", "reason": "reviewed extra",
+                          "evidence": "source install manifest", "reviewed_sdk": "macosx26.5",
+                          "origin": "sources/Libc/include/usr/include/extra.h",
+                          "sha256": hashlib.sha256(b"\n").hexdigest()}
+            approved_extra = audit(sdk, installation, resource, {"probe.h"}, set(),
+                                   [], known, generated_closure={"extra.h"},
+                                   extra_rules={"extra.h": extra_rule})
+            self.assertEqual(approved_extra["installation_only"][0]["review_status"],
                              "approved")
+            changed_extra = dict(extra_rule, sha256="obsolete")
+            stale_extra = audit(sdk, installation, resource, {"probe.h"}, set(),
+                                [], known, extra_rules={"extra.h": changed_extra,
+                                                        "removed.h": extra_rule})
+            self.assertEqual(stale_extra["installation_only"][0]["review_status"],
+                             "pending")
+            self.assertEqual(stale_extra["stale_extra_approvals"], ["removed.h"])
             stale_rule = {"pattern": "vendor/*", "decision": "omit",
                           "reason": "separate vendor library", "evidence": "reviewed path",
                           "reviewed_sdk": "macosx26.5",

@@ -44,7 +44,6 @@ CoreFoundation.framework/Headers/CFUtilities.h	CF:CFUtilities.h
 CoreFoundation.framework/Headers/CFXMLNode.h	CF:CFXMLNode.h
 CoreFoundation.framework/Headers/CFXMLParser.h	CF:CFXMLParser.h
 CoreFoundation.framework/Headers/CoreFoundation.h	CF:CoreFoundation.h
-NetBSD/utmpx.h	generated:libc
 __wctype.h	Libc:include/__wctype.h
 _assert.h	generated:libc
 _ctype.h	generated:libc

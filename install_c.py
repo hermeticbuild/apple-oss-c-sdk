@@ -11,6 +11,7 @@ import csv
 import hashlib
 import json
 import os
+import re
 import shlex
 import subprocess
 import tempfile
@@ -27,46 +28,97 @@ EXTRAS = {
     "Block.h": "libdispatch:src/BlocksRuntime/Block.h",
     "net/net_kev.h": "xnu:bsd/net/net_kev.h",
     "sandbox.h": "template:sandbox.h",
+    "architecture/byte_order.h": "xnu:EXTERNAL_HEADERS/architecture/byte_order.h",
+    "mach-o/fixup-chains.h": "xnu:EXTERNAL_HEADERS/mach-o/fixup-chains.h",
 }
 
 # Provisional closure candidates. Replace broad walks with Apple's public
 # installation manifests before claiming SDK header parity.
 SOURCE_TREES = (
     ("Libc", "include", ""),
-    ("xnu", "bsd/sys", "sys"),
-    ("xnu", "bsd/machine", "machine"),
-    ("xnu", "bsd/arm", "arm"),
-    ("xnu", "bsd/i386", "i386"),
-    ("xnu", "osfmk/mach", "mach"),
-    # Public os/object.h is libdispatch's; XNU's same-named header is a
-    # kernel shim that uses include_next to reach libdispatch.
-    ("libdispatch", "os", "os"),
-    ("xnu", "libkern/os", "os"),
-    ("xnu", "EXTERNAL_HEADERS", ""),
     ("libpthread", "include", ""),
     ("libplatform", "include", ""),
     ("libmalloc", "include", ""),
     ("libdispatch", "dispatch", "dispatch"),
 )
 
-# XNU's EXTERNAL_HEADERS/Makefile lists these under KERNEL_FILES, not
-# INSTALL_MI_LIST. The compiler's resource directory supplies them to C users.
-# In particular, installing XNU stdatomic.h after Clang's resource header
-# suppresses atomic_flag through their shared __CLANG_STDATOMIC_H guard.
-XNU_KERNEL_ONLY_HEADERS = {
-    "stdarg.h", "stdatomic.h", "stdbool.h", "stddef.h", "stdint.h",
-    "ptrauth.h",
+# Libc/xcodescripts/headers.sh installs nl_types.h and utmpx.h by basename,
+# and moves asm.h to private machine headers. These source paths must not also
+# appear in usr/include. authentication.h and kvm.h are not in its public list.
+SOURCE_TREE_OMIT = {
+    "Libc": {"FreeBSD/nl_types.h", "NetBSD/utmpx.h", "asm.h",
+             "authentication.h", "kvm.h"},
+    "libplatform": {"exclavekit/os/lock.h", "exclavekit/os/lock_private.h"},
 }
+
+# XNU's bsd/sys and bsd/sys/_types Makefiles use DATAFILES for the macOS
+# usr/include installation. Their first EXTRA_DATAFILES branch is macOS;
+# embedded targets take the else branch. Keep this small reader pinned to
+# those Makefile shapes rather than interpreting arbitrary Make syntax.
+XNU_PUBLIC_MAKE_DIRS = (
+    ("bsd/sys", "sys", "INSTALL_MI_LIST"),
+    ("bsd/sys/_types", "sys/_types", "INSTALL_MI_LIST"),
+    ("bsd/machine", "machine", "INSTALL_MI_LIST"),
+    ("bsd/arm", "arm", "INSTALL_MD_LIST"),
+    ("bsd/i386", "i386", "INSTALL_MD_LIST"),
+    ("libkern/os", "os", "INSTALL_MI_LIST"),
+    ("osfmk/mach", "mach", "INSTALL_MI_LIST"),
+    ("osfmk/mach/machine", "mach/machine", "INSTALL_MI_LIST"),
+    ("osfmk/mach/arm", "mach/arm", "INSTALL_MD_LIST"),
+    ("osfmk/mach/i386", "mach/i386", "INSTALL_MD_LIST"),
+)
+
+
+def xnu_public_make_headers(source_dir: str, list_name: str) -> list[str]:
+    makefile = ROOT / "sources/xnu" / source_dir / "Makefile"
+    assignments: dict[str, str] = {}
+    lines = makefile.read_text().splitlines()
+    index = 0
+    while index < len(lines):
+        line = lines[index].split("#", 1)[0]
+        match = re.match(r"^([A-Z_]+)\s*[:+?]?=\s*(.*)", line)
+        if not match:
+            index += 1
+            continue
+        name, value = match.groups()
+        while value.rstrip().endswith("\\") and index + 1 < len(lines):
+            index += 1
+            value = value.rstrip()[:-1] + " " + lines[index].split("#", 1)[0]
+        assignments.setdefault(name, value)
+        index += 1
+
+    def expand(value: str) -> str:
+        pattern = r"\$[({]([A-Z_]+)[)}]"
+        for _ in range(8):
+            if not re.search(pattern, value):
+                return value
+            value = re.sub(pattern, lambda match: assignments[
+                "EMBEDDED_PRIVATE_DATAFILES" if match.group(1) == "EXTRA_DATAFILES"
+                else match.group(1)], value)
+        raise ValueError(f"unresolved XNU Makefile list: {makefile}")
+
+    headers = sorted(set(re.findall(r"[\w./-]+\.h\b",
+                                    expand(assignments[list_name]))))
+    if not headers:
+        raise ValueError(f"empty XNU public header list: {makefile}")
+    return headers
 
 # Public headers present in the SDK Gen comparison tree and available from
 # separate Apple OSS projects. These are explicit to avoid copying private
 # source directories wholesale.
 SOURCE_GROUPS = (
+    # libdispatch's Xcode Install Headers phase copies these seven public
+    # os/ inputs. XNU's public libkern/os Makefile supplies base.h.
+    ("libdispatch", "os", "os", (
+        "object.h", "workgroup.h", "workgroup_base.h",
+        "workgroup_interval.h", "workgroup_object.h",
+        "workgroup_parallel.h", "clock.h")),
     ("CommonCrypto", "include", "CommonCrypto", (
         "CommonCrypto.h", "CommonCryptoError.h", "CommonCryptor.h",
         "CommonDigest.h", "CommonHMAC.h", "CommonKeyDerivation.h",
         "CommonRandom.h", "CommonSymmetricKeywrap.h")),
-    ("CarbonHeaders", "", "", ("ConditionalMacros.h", "Endian.h", "MacTypes.h")),
+    ("CarbonHeaders", "", "", (
+        "AssertMacros.h", "ConditionalMacros.h", "MacTypes.h")),
     ("xnu", "bsd/net", "net", (
         "bpf.h", "dlil.h", "ethernet.h", "if.h", "if_arp.h", "if_dl.h",
         "if_llc.h", "if_media.h", "if_mib.h", "if_types.h", "if_utun.h",
@@ -75,7 +127,9 @@ SOURCE_GROUPS = (
     ("xnu", "libkern/libkern", "libkern", (
         "OSDebug.h", "OSKextLib.h", "OSReturn.h")),
     ("cctools", "include/mach-o", "mach-o", (
-        "arch.h", "getsect.h", "ldsyms.h", "ranlib.h", "swap.h")),
+        "arch.h", "fat.h", "getsect.h", "ldsyms.h", "loader.h",
+        "nlist.h", "ranlib.h", "reloc.h", "stab.h", "swap.h",
+        "arm/reloc.h", "arm64/reloc.h", "x86_64/reloc.h")),
     ("hfs", "core", "hfs", ("hfs_format.h", "hfs_unistr.h")),
     ("libunwind", "libunwind/include/mach-o", "mach-o", (
         "compact_unwind_encoding.h",)),
@@ -86,7 +140,7 @@ SOURCE_GROUPS = (
         "in6.h", "ipsec.h", "scope6_var.h")),
     ("Libinfo", "rpc.subproj", "rpc", (
         "auth.h", "auth_unix.h", "clnt.h", "pmap_clnt.h", "pmap_prot.h",
-        "pmap_rmt.h", "pmap_wakeup.h", "rpc.h", "rpc_msg.h", "svc.h",
+        "pmap_rmt.h", "rpc.h", "rpc_msg.h", "svc.h",
         "svc_auth.h", "types.h", "xdr.h")),
     ("zlib", "zlib", "", ("zconf.h", "zlib.h")),
 )
@@ -428,11 +482,19 @@ def main() -> None:
     for repo, source_dir, target_dir in SOURCE_TREES:
         source_root = ROOT / "sources" / repo / source_dir
         for source in sorted(source_root.rglob("*.h")):
-            if repo == "xnu" and source_dir == "EXTERNAL_HEADERS" and source.parent == source_root and source.name in XNU_KERNEL_ONLY_HEADERS:
+            if source.relative_to(source_root).as_posix() in SOURCE_TREE_OMIT.get(repo, set()):
                 continue
             destination = out / "usr/include" / target_dir / source.relative_to(source_root)
             if not destination.exists():
                 install(source, destination, selection="SOURCE_TREES")
+
+    for source_dir, target_dir, list_name in XNU_PUBLIC_MAKE_DIRS:
+        for name in xnu_public_make_headers(source_dir, list_name):
+            source = ROOT / "sources/xnu" / source_dir / name
+            destination = out / "usr/include" / target_dir / name
+            if not destination.exists():
+                install(source, destination,
+                        selection=f"{source_dir}/Makefile:{list_name}")
 
     for repo, source_dir, target_dir, names in SOURCE_GROUPS:
         for name in names:
@@ -443,7 +505,11 @@ def main() -> None:
     with tempfile.TemporaryDirectory(prefix="apple-oss-mig-") as temporary:
         mig_out = Path(temporary) / "generated"
         generate_mig(args.mig.absolute(), args.clang.absolute(), out, mig_out)
+        # libsyscall/xcodescripts/mach_install_mig.sh is the user-level
+        # installation recipe. XNU's MIG_USHDRS are kernel exports only.
         for source in sorted((mig_out / "arm64/mach").glob("*.h")):
+            if source.name.endswith("_server.h"):
+                continue
             install(source, out / "usr/include/mach" / source.name,
                     f"generated:system-mig:{source.name} via generate_mig.py", "MIG")
 

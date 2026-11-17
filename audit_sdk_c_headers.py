@@ -70,6 +70,19 @@ def scope_approvals(path: Path) -> dict[str, dict[str, str]]:
     return result
 
 
+def extra_approvals(path: Path) -> dict[str, dict[str, str]]:
+    with path.open(newline="") as source:
+        rows = list(csv.DictReader(source, delimiter="\t"))
+    result = {}
+    fields = {"path", "reason", "evidence", "reviewed_sdk", "origin", "sha256"}
+    for row in rows:
+        if (set(row) != fields or row["path"] in result or
+                not all(row[field].strip() for field in fields)):
+            raise ValueError(f"invalid or duplicate installation-only approval: {row}")
+        result[row["path"]] = row
+    return result
+
+
 def path_digest(paths: list[str]) -> str:
     return hashlib.sha256("\n".join(paths).encode()).hexdigest()
 
@@ -110,11 +123,18 @@ def installed_provenance(installation: Path) -> dict[str, dict[str, str]]:
     return manifest["files"]
 
 
+def xnu_public_install_provenance(source: dict[str, str]) -> bool:
+    return (source["origin"].startswith("sources/xnu/") and
+            bool(re.fullmatch(r"[^:]+/Makefile:INSTALL_(?:MI|MD)_LIST",
+                              source["selection"])))
+
+
 def audit(sdk: Path, installation: Path, resource: Path,
           closure: set[str] | None, lookup_candidates: set[str] | None,
           rules: list[dict[str, str]], baseline: set[str] | None = None,
           scope_rules: dict[str, dict[str, str]] | None = None,
-          generated_closure: set[str] | None = None) -> dict:
+          generated_closure: set[str] | None = None,
+          extra_rules: dict[str, dict[str, str]] | None = None) -> dict:
     sdk, installation, resource = sdk.resolve(), installation.resolve(), resource.resolve()
     settings = sdk / "SDKSettings.json"
     metadata = json.loads(settings.read_text()) if settings.is_file() else {}
@@ -203,13 +223,16 @@ def audit(sdk: Path, installation: Path, resource: Path,
                           decision_rule=rule["pattern"], review_status="pending")
         elif present:
             probed = closure is not None and name in closure
+            listed = bool(source and xnu_public_install_provenance(source))
             record.update(decision="include",
-                          reason="retained in the pinned Apple OSS C installation",
-                          decision_source="installation",
+                          reason=("pinned XNU Makefile lists this public macOS header"
+                                  if listed else "retained in the pinned Apple OSS C installation"),
+                          decision_source="apple_install_manifest" if listed else "installation",
                           review_status=("approved" if record["provenance_status"] == "verified"
-                                         and probed else "pending"),
+                                         and (probed or listed) else "pending"),
                           evidence=("version-matched C probe closure and verified source" if probed
-                                    else "source selection is recorded; need/scope review pending"))
+                                    else (source["selection"] if listed else
+                                          "source selection is recorded; need/scope review pending")))
         elif closure is not None and name in closure:
             record.update(decision="include",
                           reason="required by the checked-in C probe SDK closure",
@@ -249,6 +272,7 @@ def audit(sdk: Path, installation: Path, resource: Path,
     approvals = Counter(record["review_status"] for record in entries)
     current_paths = {entry["path"] for entry in entries}
     installation_only = []
+    extra_rules = extra_rules or {}
     for relative, source in sorted(provenance.items()):
         if not relative.startswith("usr/include/"):
             continue
@@ -256,15 +280,23 @@ def audit(sdk: Path, installation: Path, resource: Path,
         if name in current_paths:
             continue
         reached = generated_closure is not None and name in generated_closure
+        rule = extra_rules.get(name)
+        approved = bool(rule and rule["reviewed_sdk"] == sdk_name and
+                        rule["origin"] == source["origin"] and
+                        rule["sha256"] == source["sha256"])
         installation_only.append({
             "path": name, "state": "installation_only",
-            "decision": "include" if reached else "review",
-            "review_status": "approved" if reached else "pending",
-            "reason": ("reached by the generated C probe with verified installer provenance"
-                       if reached else "no path in this SDK; assess need and public provenance"),
+            "decision": "include" if rule else "review",
+            "review_status": "approved" if approved else "pending",
+            "reason": (rule["reason"] if rule else
+                       "no path in this SDK; assess need and public provenance"),
+            "evidence": rule["evidence"] if rule else "",
             "origin": source["origin"], "selection": source["selection"],
+            "sha256": source["sha256"],
             "in_generated_probe_closure": reached,
         })
+    stale_extra_rules = sorted(extra_rules.keys() -
+                               {entry["path"] for entry in installation_only})
     return {
         "schema": 3,
         "sdk": {key: metadata[key] for key in ("CanonicalName", "Version")
@@ -297,6 +329,7 @@ def audit(sdk: Path, installation: Path, resource: Path,
                              if entry["state"] == "missing" and entry["decision"] == "include"],
         "installed_out_of_scope": installed_out_of_scope,
         "installation_only": installation_only,
+        "stale_extra_approvals": stale_extra_rules,
         "new_paths": sorted(current_paths - baseline) if baseline is not None else [],
         "removed_paths": sorted(baseline - current_paths) if baseline is not None else [],
     }
@@ -319,8 +352,9 @@ def review_markdown(report: dict) -> str:
         extras.setdefault(group, []).append(entry)
     lines = [f"# macOS SDK {report['sdk'].get('Version', '?')} C headers for review",
              "", f"{total} SDK paths lack an approved disposition, plus",
-             f"{report['counts']['installation_only_pending']} installed headers absent from this SDK",
-             "that are not reached by the generated C probe.",
+             f"{report['counts']['installation_only_pending']} installed headers absent from this SDK.",
+             "Probe reach is recorded but does not approve an extra header:",
+             "it can itself change __has_include behavior.",
              "An installed path",
              "still needs a source and scope review; a missing path needs a",
              "supported include or omit decision. New SDK paths always need review.", ""]
@@ -359,6 +393,9 @@ def main() -> None:
     parser.add_argument("--scope-approvals", type=Path,
                         default=Path(__file__).resolve().parent / "inputs/sdk-scope-approvals.tsv",
                         help="reviewed SDK path sets for out-of-scope categories")
+    parser.add_argument("--extra-approvals", type=Path,
+                        default=Path(__file__).resolve().parent / "inputs/installation-only-decisions.tsv",
+                        help="reviewed installation paths absent from this SDK")
     parser.add_argument("--out", required=True, type=Path)
     parser.add_argument("--review-out", type=Path,
                         help="optional Markdown list of paths still needing a decision")
@@ -402,7 +439,8 @@ def main() -> None:
     generated_closure = (closure_paths(generated, None)[0] if generated else None)
     report = audit(sdk, installation, resource, closure, lookup_candidates,
                    decision_rules(args.decisions), baseline,
-                   scope_approvals(args.scope_approvals), generated_closure)
+                   scope_approvals(args.scope_approvals), generated_closure,
+                   extra_approvals(args.extra_approvals))
     if baseline_sdk:
         report["baseline_sdk"] = baseline_sdk
     if reference:
@@ -456,6 +494,8 @@ def main() -> None:
             failures.append(f"{counts['installed_out_of_scope']} out-of-scope paths installed")
         if counts["installation_only_pending"]:
             failures.append(f"{counts['installation_only_pending']} installation-only headers need review")
+        if report["stale_extra_approvals"]:
+            failures.append(f"{len(report['stale_extra_approvals'])} stale installation-only approvals")
         if report["removed_paths"]:
             failures.append(f"{len(report['removed_paths'])} removed paths need explanation")
         if failures:

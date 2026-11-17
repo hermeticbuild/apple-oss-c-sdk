@@ -113,13 +113,15 @@ stamp, evidence, and a hash of its reviewed path set. Scope exclusions have
 the same protection in `inputs/sdk-scope-approvals.tsv`. A newly added or
 removed member invalidates the approval even after the inventory is updated.
 `--baseline` also reports added and removed SDK paths. The current 26.5
-snapshot has 482 pending approvals: 205 installed paths outside the probe
-closure whose need/scope is unsettled, plus 277 absent candidates. The other
-532 installed SDK paths are reached by the probe and have verified installer
-provenance. Another 28 probe-required paths are absent from the
-installation. The reverse audit also finds 342 installed C headers without a
-matching 26.5 SDK path. Five are reached by the generated C probe; the other
-337 remain pending, including headers from broad XNU source-tree walks.
+snapshot has 377 pending approvals: 87 installed paths outside the probe
+closure whose need/scope is unsettled, plus 290 absent candidates. Another
+532 installed SDK paths are reached by the probe; 105 more unprobed paths
+are listed in pinned XNU public install manifests. All installed paths have
+verified installer provenance. Another 28 probe-required paths are absent from the
+installation. The reverse audit also finds 12 installed C headers without a
+matching 26.5 SDK path. Four are reached by the generated C probe. All 12
+have exact-path, origin- and content-hash-locked decisions in
+`inputs/installation-only-decisions.tsv`; a new or changed extra needs review.
 `--require-decisions` requires a baseline and both probe manifests, then
 fails on pending approvals, missing required paths, unexplained removals,
 unreviewed installation-only headers, or out-of-scope installed paths. The checked-in
@@ -134,7 +136,7 @@ each SDK version and review the diff; a path's presence alone does not prove
 that it is needed or that its contents are licensed for redistribution.
 Compilation and API behavior remain the job of the C probe and LLVM build.
 
-`inputs/header-sources.tsv` maps 162 installed header paths to pinned Apple
+`inputs/header-sources.tsv` maps 161 installed header paths to pinned Apple
 source or an Apple generation path. Other closure candidates come from the
 explicit source groups and trees in `install_c.py`. Libc headers use
 `Libc/xcodescripts/headers.sh`'s `strip-header.ed` and `unifdef` flags from
@@ -144,6 +146,7 @@ public `SINCFRAME_UNIFDEF` settings, and `mach_install_mig.sh`/`osfmk/mach/Makef
 drive the generated sys and MIG headers. Both architecture-specific MIG runs
 must produce identical public header bytes before installation.
 The expanded coverage uses XNU's public `DATAFILES`/`INSTALL_MI_LIST` for
+`sys/`, `sys/_types/`, `machine/`, `arm/`, `i386/`, `mach/`, `os/`,
 `device/`, `libkern/`, and `net/`; cctools' public Xcode header phase for
 `mach-o/`; hfs' public header phase; launchd's public `launch.h`; and
 libunwind's open-source compact-unwind header. The pinned XNU
@@ -234,9 +237,9 @@ hermetic-llvm source change is included here.
 
 ## Current limits
 
-The source-tree closure remains deliberately broad while LLVM qualification is
-in progress; it includes private Apple OSS headers that should be excluded by
-the projects' public installation manifests before release. A path comparison
+Some non-XNU source-tree walks remain broad while LLVM qualification is in
+progress; 87 installed SDK paths outside the probe still need individual
+scope review before release. A path comparison
 against SDK Gen is only a path check: SDK Gen emits per-symbol CoreFoundation
 headers, while this recipe installs Apple's 39 umbrella headers. It does not
 establish equivalent API coverage. The `sandbox.h`, arm64 `fenv.h`, and modern
