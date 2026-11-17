@@ -5,8 +5,8 @@ Reference: `inputs/c-probe.c`, LLVM 23.1.2 minimal prebuilt
 `x86_64-apple-macos14.0`, `-std=c11`. The reference uses an official SDK only
 as a local compile/coverage oracle. No SDK header content enters the installer.
 
-Both architecture reference runs pass the combined C file and all 179 roots
-(360 probes). The current Apple OSS installation passes 354/360: the combined
+Both architecture reference runs pass the combined C file and all 182 roots
+(366 probes). The current Apple OSS installation passes 360/366: the combined
 file stops at `simd/simd.h`, and the isolated `simd/simd.h` and `xpc/xpc.h`
 roots fail on both architectures. The path comparison reports 35 unique
 absent files:

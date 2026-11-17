@@ -40,12 +40,12 @@ resource directory and this installation; it checks both target architectures.
 
 `inputs/c-probe.c` is the checked-in, extensible translation unit, seeded
 from [Zig's `tools/macos-headers.c`](https://codeberg.org/ziglang/zig/src/commit/6b0a1d8b426a9b60f999358d4b7f57aa0b231777/tools/macos-headers.c).
-Its 179 roots are grouped by their first matching inventory: 27 of 29
+Its 182 roots are grouped by their first matching inventory: 27 of 29
 [ISO C11 standard headers](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf)
 (including all 15 [ANSI C89 / ISO C90](https://www.iso.org/standard/17782.html)
 headers), 55 additional
 [POSIX.1-2017 Issue 7 headers](https://pubs.opengroup.org/onlinepubs/9699919799/basedefs/contents.html),
-and 97 macOS/BSD, framework, or other extension headers. Counting the 24
+and 100 macOS/BSD, framework, or other extension headers. Counting the 24
 C11/POSIX overlaps, the probe covers 79 of the 82 POSIX header entries.
 The five unseeded standard roots (`threads.h`, `uchar.h`, `mqueue.h`,
 `stropts.h`, `trace.h`) are absent from the macOS 26.5 SDK reference. These
@@ -113,10 +113,10 @@ stamp, evidence, and a hash of its reviewed path set. Scope exclusions have
 the same protection in `inputs/sdk-scope-approvals.tsv`. A newly added or
 removed member invalidates the approval even after the inventory is updated.
 `--baseline` also reports added and removed SDK paths. The current 26.5
-snapshot has 377 pending approvals: 87 installed paths outside the probe
-closure whose need/scope is unsettled, plus 290 absent candidates. Another
-532 installed SDK paths are reached by the probe; 105 more unprobed paths
-are listed in pinned XNU public install manifests. All installed paths have
+snapshot has 120 pending approvals: 28 installed paths outside the probe
+closure whose need/scope is unsettled, plus 92 absent candidates. Another
+535 installed SDK paths are reached by the probe; 221 more unprobed paths
+are listed in pinned Apple OSS public install manifests. All installed paths have
 verified installer provenance. Another 28 probe-required paths are absent from the
 installation. The reverse audit also finds 12 installed C headers without a
 matching 26.5 SDK path. Four are reached by the generated C probe. All 12
@@ -126,6 +126,10 @@ have exact-path, origin- and content-hash-locked decisions in
 fails on pending approvals, missing required paths, unexplained removals,
 unreviewed installation-only headers, or out-of-scope installed paths. The checked-in
 `inventories/macosx26.5-review.md` groups pending paths for human review.
+`inputs/sdk-review-notes.tsv` records investigated source gaps without
+approving them; those paths remain pending and continue to block the release
+gate. In particular, the user-level `os/log.h` and `os/trace.h` sources remain
+unresolved even though XNU contains kernel-side headers with those names.
 
 The report flags Clang resource overlaps and `#include_next` use; it never
 silently treats a compiler overlap as installed. An optional `--reference`
@@ -138,7 +142,10 @@ Compilation and API behavior remain the job of the C probe and LLVM build.
 
 `inputs/header-sources.tsv` maps 161 installed header paths to pinned Apple
 source or an Apple generation path. Other closure candidates come from the
-explicit source groups and trees in `install_c.py`. Libc headers use
+explicit source groups and trees in `install_c.py`. The pinned
+`Libc/xcodescripts/headers.sh` public arrays select Libc headers;
+`Libinfo/xcodescripts/install_files.sh` selects macOS RPC and membership
+headers. Libc headers use
 `Libc/xcodescripts/headers.sh`'s `strip-header.ed` and `unifdef` flags from
 `generate_features.pl`. Availability headers use the pinned AvailabilityVersions
 preprocessor. XNU's `make_symbol_aliasing.sh`, `make_posix_availability.sh`,
@@ -146,8 +153,9 @@ public `SINCFRAME_UNIFDEF` settings, and `mach_install_mig.sh`/`osfmk/mach/Makef
 drive the generated sys and MIG headers. Both architecture-specific MIG runs
 must produce identical public header bytes before installation.
 The expanded coverage uses XNU's public `DATAFILES`/`INSTALL_MI_LIST` for
-`sys/`, `sys/_types/`, `machine/`, `arm/`, `i386/`, `mach/`, `os/`,
-`device/`, `libkern/`, and `net/`; cctools' public Xcode header phase for
+`sys/`, `sys/_types/`, `machine/`, `arm/`, `arm64/`, `i386/`, `mach/`,
+`os/`, `netinet/`, `netinet6/`, `nfs/`, `pexpert/`, and other public
+directories; cctools' public Xcode header phase for
 `mach-o/`; hfs' public header phase; launchd's public `launch.h`; and
 libunwind's open-source compact-unwind header. The pinned XNU
 `osfmk/device/Makefile` calls for `-DIOKIT` when installing
@@ -192,7 +200,7 @@ SDK Gen overlay and builds `@llvm-project//llvm:llvm` for both macOS targets.
 It accepts the SDK Gen tree, LLVM libc++ inputs, and any TBD amendment as
 explicit external paths; no SDK-derived TBD is stored in this repository.
 
-Local qualification on 2026-11-17: 118/118 isolated C header probes passed;
+Local qualification on 2026-11-17: 124/124 isolated C header probes passed;
 the C smoke compiled to both Mach-O architectures with no SDK header in either
 dependency file. LLVM 23.1.2 built for arm64 and x86_64 using the restricted
 composition (419 TBDs, no SDK Gen headers); both binaries ran. Repeating both
@@ -203,8 +211,8 @@ LLVM's libc++ headers. The path audit found 860 shared `usr/include` C paths,
 Clang when comparing with SDK Gen. These counts do not establish semantic parity.
 
 Expanded qualification with the pinned LLVM minimal prebuilt and official
-macOS 26.5 SDK: 360/360 reference C probes compile. The current generated C
-installation compiles 354/360; the combined probe stops at SIMD and the
+macOS 26.5 SDK: 366/366 reference C probes compile. The current generated C
+installation compiles 360/366; the combined probe stops at SIMD and the
 individual SIMD and XPC roots fail on both
 architectures. The reference include closure has 35 distinct header paths
 absent from the standalone installation; see [COVERAGE_GAPS.md](COVERAGE_GAPS.md).
@@ -238,7 +246,7 @@ hermetic-llvm source change is included here.
 ## Current limits
 
 Some non-XNU source-tree walks remain broad while LLVM qualification is in
-progress; 87 installed SDK paths outside the probe still need individual
+progress; 28 installed SDK paths outside the probe still need individual
 scope review before release. A path comparison
 against SDK Gen is only a path check: SDK Gen emits per-symbol CoreFoundation
 headers, while this recipe installs Apple's 39 umbrella headers. It does not

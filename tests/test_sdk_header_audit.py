@@ -7,18 +7,27 @@ import unittest
 from pathlib import Path
 
 from audit_sdk_c_headers import (audit, closure_paths, path_digest,
-                                 xnu_public_install_provenance)
+                                 public_install_provenance)
 
 
 class SdkHeaderAuditTest(unittest.TestCase):
     def test_public_install_evidence_requires_xnu_makefile(self):
-        self.assertTrue(xnu_public_install_provenance({
+        self.assertTrue(public_install_provenance({
             "origin": "sources/xnu/bsd/sys/socket.h",
             "selection": "bsd/sys/Makefile:INSTALL_MI_LIST"}))
-        self.assertFalse(xnu_public_install_provenance({
+        self.assertTrue(public_install_provenance({
+            "origin": "sources/Libc/include/stdio.h",
+            "selection": "Libc/xcodescripts/headers.sh:public"}))
+        self.assertTrue(public_install_provenance({
+            "origin": "sources/Libinfo/rpc.subproj/auth.h",
+            "selection": "Libinfo/xcodescripts/install_files.sh:macosx"}))
+        self.assertTrue(public_install_provenance({
+            "origin": "generated:system-mig:mach_vm.h via generate_mig.py",
+            "selection": "xnu/libsyscall/xcodescripts/mach_install_mig.sh:public"}))
+        self.assertFalse(public_install_provenance({
             "origin": "sources/xnu/bsd/sys/proc_private.h",
             "selection": "SOURCE_TREES"}))
-        self.assertFalse(xnu_public_install_provenance({
+        self.assertFalse(public_install_provenance({
             "origin": "sources/Libc/include/socket.h",
             "selection": "bsd/sys/Makefile:INSTALL_MI_LIST"}))
 
@@ -91,6 +100,19 @@ class SdkHeaderAuditTest(unittest.TestCase):
             self.assertEqual(entries["probe.h"]["review_status"], "approved")
             self.assertEqual(entries["tcl.h"]["state"], "excluded")
             self.assertEqual(report["installed_out_of_scope"], ["objc/objc.h"])
+            noted = audit(sdk, installation, resource, {"probe.h"}, set(), [],
+                          known, notes={"unseen.h": {
+                              "reason": "public source unresolved",
+                              "evidence": "source manifest checked"}})
+            noted_entry = next(entry for entry in noted["entries"]
+                               if entry["path"] == "unseen.h")
+            self.assertEqual(noted_entry["decision"], "review")
+            self.assertEqual(noted_entry["review_status"], "pending")
+            self.assertEqual(noted_entry["reason"], "public source unresolved")
+            with self.assertRaisesRegex(ValueError, "stale or overridden review notes"):
+                audit(sdk, installation, resource, {"probe.h"}, set(), [],
+                      known, notes={"probe.h": {
+                          "reason": "should be overridden", "evidence": "probe"}})
             self.assertEqual([entry["path"] for entry in report["installation_only"]],
                              ["extra.h"])
             reached = audit(sdk, installation, resource, {"probe.h"}, set(),

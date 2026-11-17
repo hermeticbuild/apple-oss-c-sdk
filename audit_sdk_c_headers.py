@@ -57,6 +57,19 @@ def decision_rules(path: Path) -> list[dict[str, str]]:
     return rules
 
 
+def review_notes(path: Path, sdk_name: str) -> dict[str, dict[str, str]]:
+    with path.open(newline="") as source:
+        rows = list(csv.DictReader(source, delimiter="\t"))
+    notes = {}
+    for row in rows:
+        if (set(row) != {"path", "sdk", "reason", "evidence"}
+                or row["sdk"] != sdk_name or not row["reason"].strip()
+                or not row["evidence"].strip() or row["path"] in notes):
+            raise ValueError(f"invalid or duplicate review note: {row}")
+        notes[row["path"]] = row
+    return notes
+
+
 def scope_approvals(path: Path) -> dict[str, dict[str, str]]:
     with path.open(newline="") as source:
         rows = list(csv.DictReader(source, delimiter="\t"))
@@ -123,7 +136,34 @@ def installed_provenance(installation: Path) -> dict[str, dict[str, str]]:
     return manifest["files"]
 
 
-def xnu_public_install_provenance(source: dict[str, str]) -> bool:
+def public_install_provenance(source: dict[str, str]) -> bool:
+    if (source["origin"].startswith("generated:system-mig:") and
+            source["selection"] ==
+            "xnu/libsyscall/xcodescripts/mach_install_mig.sh:public"):
+        return True
+    if (source["origin"].startswith("generated:sys/syscall.h via ") and
+            source["selection"] == "xnu/bsd/sys/Makefile:INSTALL_MI_GEN_LIST"):
+        return True
+    if (source["origin"].startswith("sources/hfs/core/") and
+            source["selection"] == "hfs Xcode Public Headers"):
+        return True
+    if (source["origin"].startswith("sources/Libc/include/") and
+            source["selection"] == "Libc/xcodescripts/headers.sh:public"):
+        return True
+    if (source["origin"].startswith(("sources/Libc/gen/", "sources/Libc/stdtime/")) and
+            source["selection"] == "Libc/xcodescripts/headers.sh:public"):
+        return True
+    if (source["origin"] == "sources/launchd/liblaunch/vproc.h" and
+            source["selection"] == "launchd Xcode Public Headers"):
+        return True
+    if (source["origin"] in (
+            "sources/launchd/liblaunch/bootstrap.h",
+            "derived:sources/launchd/xcscripts/liblaunch-postflight.sh") and
+            source["selection"] == "launchd/xcscripts/liblaunch-postflight.sh"):
+        return True
+    if (source["origin"].startswith("sources/Libinfo/") and
+            source["selection"] == "Libinfo/xcodescripts/install_files.sh:macosx"):
+        return True
     return (source["origin"].startswith("sources/xnu/") and
             bool(re.fullmatch(r"[^:]+/Makefile:INSTALL_(?:MI|MD)_LIST",
                               source["selection"])))
@@ -134,7 +174,8 @@ def audit(sdk: Path, installation: Path, resource: Path,
           rules: list[dict[str, str]], baseline: set[str] | None = None,
           scope_rules: dict[str, dict[str, str]] | None = None,
           generated_closure: set[str] | None = None,
-          extra_rules: dict[str, dict[str, str]] | None = None) -> dict:
+          extra_rules: dict[str, dict[str, str]] | None = None,
+          notes: dict[str, dict[str, str]] | None = None) -> dict:
     sdk, installation, resource = sdk.resolve(), installation.resolve(), resource.resolve()
     settings = sdk / "SDKSettings.json"
     metadata = json.loads(settings.read_text()) if settings.is_file() else {}
@@ -153,6 +194,8 @@ def audit(sdk: Path, installation: Path, resource: Path,
     matched_rules = Counter()
     rule_paths: dict[str, list[str]] = {}
     scope_paths: dict[str, list[str]] = {}
+    notes = notes or {}
+    used_notes = set()
     for path in sorted(include.rglob("*")):
         if not (path.is_file() or path.is_symlink()):
             continue
@@ -223,9 +266,9 @@ def audit(sdk: Path, installation: Path, resource: Path,
                           decision_rule=rule["pattern"], review_status="pending")
         elif present:
             probed = closure is not None and name in closure
-            listed = bool(source and xnu_public_install_provenance(source))
+            listed = bool(source and public_install_provenance(source))
             record.update(decision="include",
-                          reason=("pinned XNU Makefile lists this public macOS header"
+                          reason=("pinned Apple OSS install manifest lists this public macOS header"
                                   if listed else "retained in the pinned Apple OSS C installation"),
                           decision_source="apple_install_manifest" if listed else "installation",
                           review_status=("approved" if record["provenance_status"] == "verified"
@@ -243,6 +286,12 @@ def audit(sdk: Path, installation: Path, resource: Path,
                           reason="compiler header overlaps SDK path; assess include_next and API parity",
                           decision_source="unreviewed", review_status="pending",
                           evidence="")
+        elif name in notes:
+            note = notes[name]
+            used_notes.add(name)
+            record.update(decision="review", reason=note["reason"],
+                          decision_source="review_note", review_status="pending",
+                          evidence=note["evidence"])
         else:
             record.update(decision="review",
                           reason="not covered by the current probe; assess need and provenance",
@@ -252,6 +301,8 @@ def audit(sdk: Path, installation: Path, resource: Path,
             record["review_status"] = "pending"
         decisions[record["decision"]] += 1
         entries.append(record)
+    if used_notes != set(notes):
+        raise ValueError(f"stale or overridden review notes: {sorted(set(notes) - used_notes)}")
     rules_by_pattern = {rule["pattern"]: rule for rule in rules}
     for record in entries:
         if record["decision_source"] == "manual":
@@ -363,7 +414,8 @@ def review_markdown(report: dict) -> str:
         lines.extend((f"## {title} ({len(entries)})", ""))
         for entry in entries:
             suffix = " — Clang resource overlap" if entry.get("compiler_resource_overlap") else ""
-            lines.append(f"- `{entry['path']}` — proposed {entry['decision']}{suffix}")
+            note = f" — {entry['reason']}" if entry["decision_source"] == "review_note" else ""
+            lines.append(f"- `{entry['path']}` — proposed {entry['decision']}{suffix}{note}")
         lines.append("")
     lines.extend(("## Installation-only headers needing review", ""))
     for group, entries in sorted(extras.items(), key=lambda item: (-len(item[1]), item[0])):
@@ -390,6 +442,9 @@ def main() -> None:
     parser.add_argument("--decisions", type=Path,
                         default=Path(__file__).resolve().parent / "inputs/sdk-header-decisions.tsv",
                         help="reviewed include/omit decisions; defaults to the checked-in ledger")
+    parser.add_argument("--review-notes", type=Path,
+                        default=Path(__file__).resolve().parent / "inputs/sdk-review-notes.tsv",
+                        help="versioned source gaps that remain pending")
     parser.add_argument("--scope-approvals", type=Path,
                         default=Path(__file__).resolve().parent / "inputs/sdk-scope-approvals.tsv",
                         help="reviewed SDK path sets for out-of-scope categories")
@@ -440,7 +495,8 @@ def main() -> None:
     report = audit(sdk, installation, resource, closure, lookup_candidates,
                    decision_rules(args.decisions), baseline,
                    scope_approvals(args.scope_approvals), generated_closure,
-                   extra_approvals(args.extra_approvals))
+                   extra_approvals(args.extra_approvals),
+                   review_notes(args.review_notes, metadata.get("CanonicalName")))
     if baseline_sdk:
         report["baseline_sdk"] = baseline_sdk
     if reference:
