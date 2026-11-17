@@ -1,5 +1,9 @@
 # C coverage gaps against macOS SDK 26.5
 
+Historical full-installation audit. The normal 535-header scope is documented
+in `README.md`; this report is retained to revisit omitted paths and needs
+regeneration before it is used as a release gate.
+
 Reference: `inputs/c-probe.c`, LLVM 23.1.2 minimal prebuilt
 `llvm-23.1.2-2` for Darwin arm64, `-target arm64-apple-macos14.0` and
 `x86_64-apple-macos14.0`, `-std=c11`. The reference uses an official SDK only

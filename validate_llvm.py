@@ -33,6 +33,7 @@ def main() -> None:
         parser.add_argument("--" + name, type=Path, required=True)
     parser.add_argument("--mode", choices=("restricted", "overlay"), required=True)
     parser.add_argument("--corefoundation-c-root", type=Path)
+    parser.add_argument("--framework-header", action="append", default=[])
     parser.add_argument("--bazelrc", type=Path)
     args = parser.parse_args()
     paths = [args.c_root, args.reference_sdk, args.libcxx_headers,
@@ -60,6 +61,8 @@ def main() -> None:
     if args.corefoundation_c_root:
         command.extend(("--corefoundation-c-root",
                         str(args.corefoundation_c_root.absolute())))
+    for name in args.framework_header:
+        command.extend(("--framework-header", name))
     if args.mode == "overlay":
         command.append("--overlay-reference")
     subprocess.run(command, check=True)

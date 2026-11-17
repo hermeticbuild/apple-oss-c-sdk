@@ -82,13 +82,16 @@ def main() -> None:
 
     if args.overlay_reference and args.framework_header:
         parser.error("--framework-header is for restricted composition only")
+    if args.corefoundation_c_root and "CoreFoundation" in args.framework_header:
+        parser.error("choose one CoreFoundation header source")
     for name in args.framework_header:
-        if name == "CoreFoundation":
-            parser.error("CoreFoundation headers require --corefoundation-c-root")
         relative = Path("System/Library/Frameworks") / f"{name}.framework/Headers"
         if not (base / relative).is_dir():
             parser.error(f"framework headers not found: {relative}")
-        shutil.copytree(base / relative, out / relative)
+        for source in sorted((base / relative).rglob("*")):
+            if source.is_file():
+                copy_file(source, out / source.relative_to(base), log,
+                          "sdk-gen-framework-header")
 
     if args.corefoundation_c_root:
         cf_root = args.corefoundation_c_root.resolve()
