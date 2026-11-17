@@ -64,8 +64,17 @@ SOURCE_GROUPS = (
         "CommonRandom.h", "CommonSymmetricKeywrap.h")),
     ("CarbonHeaders", "", "", ("ConditionalMacros.h", "Endian.h", "MacTypes.h")),
     ("xnu", "bsd/net", "net", (
-        "ethernet.h", "if.h", "if_dl.h", "if_types.h", "if_var.h",
-        "if_var_status.h", "pfkeyv2.h")),
+        "bpf.h", "dlil.h", "ethernet.h", "if.h", "if_arp.h", "if_dl.h",
+        "if_llc.h", "if_media.h", "if_mib.h", "if_types.h", "if_utun.h",
+        "if_var.h", "if_var_status.h", "kext_net.h", "ndrv.h",
+        "pfkeyv2.h")),
+    ("xnu", "libkern/libkern", "libkern", (
+        "OSDebug.h", "OSKextLib.h", "OSReturn.h")),
+    ("cctools", "include/mach-o", "mach-o", (
+        "arch.h", "getsect.h", "ldsyms.h", "ranlib.h", "swap.h")),
+    ("hfs", "core", "hfs", ("hfs_format.h", "hfs_unistr.h")),
+    ("libunwind", "libunwind/include/mach-o", "mach-o", (
+        "compact_unwind_encoding.h",)),
     ("xnu", "bsd/netinet", "netinet", (
         "icmp6.h", "in.h", "in_pcb.h", "in_systm.h", "ip.h", "ip6.h",
         "ip_icmp.h", "tcp.h", "tcp_timer.h", "tcp_var.h", "udp.h")),
@@ -93,6 +102,8 @@ EXTRAS.update({
     "ntsid.h": "Libinfo:membership.subproj/ntsid.h",
     "removefile.h": "removefile:removefile.h",
     "xattr_flags.h": "copyfile:xattr_flags.h",
+    "mach-o/utils.h": "dyld:include/mach-o/utils.h",
+    "launch.h": "launchd:liblaunch/launch.h",
 })
 
 
@@ -181,7 +192,7 @@ def xnu_public_flags() -> list[str]:
             ["-DMODULES_SUPPORTED", "-D_OPEN_SOURCE_", "-D__OPEN_SOURCE__"])
 
 
-def generated_apple_headers(temporary: Path) -> dict[str, bytes]:
+def generated_apple_headers(temporary: Path, libc_flags: list[str]) -> dict[str, bytes]:
     availability = ROOT / "sources/AvailabilityVersions"
     xnu = ROOT / "sources/xnu"
     result = {}
@@ -231,6 +242,16 @@ def generated_apple_headers(temporary: Path) -> dict[str, bytes]:
         raise ValueError(f"XNU cdefs.h unifdef failed: {cdefs.stderr!r}")
     result["sys/cdefs.h"] = cdefs.stdout
 
+    device = subprocess.run(["unifdef", *xnu_public_flags(), "-DIOKIT",
+                             str(xnu / "osfmk/device/device_types.h")],
+                            capture_output=True, check=False)
+    if device.returncode not in (0, 1):
+        raise ValueError(f"XNU device_types.h unifdef failed: {device.stderr!r}")
+    result["device/device_types.h"] = device.stdout
+
+    result["utmpx.h"] = libc_public_header(
+        ROOT / "sources/Libc/include/NetBSD/utmpx.h", libc_flags)
+
     complex_source = (ROOT / "sources/Libm/Source/complex.h").read_bytes()
     old = b"#elif defined(__arm__)\n#define __LIBMLDBL_COMPAT"
     new = b"#elif defined(__arm__) || defined(__arm64__) || defined(__aarch64__)\n#define __LIBMLDBL_COMPAT"
@@ -247,6 +268,12 @@ def generated_apple_headers(temporary: Path) -> dict[str, bytes]:
     if dyld_source.count(dyld_before) != 1:
         raise ValueError("dyld.h availability section changed")
     result["mach-o/dyld.h"] = dyld_source.replace(dyld_before, dyld_after)
+    images = (ROOT / "sources/dyld/include/mach-o/dyld_images.h").read_bytes()
+    image_anchor = b"#define _DYLD_IMAGES_\n"
+    if images.count(image_anchor) != 1:
+        raise ValueError("dyld_images.h guard changed")
+    result["mach-o/dyld_images.h"] = images.replace(
+        image_anchor, image_anchor + b"#include <stdint.h>\n#include <mach/mach.h>\n")
     return result
 
 
@@ -340,8 +367,8 @@ def main() -> None:
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--mig", type=Path, required=True,
                         help="built tools/apple_mig/bazel-bin/mig executable")
-    parser.add_argument("--clang", type=Path,
-                        default=Path("/opt/homebrew/opt/llvm/bin/clang"))
+    parser.add_argument("--clang", type=Path, required=True,
+                        help="clang from the pinned minimal LLVM prebuilt")
     args = parser.parse_args()
     out = args.out.absolute()
     if out.exists():
@@ -350,7 +377,7 @@ def main() -> None:
     libc_flags = libc_unifdef_flags()
 
     with tempfile.TemporaryDirectory(prefix="apple-oss-generated-") as temporary:
-        generated = generated_apple_headers(Path(temporary))
+        generated = generated_apple_headers(Path(temporary), libc_flags)
         with (ROOT / "inputs/header-sources.tsv").open(newline="") as stream:
             for row in csv.DictReader(stream, delimiter="\t"):
                 relative = Path(row["install_path"])
@@ -368,6 +395,8 @@ def main() -> None:
 
     install_math(out)
     install_fenv(out)
+    for name in ("device/device_types.h", "mach-o/dyld_images.h", "utmpx.h"):
+        install_bytes(generated[name], out / "usr/include" / name)
 
     for relative, reference in EXTRAS.items():
         install(source_path(reference, Path(relative)), out / "usr/include" / relative)
@@ -389,7 +418,7 @@ def main() -> None:
 
     with tempfile.TemporaryDirectory(prefix="apple-oss-mig-") as temporary:
         mig_out = Path(temporary) / "generated"
-        generate_mig(args.mig.absolute(), args.clang.resolve(), out, mig_out)
+        generate_mig(args.mig.absolute(), args.clang.absolute(), out, mig_out)
         for source in sorted((mig_out / "arm64/mach").glob("*.h")):
             install(source, out / "usr/include/mach" / source.name)
 

@@ -20,6 +20,7 @@ CoreFoundation.framework/Headers/CFDateFormatter.h	CF:CFDateFormatter.h
 CoreFoundation.framework/Headers/CFDictionary.h	CF:CFDictionary.h
 CoreFoundation.framework/Headers/CFError.h	CF:CFError.h
 CoreFoundation.framework/Headers/CFLocale.h	CF:CFLocale.h
+CoreFoundation.framework/Headers/CFMachPort.h	CF:CFMachPort.h
 CoreFoundation.framework/Headers/CFMessagePort.h	CF:CFMessagePort.h
 CoreFoundation.framework/Headers/CFNumber.h	CF:CFNumber.h
 CoreFoundation.framework/Headers/CFNumberFormatter.h	CF:CFNumberFormatter.h
