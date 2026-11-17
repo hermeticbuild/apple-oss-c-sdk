@@ -7,13 +7,16 @@ directory; they are not copied into the installation.
 
 ## Build the C installation
 
+This qualification runs on macOS. The installer defaults to the system
+`/usr/bin/mig`; an explicit `--mig` path is available for other hosts but is
+not qualified here.
+
 ```sh
 LLVM_REPO=/absolute/path/to/hermetic-llvm
 LLVM_CLANG=$(python3 resolve_llvm_clang.py --llvm-repo "$LLVM_REPO")
 
 git submodule update --init --recursive
-cd tools/apple_mig && bazel build //:mig --config=remote && cd ../..
-python3 install_c.py --mig tools/apple_mig/bazel-bin/mig --clang "$LLVM_CLANG" --out /tmp/apple-oss-c-headers
+python3 install_c.py --clang "$LLVM_CLANG" --out /tmp/apple-oss-c-headers
 python3 check_c_headers.py --clang "$LLVM_CLANG" --sysroot /tmp/apple-oss-c-headers
 python3 tests/fenv_runtime.py  # arm64 macOS host only
 ```
@@ -22,8 +25,10 @@ Clang and its resource headers come from the same SHA256-verified `@llvm`
 minimal prebuilt. `resolve_llvm_clang.py` checks hermetic-llvm's index against
 `inputs/llvm-minimal-prebuilt.json` before fetching LLVM 23.1.2 release 2.
 Keep the `bin/clang` symlink name: the prebuilt is a multicall executable.
-Python 3, Perl, `unifdef`, `awk`, and Bazel are allowed host bootstrap tools;
-no host compiler or Homebrew headers are inputs. The installed tree contains
+Python 3, Perl, `unifdef`, `awk`, Bazel, and macOS `/usr/bin/mig` are allowed
+host bootstrap tools. System `mig` receives `-cc "$LLVM_CLANG"`, so it uses
+the pinned prebuilt as its C preprocessor. No host compiler or Homebrew headers
+are inputs. The installed tree contains
 `usr/include` and the open-source CoreFoundation framework headers.
 It does not contain Clang resource headers, libc++ headers, libraries, TBDs, or
 SDK metadata. `check_c_headers.py` uses `-nostdinc`, then names only Clang's
@@ -76,6 +81,8 @@ libunwind's open-source compact-unwind header. The pinned XNU
 `osfmk/device/Makefile` calls for `-DIOKIT` when installing
 `device_types.h`, which the installer applies. Swift CoreFoundation is pinned
 only to investigate a modern header gap; it supplies no installed header.
+The macOS system `mig` (`bootstrap_cmds-138` in this qualification) generated
+32 Mach headers byte-identical to the previous `apple_mig` output.
 
 ## Local compatibility derivations
 

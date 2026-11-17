@@ -2,7 +2,6 @@
 """Generate public Mach user/server headers from pinned XNU .defs files."""
 
 import argparse
-import os
 import re
 import subprocess
 from pathlib import Path
@@ -31,19 +30,18 @@ def names_from_apple_manifests() -> tuple[list[str], list[str]]:
 
 def generate(mig: Path, clang: Path, sysroot: Path, out: Path) -> None:
     user_names, server_names = names_from_apple_manifests()
-    env = os.environ.copy()
-    env["MIGCC"] = str(clang)
     for arch, mig_arch in (("arm64", "armv7"), ("x86_64", "i386")):
         destination = out / arch / "mach"
         destination.mkdir(parents=True)
-        common = [str(mig), "-novouchers", "-arch", mig_arch,
+        # mig(1) documents -cc as the way to select its C preprocessor.
+        common = [str(mig), "-cc", str(clang), "-novouchers", "-arch", mig_arch,
                   "-isysroot", str(sysroot), "-I" + str(XNU / "osfmk")]
         for name in user_names:
             header = destination / f"{name}.h"
             command = common + ["-DLIBSYSCALL_INTERFACE", "-user", "/dev/null",
                                 "-server", "/dev/null", "-header", str(header),
                                 str(XNU / "libsyscall/mach" / f"{name}.defs")]
-            subprocess.run(command, env=env, check=True)
+            subprocess.run(command, check=True)
             filtered = subprocess.check_output([
                 "awk", "-f", str(XNU / "libsyscall/xcodescripts/filter_mig.awk"),
                 str(XNU / "libsyscall/mach/add_attributes_to_mig.txt"), str(header)])
@@ -53,7 +51,7 @@ def generate(mig: Path, clang: Path, sysroot: Path, out: Path) -> None:
             command = common + ["-user", "/dev/null", "-server", "/dev/null",
                                 "-header", "/dev/null", "-sheader", str(header),
                                 str(XNU / "osfmk/mach" / f"{name}.defs")]
-            subprocess.run(command, env=env, check=True)
+            subprocess.run(command, check=True)
 
     arm = out / "arm64/mach"
     intel = out / "x86_64/mach"
@@ -66,7 +64,8 @@ def generate(mig: Path, clang: Path, sysroot: Path, out: Path) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--mig", required=True, type=Path)
+    parser.add_argument("--mig", default=Path("/usr/bin/mig"), type=Path,
+                        help="macOS system mig (default: /usr/bin/mig)")
     parser.add_argument("--clang", required=True, type=Path,
                         help="clang from the pinned minimal LLVM prebuilt")
     parser.add_argument("--sysroot", required=True, type=Path)
@@ -74,8 +73,6 @@ def main() -> None:
     args = parser.parse_args()
     if args.out.exists():
         parser.error("output already exists")
-    # Keep Bazel's `bazel-bin/mig` symlink path: mig.sh finds its runfiles
-    # relative to the invoked path, not the resolved source script.
     generate(args.mig.absolute(), args.clang.absolute(), args.sysroot.resolve(), args.out.absolute())
 
 

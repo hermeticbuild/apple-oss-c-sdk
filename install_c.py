@@ -365,8 +365,8 @@ def install_fenv(out: Path) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", type=Path, required=True)
-    parser.add_argument("--mig", type=Path, required=True,
-                        help="built tools/apple_mig/bazel-bin/mig executable")
+    parser.add_argument("--mig", type=Path, default=Path("/usr/bin/mig"),
+                        help="macOS system mig (default: /usr/bin/mig)")
     parser.add_argument("--clang", type=Path, required=True,
                         help="clang from the pinned minimal LLVM prebuilt")
     args = parser.parse_args()

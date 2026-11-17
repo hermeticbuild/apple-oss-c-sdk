@@ -28,9 +28,6 @@
 [submodule "sources/libpthread"]
 	path = sources/libpthread
 	url = https://github.com/apple-oss-distributions/libpthread.git
-[submodule "tools/apple_mig"]
-	path = tools/apple_mig
-	url = https://github.com/hermeticbuild/apple_mig.git
 [submodule "sources/Libinfo"]
 	path = sources/Libinfo
 	url = https://github.com/apple-oss-distributions/Libinfo.git
