@@ -27,6 +27,9 @@ EXTRAS = {
     "_bounds.h": "Libc:include/_bounds.h",
     "Block.h": "libdispatch:src/BlocksRuntime/Block.h",
     "net/net_kev.h": "xnu:bsd/net/net_kev.h",
+    "libDER/DERItem.h": "xnu:EXTERNAL_HEADERS/libDER/DERItem.h",
+    "libDER/libDER_config.h": "xnu:EXTERNAL_HEADERS/libDER/libDER_config.h",
+    "os/arch/arm64.h": "xnu:libsyscall/os/arch/arm64.h",
     "sandbox.h": "template:sandbox.h",
     "mach-o/fixup-chains.h": "xnu:EXTERNAL_HEADERS/mach-o/fixup-chains.h",
 }

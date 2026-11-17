@@ -17,6 +17,8 @@
 // See COVERAGE_GAPS.md for roots included here but missing from our installation.
 // Clang resource headers remain compiler-owned; the counts classify requested
 // include names, irrespective of whether Clang or the sysroot provides them.
+// LLVM libunwind headers are a separately pinned runtime layer and are checked
+// in the restricted LLVM composition, outside this standalone C-root probe.
 // ISO C11: https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf
 // ANSI C89 / ISO C90: https://www.iso.org/standard/17782.html
 // POSIX: https://pubs.opengroup.org/onlinepubs/9699919799/basedefs/contents.html
@@ -129,7 +131,6 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <MacTypes.h>
 #include <TargetConditionals.h>
-#include <__libunwind_config.h>
 #include <ar.h>
 #include <asl.h>
 #if defined(APPLE_C_PROBE_ARCHITECTURE_HEADERS)
@@ -184,7 +185,12 @@
 #include <libkern/OSThermalNotification.h>
 #include <libkern/OSTypes.h>
 #include <libproc.h>
-#include <libunwind.h>
+#if defined(APPLE_C_PROBE_PROVISIONAL_SOURCES)
+// Compile these roots individually while their public Apple install rule
+// remains unresolved. Probe success does not approve their provenance.
+#include <libDER/DERItem.h>
+#include <libDER/libDER_config.h>
+#endif
 #include <mach-o/arch.h>
 #include <mach-o/arm/reloc.h>
 #include <mach-o/arm64/reloc.h>
@@ -239,6 +245,9 @@
 #include <netinet/udp.h>
 #include <nameser.h>
 #include <os/lock.h>
+#if defined(APPLE_C_PROBE_PROVISIONAL_SOURCES)
+#include <os/arch/arm64.h>
+#endif
 #include <os/proc.h>
 #include <os/os_sync_wait_on_address.h>
 #include <paths.h>
@@ -289,7 +298,6 @@
 #include <sys/timex.h>
 #include <sysexits.h>
 #include <ucontext.h>
-#include <unwind.h>
 #include <vis.h>
 #include <xlocale.h>
 #include <xpc/xpc.h>

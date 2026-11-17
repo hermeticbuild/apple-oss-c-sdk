@@ -129,8 +129,8 @@
       "missing": 3
     },
     "libDER": {
-      "installed": 0,
-      "missing": 2
+      "installed": 2,
+      "missing": 0
     },
     "libexslt": {
       "installed": 0,
@@ -205,8 +205,8 @@
       "missing": 9
     },
     "os": {
-      "installed": 15,
-      "missing": 6
+      "installed": 16,
+      "missing": 5
     },
     "pcap": {
       "installed": 0,
@@ -296,9 +296,9 @@
   "counts": {
     "compiler_resource_overlaps_among_missing": 2,
     "decisions": {
-      "include": 872,
-      "omit": 2580,
-      "review": 18
+      "include": 874,
+      "omit": 2582,
+      "review": 14
     },
     "excluded": {
       "c++": 1685,
@@ -308,13 +308,13 @@
     },
     "installation_only": 12,
     "installation_only_pending": 0,
-    "installed": 843,
+    "installed": 846,
     "installed_out_of_scope": 0,
     "installed_without_provenance": 0,
-    "missing": 792,
+    "missing": 789,
     "review_status": {
-      "approved": 3449,
-      "pending": 21
+      "approved": 3453,
+      "pending": 17
     }
   },
   "entries": [
@@ -1618,8 +1618,8 @@
     {
       "decision": "include",
       "decision_source": "apple_install_manifest",
-      "evidence": "version-matched C probe closure and verified source",
-      "in_probe_closure": true,
+      "evidence": "libunwind/apple-install-libunwind.sh:include",
+      "in_probe_closure": false,
       "new_since_baseline": false,
       "origin": "sources/libunwind/libunwind/include/__libunwind_config.h",
       "path": "__libunwind_config.h",
@@ -26804,26 +26804,32 @@
       "state": "missing"
     },
     {
-      "decision": "review",
-      "decision_source": "review_note",
+      "decision": "include",
+      "decision_source": "installation",
       "evidence": "Pinned xnu/EXTERNAL_HEADERS/libDER/DERItem.h and XNU public Makefile lists.",
-      "in_probe_closure": false,
+      "in_probe_closure": true,
       "new_since_baseline": false,
+      "origin": "sources/xnu/EXTERNAL_HEADERS/libDER/DERItem.h",
       "path": "libDER/DERItem.h",
+      "provenance_status": "verified",
       "reason": "XNU includes this file under EXTERNAL_HEADERS, but no public usr/include/libDER installation rule has been proven.",
       "review_status": "pending",
-      "state": "missing"
+      "selection": "EXTRAS",
+      "state": "installed"
     },
     {
-      "decision": "review",
-      "decision_source": "review_note",
+      "decision": "include",
+      "decision_source": "installation",
       "evidence": "Pinned xnu/EXTERNAL_HEADERS/libDER/libDER_config.h and XNU public Makefile lists.",
-      "in_probe_closure": false,
+      "in_probe_closure": true,
       "new_since_baseline": false,
+      "origin": "sources/xnu/EXTERNAL_HEADERS/libDER/libDER_config.h",
       "path": "libDER/libDER_config.h",
+      "provenance_status": "verified",
       "reason": "XNU includes this file under EXTERNAL_HEADERS, but no public usr/include/libDER installation rule has been proven.",
       "review_status": "pending",
-      "state": "missing"
+      "selection": "EXTRAS",
+      "state": "installed"
     },
     {
       "decision": "omit",
@@ -27201,8 +27207,8 @@
     {
       "decision": "include",
       "decision_source": "apple_install_manifest",
-      "evidence": "version-matched C probe closure and verified source",
-      "in_probe_closure": true,
+      "evidence": "libunwind/apple-install-libunwind.sh:include",
+      "in_probe_closure": false,
       "new_since_baseline": false,
       "origin": "sources/libunwind/libunwind/include/libunwind.h",
       "path": "libunwind.h",
@@ -34695,15 +34701,18 @@
       "state": "missing"
     },
     {
-      "decision": "review",
-      "decision_source": "review_note",
-      "evidence": "Pinned xnu libsyscall/os/arch/arm64.h and Libsyscall.xcodeproj os/arch CopyFiles phases.",
-      "in_probe_closure": false,
+      "decision": "include",
+      "decision_source": "installation",
+      "evidence": "Pinned xnu libsyscall/os/arch/arm64.h and Libsyscall.xcodeproj os/arch CopyFiles phases; user-approved provisional installation.",
+      "in_probe_closure": true,
       "new_since_baseline": false,
+      "origin": "sources/xnu/libsyscall/os/arch/arm64.h",
       "path": "os/arch/arm64.h",
-      "reason": "XNU has this source file, but its os/arch public CopyFiles phases are empty in the pinned project.",
+      "provenance_status": "verified",
+      "reason": "Installed from XNU with a recorded provenance gap: the os/arch public CopyFiles phases are empty. The SDK 26.5 header also drops bridgeos unavailability from two declarations.",
       "review_status": "pending",
-      "state": "missing"
+      "selection": "EXTRAS",
+      "state": "installed"
     },
     {
       "decision": "include",
@@ -34844,15 +34853,16 @@
     },
     {
       "decision": "include",
-      "decision_source": "installation",
-      "evidence": "Pinned sources/libplatform/include/os/security_config.h; no matching public copy rule found.",
+      "decision_rule": "os/security_config.h",
+      "decision_source": "manual",
+      "evidence": "sources/libplatform/include/os/security_config.h; SDK 26.5 usr/include/os/security_config.h; user-approved source-plus-path provenance review.",
       "in_probe_closure": false,
       "new_since_baseline": false,
       "origin": "sources/libplatform/include/os/security_config.h",
       "path": "os/security_config.h",
       "provenance_status": "verified",
-      "reason": "The source is installed provisionally from libplatform, but its public SDK install rule is unproven.",
-      "review_status": "pending",
+      "reason": "Pinned Apple libplatform source and matching SDK header path justify retaining the current installation; SDK 26.5 adds the MTE flag absent from the pinned source.",
+      "review_status": "approved",
       "selection": "SOURCE_TREES",
       "state": "installed"
     },
@@ -37114,15 +37124,16 @@
     },
     {
       "decision": "include",
-      "decision_source": "installation",
-      "evidence": "Pinned sources/libplatform/include/string_x86.h and header-sources.tsv; no matching public copy rule found.",
+      "decision_rule": "string_x86.h",
+      "decision_source": "manual",
+      "evidence": "sources/libplatform/include/string_x86.h; SDK 26.5 usr/include/string_x86.h; user-approved source-plus-path provenance review.",
       "in_probe_closure": false,
       "new_since_baseline": false,
       "origin": "sources/libplatform/include/string_x86.h",
       "path": "string_x86.h",
       "provenance_status": "verified",
-      "reason": "The source is installed provisionally from libplatform, but its public SDK install rule is unproven.",
-      "review_status": "pending",
+      "reason": "Pinned Apple libplatform source and matching SDK header path justify retaining the current installation; source availability spellings differ from SDK 26.5.",
+      "review_status": "approved",
       "selection": "header-sources.tsv",
       "state": "installed"
     },
@@ -40618,15 +40629,16 @@
     },
     {
       "decision": "include",
-      "decision_source": "installation",
-      "evidence": "Pinned sources/libplatform/include/timingsafe.h and header-sources.tsv; no matching public copy rule found.",
+      "decision_rule": "timingsafe.h",
+      "decision_source": "manual",
+      "evidence": "sources/libplatform/include/timingsafe.h; SDK 26.5 usr/include/timingsafe.h; user-approved source-plus-path provenance review.",
       "in_probe_closure": false,
       "new_since_baseline": false,
       "origin": "sources/libplatform/include/timingsafe.h",
       "path": "timingsafe.h",
       "provenance_status": "verified",
-      "reason": "The source is installed provisionally from libplatform, but its public SDK install rule is unproven.",
-      "review_status": "pending",
+      "reason": "Pinned Apple libplatform source matches the SDK 26.5 header byte for byte and is retained in the C installation.",
+      "review_status": "approved",
       "selection": "header-sources.tsv",
       "state": "installed"
     },
@@ -41057,8 +41069,8 @@
     {
       "decision": "include",
       "decision_source": "apple_install_manifest",
-      "evidence": "version-matched C probe closure and verified source",
-      "in_probe_closure": true,
+      "evidence": "libunwind/apple-install-libunwind.sh:include",
+      "in_probe_closure": false,
       "new_since_baseline": false,
       "origin": "sources/libunwind/libunwind/include/unwind.h",
       "path": "unwind.h",
@@ -41069,24 +41081,26 @@
       "state": "installed"
     },
     {
-      "decision": "review",
-      "decision_source": "review_note",
-      "evidence": "Pinned libunwind/apple-install-libunwind.sh include copy and source-tree basename search.",
+      "decision": "omit",
+      "decision_rule": "unwind_arm_ehabi.h",
+      "decision_source": "manual",
+      "evidence": "Pinned LLVM 23.1.2 libunwind/include/unwind_arm_ehabi.h SHA256 in inputs/llvm-libunwind-headers.json; compose_sdk.py installs it in the restricted SDK.",
       "in_probe_closure": false,
       "new_since_baseline": false,
       "path": "unwind_arm_ehabi.h",
-      "reason": "The pinned Apple libunwind public script copies only three include files and does not provide this extra SDK header.",
-      "review_status": "pending",
+      "reason": "LLVM libunwind owns this ARM EHABI runtime-internal header in the composed toolchain; arm64 and x86_64 use the Itanium unwind ABI.",
+      "review_status": "approved",
       "state": "missing"
     },
     {
-      "decision": "include",
-      "decision_source": "probe",
-      "evidence": "inputs/c-probe.c and the version-matched reference closure",
-      "in_probe_closure": true,
+      "decision": "omit",
+      "decision_rule": "unwind_itanium.h",
+      "decision_source": "manual",
+      "evidence": "Pinned LLVM 23.1.2 libunwind/include/unwind_itanium.h SHA256 in inputs/llvm-libunwind-headers.json; compose_sdk.py installs it in the restricted SDK.",
+      "in_probe_closure": false,
       "new_since_baseline": false,
       "path": "unwind_itanium.h",
-      "reason": "required by the checked-in C probe SDK closure",
+      "reason": "LLVM libunwind owns this runtime-internal header in the composed toolchain; the standalone Apple C installation does not need an Apple OSS copy.",
       "review_status": "approved",
       "state": "missing"
     },
@@ -41771,7 +41785,7 @@
       "state": "excluded"
     }
   ],
-  "generated_probe_sha256": "f993fc8e39d1bf47e193b7fd201e8d54b2b38f25b5cc712f681179c814baa2be",
+  "generated_probe_sha256": "ede91691786d749fe2f3b9649815368fa365232af07df6c6192e885bad6ca40c",
   "installation_only": [
     {
       "decision": "include",
@@ -41974,6 +41988,7 @@
     "net-snmp/*": 191,
     "networkext/ne_socket.h": 1,
     "odmodule/*": 9,
+    "os/security_config.h": 1,
     "panel.h": 1,
     "pcap-bpf.h": 1,
     "pcap-namedb.h": 1,
@@ -41986,13 +42001,17 @@
     "slapi-plugin.h": 1,
     "sqlite3.h": 1,
     "sqlite3ext.h": 1,
+    "string_x86.h": 1,
     "term.h": 1,
     "term_entry.h": 1,
     "termcap.h": 1,
     "tic.h": 1,
     "tidy/*": 4,
+    "timingsafe.h": 1,
     "unctrl.h": 1,
     "unicode/*": 23,
+    "unwind_arm_ehabi.h": 1,
+    "unwind_itanium.h": 1,
     "xar/*": 1,
     "xcselect.h": 1
   },
@@ -42396,8 +42415,6 @@
     "ldap_schema.h",
     "ldap_utf8.h",
     "ldif.h",
-    "libDER/DERItem.h",
-    "libDER/libDER_config.h",
     "libcharset.h",
     "libexslt/exslt.h",
     "libexslt/exsltconfig.h",
@@ -42678,7 +42695,6 @@
     "odmodule/odrequest.h",
     "odmodule/odtypes.h",
     "os/activity.h",
-    "os/arch/arm64.h",
     "os/log.h",
     "os/signpost.h",
     "os/trace.h",
@@ -42808,7 +42824,6 @@
     "simd/vector_make.h",
     "simd/vector_types.h",
     "tgmath.h",
-    "unwind_itanium.h",
     "xpc/activity.h",
     "xpc/availability.h",
     "xpc/base.h",
@@ -42826,7 +42841,7 @@
   "reference": {
     "compiler": "clang version 23.1.2",
     "compiler_binary_sha256": "d86e84233dbe363dc79538bb8b0d5d99fdea5c57bf199a8f030f0b966b511889",
-    "probe_sha256": "f993fc8e39d1bf47e193b7fd201e8d54b2b38f25b5cc712f681179c814baa2be",
+    "probe_sha256": "ede91691786d749fe2f3b9649815368fa365232af07df6c6192e885bad6ca40c",
     "resource_headers_sha256": "f65790612e7c5b5f6dc987b53e2cd7a53a2e78d754d9e590868cdc53c548f84c",
     "sdk": {
       "CanonicalName": "macosx26.5",
@@ -42890,6 +42905,7 @@
     "net-snmp/*": "ec3f2366ef946f57725819e18719d8473b9998df090b8c78972d142fa2b9d277",
     "networkext/ne_socket.h": "149484b83d13bd98bf2fee4d94d852b041c91c3d235d5556fa13fb375f7f513c",
     "odmodule/*": "039dad6b8273d9fa4ea6eb77ecde3c33cd5ac137ebc4235c2abbff6a732d83a6",
+    "os/security_config.h": "66bc2f9dca733dcd9166314aa5322c62f40c0543689174896430077baa50b90f",
     "panel.h": "63b108647b267d180233e39b381954f6cb43722dbfd8b8e7cf77a434e638b2fe",
     "pcap-bpf.h": "4ef295335e518be3b441d2df7fb83c4f3d6602e7efe2f53ce8bc9940559cda42",
     "pcap-namedb.h": "e195c7a8ada62febf3542a294fce9eb40753216475a43bc7bf71ad356b1a8c80",
@@ -42902,13 +42918,17 @@
     "slapi-plugin.h": "0488c4298f49175882992227aac40c6c826407c9699dc06c0e8db72f9852ef23",
     "sqlite3.h": "a6dc5dad93a26f0b7a99980a296e912e3c175d97cc99662b1eaa119e99c81f20",
     "sqlite3ext.h": "70077585a59bfa4752e4148b51b3666d67caf587967bbe1b2cc2959f9e2fa16a",
+    "string_x86.h": "e6d6e7824b8a701ce0c3b1e1397298581609458ab86ef1ddbd2d19c8a178f270",
     "term.h": "19ef6cb22e96d8c8c6235cfae8b5eb5d21009c43c6f69913cddfb5c0b5ee3f69",
     "term_entry.h": "453965476023c239503990e4531099ef640e19912489fa46147a0b7fbc83e67e",
     "termcap.h": "5c9e72a43158b9fffe4c39c4f1e81301c8da9efbdaf0c5eff051663dca2b42bc",
     "tic.h": "9b401b3b0a60c65ff034e067d762f4590057197016a110926f7763e46c56254a",
     "tidy/*": "6f3b986b7f106e8396aa29a31a6380960e6f7b19d339e2b5f8c91a70b7a64532",
+    "timingsafe.h": "b38b6bfc512bc7f3ec21d0281063aa97f1d6df47ad149f0b4bd55ede4bb63cb8",
     "unctrl.h": "be0d3c43809e2c390d79f866a3fc2c745cfef5110d2ee8746e1d459f5c528306",
     "unicode/*": "ad9622a83a3263f736c65184cde8d64394385b09efb361d22d60aa91957f1461",
+    "unwind_arm_ehabi.h": "4f267d677f88c304b8c2ff75a508b63fe811d486ef9d6895c40213338be5a4d0",
+    "unwind_itanium.h": "f0367a4af8c829e1098558a4ccd1a721ee60f685a29e970e741a6d3688d32121",
     "xar/*": "9e552388def9d4fa487ada54bb24b06158a9b14a123cd5023899b70625988b61",
     "xcselect.h": "fce95f247494445754cd8794c9d3b5ae3c91e9ccbff78d40e85ac539aa32ba11"
   },

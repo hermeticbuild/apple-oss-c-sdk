@@ -4,15 +4,11 @@ AppleTextureEncoder.h	macosx26.5	Standalone C scope and public source remain unp
 cache.h	macosx26.5	The pinned HFS tree has an internal cache.h, but no evidence that it is this root SDK header.	Pinned hfs/lib_fsck_hfs/cache.h; no root cache.h public install rule identified.
 cache_callbacks.h	macosx26.5	No matching pinned Apple OSS header or public installation rule has been identified.	Pinned source-tree basename search; SDK 26.5 root path.
 profile.h	macosx26.5	XNU publishes architecture-specific machine/profile.h, but no rule maps it to the distinct root profile.h path.	Pinned xnu bsd/machine, bsd/arm, and bsd/i386 Makefiles; SDK 26.5 root path.
-string_x86.h	macosx26.5	The source is installed provisionally from libplatform, but its public SDK install rule is unproven.	Pinned sources/libplatform/include/string_x86.h and header-sources.tsv; no matching public copy rule found.
 sysdir.h	macosx26.5	Used by CoreFoundation source, but a public Apple OSS header source and install rule remain unlocated.	Pinned swift-corelibs-foundation CFSystemDirectories.c include; SDK 26.5 root path.
-timingsafe.h	macosx26.5	The source is installed provisionally from libplatform, but its public SDK install rule is unproven.	Pinned sources/libplatform/include/timingsafe.h and header-sources.tsv; no matching public copy rule found.
-unwind_arm_ehabi.h	macosx26.5	The pinned Apple libunwind public script copies only three include files and does not provide this extra SDK header.	Pinned libunwind/apple-install-libunwind.sh include copy and source-tree basename search.
 usbuf.h	macosx26.5	No matching pinned Apple OSS header or public installation rule has been identified.	Pinned source-tree basename search; SDK 26.5 root path.
 os/activity.h	macosx26.5	Public user-level logging header source and install rule remain unlocated.	Pinned Apple OSS source-tree basename search; SDK 26.5 os path.
-os/arch/arm64.h	macosx26.5	XNU has this source file, but its os/arch public CopyFiles phases are empty in the pinned project.	Pinned xnu libsyscall/os/arch/arm64.h and Libsyscall.xcodeproj os/arch CopyFiles phases.
+os/arch/arm64.h	macosx26.5	Installed from XNU with a recorded provenance gap: the os/arch public CopyFiles phases are empty. The SDK 26.5 header also drops bridgeos unavailability from two declarations.	Pinned xnu libsyscall/os/arch/arm64.h and Libsyscall.xcodeproj os/arch CopyFiles phases; user-approved provisional installation.
 os/log.h	macosx26.5	XNU provides only a kernel-side os/log.h; public user header source remains unresolved.	Pinned XNU libkern/os/log.h and libkern/os/Makefile public install list.
-os/security_config.h	macosx26.5	The source is installed provisionally from libplatform, but its public SDK install rule is unproven.	Pinned sources/libplatform/include/os/security_config.h; no matching public copy rule found.
 os/signpost.h	macosx26.5	Public user-level logging header source and install rule remain unlocated.	Pinned Apple OSS source-tree basename search; SDK 26.5 os path.
 os/trace.h	macosx26.5	XNU provides only a kernel-side os/trace.h; public user header source remains unresolved.	Pinned XNU libkern/os/trace.h and libkern/os/Makefile public install list.
 os/trace_base.h	macosx26.5	Public user-level tracing header source and install rule remain unlocated.	Pinned Apple OSS source-tree basename search; SDK 26.5 os path.

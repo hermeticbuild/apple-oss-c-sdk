@@ -14,6 +14,7 @@ not qualified here.
 ```sh
 LLVM_REPO=/absolute/path/to/hermetic-llvm
 LLVM_CLANG=$(python3 resolve_llvm_clang.py --llvm-repo "$LLVM_REPO")
+LLVM_LIBUNWIND=$(python3 resolve_llvm_libunwind.py --llvm-repo "$LLVM_REPO")
 
 git submodule update --init --recursive
 python3 install_c.py --clang "$LLVM_CLANG" --out /tmp/apple-oss-c-headers
@@ -82,6 +83,9 @@ actual SDK header path to exist in our installation, plus a successful compile
 of the combined file and every root. The combined run reached 12 `xlocale/*`
 headers that the independent runs did not. Resource headers stay compiler-owned. The local reference
 manifest is validation evidence, not a generation input.
+The three provisionally installed `libDER/*` and `os/arch/arm64.h` roots are
+compiled individually; their explicit review notes keep public-install
+provenance pending even when they compile.
 
 ## Full SDK C-header inventory
 
@@ -114,10 +118,11 @@ stamp, evidence, and a hash of its reviewed path set. Scope exclusions have
 the same protection in `inputs/sdk-scope-approvals.tsv`. A newly added or
 removed member invalidates the approval even after the inventory is updated.
 `--baseline` also reports added and removed SDK paths. The current 26.5
-snapshot has 21 pending approvals: 3 installed paths outside the probe
-closure whose public-install provenance is unsettled, plus 18 absent
-candidates. Another 843 SDK C paths are installed in the standalone tree.
-All installed paths have verified installer provenance. Another 29
+snapshot has 17 pending approvals: 3 installed paths (`libDER/*` and
+`os/arch/arm64.h`) whose public-install rule is unsettled, plus 14 absent
+candidates. Another 846 SDK
+C paths are installed in the standalone tree. All installed paths have
+verified installer provenance. Another 28
 probe-required `usr/include` paths are absent from the installation. The
 reverse audit also finds 12 installed C headers without a
 matching 26.5 SDK path. Four are reached by the generated C probe. All 12
@@ -131,6 +136,16 @@ unreviewed installation-only headers, or out-of-scope installed paths. The check
 approving them; those paths remain pending and continue to block the release
 gate. In particular, the user-level `os/log.h` and `os/trace.h` sources remain
 unresolved even though XNU contains kernel-side headers with those names.
+The two `libDER/*` files are installed from XNU `EXTERNAL_HEADERS` and match
+SDK 26.5 byte for byte, but their public install rule remains unresolved.
+`os/arch/arm64.h` is also installed from XNU and compiles for both targets;
+the pinned public CopyFiles phases are empty, and its two bridgeos availability
+annotations differ from SDK 26.5. Its review disposition stays pending.
+Three libplatform headers are approved from their Apple source and matching
+SDK paths rather than a public install manifest. `timingsafe.h` is byte
+identical; `string_x86.h` has older availability spellings; and
+`os/security_config.h` lacks the SDK's MTE flag. The decision ledger records
+these API differences.
 
 The report flags Clang resource overlaps and `#include_next` use; it never
 silently treats a compiler overlap as installed. An optional `--reference`
@@ -200,7 +215,16 @@ matches so an upstream change cannot silently alter the output.
 ## LLVM composition proof
 
 `compose_sdk.py` combines the C installation with only SDK Gen metadata and
-TBD files, plus hermetic-llvm libc++ headers and a supplemental libc++ archive.
+TBD files, plus hermetic-llvm libc++ headers, a supplemental libc++ archive,
+and a pinned LLVM libunwind header set. The LLVM 23.1.2 source comes from
+hermetic-llvm's SHA256-locked `@llvm-project` archive;
+`resolve_llvm_libunwind.py` checks the five header hashes against
+`inputs/llvm-libunwind-headers.json`. The composed SDK overlays all five
+LLVM libunwind headers, including the two absent from Apple OSS libunwind,
+and updates their provenance records. The standalone Apple C installation
+remains independent. Pass `--libunwind-headers "$LLVM_LIBUNWIND"` to
+`validate_llvm.py`; after composition, run
+`python3 check_libunwind_headers.py --clang "$LLVM_CLANG" --sysroot /path/to/composed/MacOSX.sdk`.
 It copies no SDK Gen `usr/include` headers. Non-C framework headers require an
 explicit `--framework-header` argument. The generated composition manifest
 records every non-C file copied from the reference SDK.
@@ -215,10 +239,16 @@ the C smoke compiled to both Mach-O architectures with no SDK header in either
 dependency file. LLVM 23.1.2 built for arm64 and x86_64 using the restricted
 composition (419 TBDs, no SDK Gen headers); both binaries ran. Repeating both
 builds with the C installation overlaid on the full SDK Gen tree also passed.
-The restricted composition contains no headers beyond this C installation and
-LLVM's libc++ headers. The path audit found 860 shared `usr/include` C paths,
-795 byte-identical and 65 different, plus `float.h` and `tgmath.h` supplied by
-Clang when comparing with SDK Gen. These counts do not establish semantic parity.
+The restricted composition contains no headers beyond this C installation,
+LLVM's libc++ headers, and the five LLVM libunwind headers. The latest
+read-only comparison with SDK Gen 27.0 found 641 shared `usr/include` C paths:
+561 byte-identical and 80 different. The standalone tree has 217 paths absent
+from SDK Gen; SDK Gen has 218 paths absent from the standalone tree after
+accounting for three Clang resource headers. SDK Gen emits 1,699
+CoreFoundation API-specific header files, whereas this tree installs 40
+Apple OSS CoreFoundation headers. These counts describe two different SDK
+versions and generation strategies; the Xcode 26.5 inventory is the
+completeness oracle for this recipe, and path parity is not semantic parity.
 
 The SDK Gen composition input above reports `macosx27.0` in its
 `SDKSettings.json`; Xcode 26.5 is the separate official header-coverage
@@ -229,7 +259,7 @@ Expanded qualification with the pinned LLVM minimal prebuilt and official
 macOS 26.5 SDK: 476/476 reference C probes compile. The current generated C
 installation compiles 470/476; the combined probe stops at SIMD and the
 individual SIMD and XPC roots fail on both
-architectures. The reference include closure has 36 distinct header paths
+architectures. The reference include closure has 35 distinct header paths
 absent from the standalone installation; see [COVERAGE_GAPS.md](COVERAGE_GAPS.md).
 After the Apple OSS header additions, the restricted SDK Gen composition
 again built LLVM 23.1.2 for arm64 and x86_64. Both Mach-O binaries ran

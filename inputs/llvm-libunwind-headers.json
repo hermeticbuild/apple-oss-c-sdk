@@ -1,0 +1,11 @@
+{
+  "llvm_version": "23.1.2",
+  "source": "https://github.com/llvm/llvm-project/tree/llvmorg-23.1.2/libunwind/include",
+  "sha256": {
+    "__libunwind_config.h": "0bb004911d967d5cc2d87d07f81e03668d1cf42c6b9347a95285d9e18f82954c",
+    "libunwind.h": "3b411eb68de64e829937faaeec942bbc8e3e3a1c013b55107be2c679df64173c",
+    "unwind.h": "e4a58637fc8ca1d29cd600c3c4416aafed50085edf276fa076214c8d81c263f0",
+    "unwind_arm_ehabi.h": "04cf22a069866ae35bf075c36f8d9112700bb9772653d80d9c6c4c856f4e7dbb",
+    "unwind_itanium.h": "43ad2c8ca672c8fb9a4eb80d7e05a687ae9134f4899641357c86cecde4efbd1f"
+  }
+}
