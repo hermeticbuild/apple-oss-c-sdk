@@ -6,11 +6,14 @@ import re
 import subprocess
 from pathlib import Path
 
-from package_c_profile import DEFAULT, ROOT, selected_paths
+from c_profile import DEFAULT, ROOT, selected_paths
 
 
 ROOTS = ROOT / "inputs/profiles/default-roots.txt"
 COMBINED = ROOT / "tests/c/default_profile.c"
+FIXTURES = (ROOT / "tests/c/fenv_abi.c",
+            ROOT / "tests/c/stdatomic_init.c",
+            ROOT / "tests/c/target_conditionals.c")
 
 
 def main() -> int:
@@ -38,10 +41,13 @@ def main() -> int:
                 "-isystem", resource + "/include",
                 "-isystem", str(sysroot / "usr/include"),
                 "-std=c11", "-fsyntax-only", "-x", "c"]
-        for name in roots + ["__combined__"]:
+        for name in roots + ["__combined__"] + [str(path) for path in FIXTURES]:
             command = base.copy()
             if name == "__combined__":
                 command.append(str(COMBINED))
+                source = None
+            elif name.startswith(str(ROOT / "tests/c/")):
+                command.append(name)
                 source = None
             else:
                 if name == "ucontext.h":
@@ -52,7 +58,7 @@ def main() -> int:
                                     capture_output=True)
             if result.returncode:
                 failures.append((arch, name, result.stderr.splitlines()[-3:]))
-    total = (len(roots) + 1) * 2
+    total = (len(roots) + 1 + len(FIXTURES)) * 2
     print(f"{total - len(failures)}/{total} default C profile probes passed")
     for arch, name, lines in failures:
         print(f"FAIL {arch} {name}: {'; '.join(lines)}")

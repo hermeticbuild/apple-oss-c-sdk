@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate public Mach user/server headers from pinned XNU .defs files."""
+"""Generate the selected public Mach user headers from pinned XNU .defs files."""
 
 import argparse
 import re
@@ -8,9 +8,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 XNU = ROOT / "sources/xnu"
+PROFILE = ROOT / "inputs/profiles/default-headers.txt"
 
 
-def names_from_apple_manifests() -> tuple[list[str], list[str]]:
+def names_from_apple_manifests() -> list[str]:
     libsyscall = (XNU / "libsyscall/xcodescripts/mach_install_mig.sh").read_text()
     user_block = re.search(r'^MIGS="(.*?)"', libsyscall, re.M | re.S)
     if user_block is None:
@@ -20,21 +21,22 @@ def names_from_apple_manifests() -> tuple[list[str], list[str]]:
         raise ValueError("XNU macOS mach_vm.defs selection changed")
     user.append("mach_vm")
 
-    osfmk = (XNU / "osfmk/mach/Makefile").read_text()
-    server_block = osfmk.split("MIG_USHDRS =", 1)[1].split("MIG_UUHDRS =", 1)[0]
-    server = re.findall(r"([A-Za-z0-9_]+)_server\.h", server_block)
-    if len(user) != 17 or len(server) != 15:
-        raise ValueError(f"unexpected Apple MIG manifest: {len(user)} user, {len(server)} server")
-    return user, server
+    if len(user) != 17:
+        raise ValueError(f"unexpected Apple MIG manifest: {len(user)} user")
+    selected = {line.removeprefix("usr/include/mach/").removesuffix(".h")
+                for line in PROFILE.read_text().splitlines()
+                if line.startswith("usr/include/mach/") and line.endswith(".h")}
+    wanted = [name for name in user if name in selected]
+    if len(wanted) != 11:
+        raise ValueError(f"unexpected selected Mach MIG headers: {wanted}")
+    return wanted
 
 
 def generate(mig: Path, clang: Path, sysroot: Path, out: Path) -> None:
-    user_names, server_names = names_from_apple_manifests()
+    user_names = names_from_apple_manifests()
     for arch, mig_arch in (("arm64", "armv7"), ("x86_64", "i386")):
         destination = out / arch / "mach"
         destination.mkdir(parents=True)
-        server_destination = out / arch / "servers"
-        server_destination.mkdir()
         # mig(1) documents -cc as the way to select its C preprocessor.
         common = [str(mig), "-cc", str(clang), "-novouchers", "-arch", mig_arch,
                   "-isysroot", str(sysroot), "-I" + str(XNU / "osfmk")]
@@ -48,20 +50,6 @@ def generate(mig: Path, clang: Path, sysroot: Path, out: Path) -> None:
                 "awk", "-f", str(XNU / "libsyscall/xcodescripts/filter_mig.awk"),
                 str(XNU / "libsyscall/mach/add_attributes_to_mig.txt"), str(header)])
             header.write_bytes(filtered)
-        for name in server_names:
-            header = destination / f"{name}_server.h"
-            command = common + ["-user", "/dev/null", "-server", "/dev/null",
-                                "-header", "/dev/null", "-sheader", str(header),
-                                str(XNU / "osfmk/mach" / f"{name}.defs")]
-            subprocess.run(command, check=True)
-
-        script = (XNU / "libsyscall/xcodescripts/mach_install_mig.sh").read_text()
-        if '-header "$SERVER_HEADER_DST/netname.h"' not in script:
-            raise ValueError("XNU netname MIG install rule changed")
-        command = common + ["-user", "/dev/null", "-server", "/dev/null",
-                            "-header", str(server_destination / "netname.h"),
-                            str(XNU / "libsyscall/mach/servers/netname.defs")]
-        subprocess.run(command, check=True)
 
     arm = out / "arm64/mach"
     intel = out / "x86_64/mach"
@@ -69,10 +57,7 @@ def generate(mig: Path, clang: Path, sysroot: Path, out: Path) -> None:
                   if p.read_bytes() != (intel / p.name).read_bytes()]
     if mismatched:
         raise ValueError(f"architecture-specific MIG output: {mismatched}")
-    if ((out / "arm64/servers/netname.h").read_bytes() !=
-            (out / "x86_64/servers/netname.h").read_bytes()):
-        raise ValueError("architecture-specific netname MIG output")
-    print(f"generated {len(user_names)} user + {len(server_names)} server headers per architecture")
+    print(f"generated {len(user_names)} selected user headers per architecture")
 
 
 def main() -> None:

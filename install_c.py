@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Install the pinned Apple OSS C-header snapshot into an empty sysroot.
+"""Install the selected Apple OSS C headers into an empty sysroot.
 
 This installer reads no Apple SDK Gen content. It applies pinned Apple OSS
-header generation rules plus two explicitly documented local C declarations.
+header generation rules plus one documented local arm64 `fenv.h` declaration.
 See README.md before treating the result as a release.
 """
 
@@ -18,8 +18,10 @@ import tempfile
 from pathlib import Path
 
 from generate_mig import generate as generate_mig
+from c_profile import selected_paths
 
 ROOT = Path(__file__).resolve().parent
+SELECTED = set(selected_paths())
 INSTALL_ROOT: Path | None = None
 PROVENANCE: dict[str, dict[str, str]] = {}
 
@@ -27,47 +29,22 @@ EXTRAS = {
     "_bounds.h": "Libc:include/_bounds.h",
     "Block.h": "libdispatch:src/BlocksRuntime/Block.h",
     "net/net_kev.h": "xnu:bsd/net/net_kev.h",
-    "libDER/DERItem.h": "xnu:EXTERNAL_HEADERS/libDER/DERItem.h",
-    "libDER/libDER_config.h": "xnu:EXTERNAL_HEADERS/libDER/libDER_config.h",
-    "os/arch/arm64.h": "xnu:libsyscall/os/arch/arm64.h",
-    "sandbox.h": "template:sandbox.h",
     "mach-o/fixup-chains.h": "xnu:EXTERNAL_HEADERS/mach-o/fixup-chains.h",
 }
 
-# Provisional closure candidates. Replace broad walks with Apple's public
-# installation manifests before claiming SDK header parity.
+# Public source trees used by the selected C headers.
 SOURCE_TREES = (
     ("libpthread", "include", ""),
     ("libplatform", "include", ""),
-    ("libmalloc", "include", ""),
     ("libdispatch", "dispatch", "dispatch"),
 )
-
-SOURCE_TREE_OMIT = {
-    "libplatform": {"exclavekit/os/lock.h", "exclavekit/os/lock_private.h"},
-}
 
 # Exact public Xcode header-phase members used by this installation. The
 # pinned project files must still mark each build file Public at install time.
 XCODE_PUBLIC_HEADERS = {
-    "sources/libdispatch/dispatch/introspection.h": "libdispatch/libdispatch.xcodeproj/project.pbxproj",
-    "sources/Libnotify/notify.h": "Libnotify/Libnotify.xcodeproj/project.pbxproj",
-    "sources/Libnotify/notify_keys.h": "Libnotify/Libnotify.xcodeproj/project.pbxproj",
-    "sources/libpthread/include/pthread/introspection.h": "libpthread/libpthread.xcodeproj/project.pbxproj",
-    "sources/libpthread/include/pthread/pthread_spis.h": "libpthread/libpthread.xcodeproj/project.pbxproj",
     "sources/libpthread/include/pthread/pthread_impl.h": "libpthread/libpthread.xcodeproj/project.pbxproj",
-    "sources/libpthread/include/pthread/spawn.h": "libpthread/libpthread.xcodeproj/project.pbxproj",
-    "sources/libpthread/include/pthread/stack_np.h": "libpthread/libpthread.xcodeproj/project.pbxproj",
     "sources/libpthread/include/pthread/pthread.h": "libpthread/libpthread.xcodeproj/project.pbxproj",
     "sources/libpthread/include/pthread/sched.h": "libpthread/libpthread.xcodeproj/project.pbxproj",
-    "sources/removefile/removefile.h": "removefile/removefile.xcodeproj/project.pbxproj",
-    "sources/removefile/checkint.h": "removefile/removefile.xcodeproj/project.pbxproj",
-    "sources/copyfile/xattr_flags.h": "copyfile/copyfile.xcodeproj/project.pbxproj",
-    "sources/libresolv/dns.h": "libresolv/libresolv.xcodeproj/project.pbxproj",
-    "sources/libresolv/dns_util.h": "libresolv/libresolv.xcodeproj/project.pbxproj",
-    "sources/libresolv/nameser.h": "libresolv/libresolv.xcodeproj/project.pbxproj",
-    "sources/libresolv/resolv.h": "libresolv/libresolv.xcodeproj/project.pbxproj",
-    "sources/syslog/libsystem_asl.tproj/include/asl.h": "syslog/syslog.xcodeproj/project.pbxproj",
 }
 
 
@@ -139,37 +116,6 @@ def libc_public_headers() -> list[str]:
     return sorted(paths)
 
 
-def libinfo_macos_headers() -> list[tuple[str, str]]:
-    script = (ROOT / "sources/Libinfo/xcodescripts/install_files.sh").read_text()
-    if 'if [ "${PLATFORM_NAME}" = "macosx" ]; then' not in script:
-        raise ValueError("Libinfo macOS header destination changed")
-    lines = script.splitlines()
-    selected = []
-    index = 0
-    while index < len(lines):
-        line = lines[index].strip()
-        if not line.startswith("InstallHeaders "):
-            index += 1
-            continue
-        parts = line.rstrip("\\").split()
-        destination = parts[1].strip('"')
-        sources = parts[2:]
-        while line.endswith("\\") and index + 1 < len(lines):
-            index += 1
-            line = lines[index].strip()
-            sources.extend(line.rstrip("\\").split())
-        destination = destination.replace("$EMBEDDED_PRIVATE_HEADERS_DIR",
-                                          "/usr/include")
-        if destination.startswith("/usr/include"):
-            prefix = destination.removeprefix("/usr/include").strip("/")
-            for source in sources:
-                relative = "/".join(filter(None, (prefix, Path(source).name)))
-                selected.append((relative, source))
-        index += 1
-    if len(selected) != 23 or len({path for path, _ in selected}) != 23:
-        raise ValueError(f"Libinfo macOS public list changed: {len(selected)}")
-    return selected
-
 # XNU's bsd/sys and bsd/sys/_types Makefiles use DATAFILES for the macOS
 # usr/include installation. Their first EXTRA_DATAFILES branch is macOS;
 # embedded targets take the else branch. Keep this small reader pinned to
@@ -182,34 +128,13 @@ XNU_PUBLIC_MAKE_DIRS = (
     ("bsd/i386", "i386", "INSTALL_MD_LIST"),
     ("bsd/netinet", "netinet", "INSTALL_MI_LIST"),
     ("bsd/netinet6", "netinet6", "INSTALL_MI_LIST"),
-    ("bsd/nfs", "nfs", "INSTALL_MI_LIST"),
-    ("bsd/netkey", "netkey", "INSTALL_MI_LIST"),
-    ("bsd/vfs", "vfs", "INSTALL_MI_LIST"),
-    ("bsd/miscfs/specfs", "miscfs/specfs", "INSTALL_MI_LIST"),
-    ("bsd/miscfs/devfs", "miscfs/devfs", "INSTALL_MI_LIST"),
-    ("bsd/miscfs/union", "miscfs/union", "INSTALL_MI_LIST"),
-    ("bsd/security/audit", "security/audit", "INSTALL_MI_LIST"),
     ("bsd/bsm", "bsm", "INSTALL_MI_LIST"),
     ("libkern/os", "os", "INSTALL_MI_LIST"),
-    ("libkern/libkern/machine", "libkern/machine", "INSTALL_MI_LIST"),
     ("osfmk/mach", "mach", "INSTALL_MI_LIST"),
     ("osfmk/mach/machine", "mach/machine", "INSTALL_MI_LIST"),
     ("osfmk/mach/arm", "mach/arm", "INSTALL_MD_LIST"),
     ("osfmk/mach/i386", "mach/i386", "INSTALL_MD_LIST"),
-    ("osfmk/kern", "kern", "INSTALL_MI_LIST"),
-    ("osfmk/bank", "bank", "INSTALL_MI_LIST"),
-    ("osfmk/corpses", "corpses", "INSTALL_MI_LIST"),
-    ("osfmk/voucher", "voucher", "INSTALL_MI_LIST"),
-    ("osfmk/default_pager", "default_pager", "INSTALL_MI_LIST"),
-    ("osfmk/device", "device", "INSTALL_MI_LIST"),
-    ("osfmk/atm", "atm", "INSTALL_MI_LIST"),
     ("osfmk/mach_debug", "mach_debug", "INSTALL_MI_LIST"),
-    ("osfmk/arm", "arm", "INSTALL_MD_LIST"),
-    ("osfmk/arm64", "arm64", "INSTALL_MD_LIST"),
-    ("osfmk/i386", "i386", "INSTALL_MD_LIST"),
-    ("pexpert/pexpert", "pexpert", "INSTALL_MI_LIST"),
-    ("pexpert/pexpert/i386", "pexpert/i386", "INSTALL_MD_LIST"),
-    ("pexpert/pexpert/machine", "pexpert/machine", "INSTALL_MI_LIST"),
 )
 
 
@@ -265,83 +190,8 @@ def libsyscall_public_mach_headers() -> list[str]:
     return headers
 
 
-def libsyscall_public_server_headers() -> list[str]:
-    script = (ROOT / "sources/xnu/libsyscall/xcodescripts/mach_install_mig.sh").read_text()
-    match = re.search(r'^SERVER_HDRS="(.*?)"$', script, re.MULTILINE | re.DOTALL)
-    if not match:
-        raise ValueError("libsyscall public server header list missing")
-    headers = match.group(1).split()
-    if len(headers) != 4 or len(set(headers)) != 4:
-        raise ValueError(f"libsyscall public server header list changed: {headers}")
-    return headers
-
-
-def openbsm_public_headers() -> list[str]:
-    project = (ROOT / "sources/OpenBSM/OpenBSM.xcodeproj/project.pbxproj").read_text()
-    if project.count("dstPath = usr/include/bsm;") != 1:
-        raise ValueError("OpenBSM public bsm destination changed")
-    block = project.split("dstPath = usr/include/bsm;", 1)[1].split("};", 1)[0]
-    headers = re.findall(r"/\* ([\w.]+\.h) in CopyFiles \*/", block)
-    if set(headers) != {"audit_filter.h", "audit_uevents.h", "libbsm.h"}:
-        raise ValueError(f"OpenBSM public bsm header list changed: {headers}")
-    return headers
-
-
-def openbsm_audit_filter() -> bytes:
-    source = (ROOT / "sources/OpenBSM/openbsm/bsm/audit_filter.h").read_bytes()
-    needle = b"#define\t_BSM_AUDIT_FILTER_H_\n"
-    if source.count(needle) != 1:
-        raise ValueError("OpenBSM audit_filter.h source changed")
-    return source.replace(needle, needle + b"\n#include <bsm/libbsm.h>\n", 1)
-
-
-def librpcsvc_headers(temporary: Path) -> dict[str, bytes]:
-    source_root = ROOT / "sources/Librpcsvc"
-    script = (source_root / "xcodescripts/install_rpcsvc.sh").read_text()
-    if ('for xfile in "$SRCROOT"/*.x; do' not in script or
-            'rpcgen -h -o "$OBJROOT"/"$hfile" "$xfile"' not in script):
-        raise ValueError("Librpcsvc public rpcgen recipe changed")
-    sources = sorted(source_root.glob("*.x"))
-    if len(sources) != 15:
-        raise ValueError(f"Librpcsvc source list changed: {len(sources)}")
-    generated = {}
-    for source in sources:
-        destination = temporary / f"{source.stem}.h"
-        subprocess.run(["/usr/bin/rpcgen", "-h", "-o", str(destination),
-                        str(source)], check=True)
-        generated[f"rpcsvc/{destination.name}"] = destination.read_bytes()
-    return generated
-
-
-def libunwind_public_headers() -> list[Path]:
-    script = (ROOT / "sources/libunwind/libunwind/apple-install-libunwind.sh").read_text()
-    if 'cp -r "${SRCROOT}/libunwind/include" "${FINAL_DSTROOT}/usr"' not in script:
-        raise ValueError("libunwind public header install rule changed")
-    headers = sorted((ROOT / "sources/libunwind/libunwind/include").glob("*.h"))
-    if {header.name for header in headers} != {
-            "__libunwind_config.h", "libunwind.h", "unwind.h"}:
-        raise ValueError("libunwind public header set changed")
-    return headers
-
-
-def libsyscall_public_os_headers() -> list[str]:
-    project = (ROOT / "sources/xnu/libsyscall/Libsyscall.xcodeproj/project.pbxproj").read_text()
-    config = (ROOT / "sources/xnu/libsyscall/Libsyscall.xcconfig").read_text()
-    if ("OS_PUBLIC_HEADERS_FOLDER_PATH = $(SDK_INSTALL_HEADERS_ROOT)/usr/include/os" not in config
-            or project.count('dstPath = "${OS_PUBLIC_HEADERS_FOLDER_PATH}";') != 2):
-        raise ValueError("libsyscall public os destination changed")
-    blocks = project.split('dstPath = "${OS_PUBLIC_HEADERS_FOLDER_PATH}";')[1:]
-    headers = set()
-    for block in blocks:
-        headers.update(re.findall(r"/\* ([\w.]+\.h) in CopyFiles \*/",
-                                  block.split("};", 1)[0]))
-    if headers != {"proc.h"}:
-        raise ValueError(f"libsyscall public os headers changed: {headers}")
-    return sorted(headers)
-
-# Public headers present in the SDK Gen comparison tree and available from
-# separate Apple OSS projects. These are explicit to avoid copying private
-# source directories wholesale.
+# Explicit Apple OSS sources for the selected C headers. These avoid copying
+# private source directories wholesale.
 SOURCE_GROUPS = (
     # libdispatch's Xcode Install Headers phase copies these seven public
     # os/ inputs. XNU's public libkern/os Makefile supplies base.h.
@@ -367,7 +217,7 @@ SOURCE_GROUPS = (
         "nlist.h", "ranlib.h", "reloc.h", "stab.h", "swap.h",
         "arm/reloc.h", "arm64/reloc.h", "x86_64/reloc.h")),
     ("hfs", "core", "hfs", (
-        "hfs_format.h", "hfs_unistr.h", "hfs_mount.h")),
+        "hfs_format.h", "hfs_unistr.h")),
     ("libunwind", "libunwind/include/mach-o", "mach-o", (
         "compact_unwind_encoding.h",)),
     ("zlib", "zlib", "", ("zconf.h", "zlib.h")),
@@ -378,21 +228,7 @@ EXTRAS.update({
     "ifaddrs.h": "Libinfo:gen.subproj/ifaddrs.h",
     "netdb.h": "Libinfo:lookup.subproj/netdb.h",
     "nl_types.h": "Libc:include/FreeBSD/nl_types.h",
-    "notify.h": "Libnotify:notify.h",
-    "notify_keys.h": "Libnotify:notify_keys.h",
-    "removefile.h": "removefile:removefile.h",
-    "checkint.h": "removefile:checkint.h",
-    "pthread_impl.h": "libpthread:include/pthread/pthread_impl.h",
-    "pthread_spis.h": "libpthread:include/pthread/pthread_spis.h",
-    "xattr_flags.h": "copyfile:xattr_flags.h",
     "mach-o/utils.h": "dyld:include/mach-o/utils.h",
-    "launch.h": "launchd:liblaunch/launch.h",
-    "dns.h": "libresolv:dns.h",
-    "dns_util.h": "libresolv:dns_util.h",
-    "nameser.h": "libresolv:nameser.h",
-    "resolv.h": "libresolv:resolv.h",
-    "dns_sd.h": "mDNSResponder:mDNSShared/dns_sd.h",
-    "asl.h": "syslog:libsystem_asl.tproj/include/asl.h",
 })
 
 
@@ -414,6 +250,8 @@ def install_bytes(data: bytes, destination: Path, origin: str,
     if INSTALL_ROOT is None:
         raise ValueError("installation root is not set")
     relative = destination.relative_to(INSTALL_ROOT).as_posix()
+    if relative not in SELECTED:
+        raise ValueError(f"header outside default profile: {relative}")
     if destination.exists():
         if destination.read_bytes() != data:
             raise ValueError(f"header collision: {destination}")
@@ -423,22 +261,6 @@ def install_bytes(data: bytes, destination: Path, origin: str,
     PROVENANCE[relative] = {"origin": origin,
                             "selection": selection,
                             "sha256": hashlib.sha256(data).hexdigest()}
-
-
-def install_symlink(target: str, destination: Path, origin: str,
-                    selection: str) -> None:
-    if INSTALL_ROOT is None:
-        raise ValueError("installation root is not set")
-    if destination.exists() or destination.is_symlink():
-        raise ValueError(f"header symlink collision: {destination}")
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    destination.symlink_to(target)
-    resolved = destination.resolve()
-    if not resolved.is_relative_to(INSTALL_ROOT.resolve()) or not resolved.is_file():
-        raise ValueError(f"header symlink escapes installation: {destination}")
-    PROVENANCE[destination.relative_to(INSTALL_ROOT).as_posix()] = {
-        "origin": origin, "selection": selection,
-        "sha256": hashlib.sha256(resolved.read_bytes()).hexdigest()}
 
 
 def libc_unifdef_flags() -> list[str]:
@@ -480,14 +302,10 @@ def libc_public_header(source: Path, flags: list[str]) -> bytes:
 
 
 def destination_path(out: Path, relative: Path) -> Path:
-    if relative.parts[0] == "CoreFoundation.framework":
-        return out / "System/Library/Frameworks" / relative
     return out / "usr/include" / relative
 
 
 def source_path(reference: str, relative: Path) -> Path:
-    if reference.startswith("template:"):
-        return ROOT / "templates" / reference.split(":", 1)[1]
     repo, path = reference.split(":", 1)
     return ROOT / "sources" / repo / path
 
@@ -555,13 +373,6 @@ def generated_apple_headers(temporary: Path, libc_flags: list[str]) -> dict[str,
     subprocess.run(["sh", str(xnu / "bsd/sys/make_posix_availability.sh"),
                     str(posix)], check=True)
     result["sys/_posix_availability.h"] = posix.read_bytes()
-
-    syscall_work = temporary / "makesyscalls"
-    syscall_work.mkdir()
-    subprocess.run(["sh", str(xnu / "bsd/kern/makesyscalls.sh"),
-                    str(xnu / "bsd/kern/syscalls.master"), "header"],
-                   cwd=syscall_work, check=True)
-    result["sys/syscall.h"] = (syscall_work / "syscall.h").read_bytes()
 
     cdefs = subprocess.run(["unifdef", *xnu_public_flags(),
                             str(xnu / "bsd/sys/cdefs.h")],
@@ -682,8 +493,6 @@ def install_fenv(out: Path) -> None:
     target = out / "usr/include/fenv.h"
     install_bytes(text.replace(before, after).encode(), target,
                   "derived:sources/Libm/Source/fenv.h via install_fenv", "Libm derivation")
-    install(ROOT / "sources/Libm/Source/ARM/fenv.h",
-            out / "usr/include/architecture/arm/fenv.h", selection="Libm derivation")
     install(ROOT / "sources/Libm/Source/Intel/fenv.h",
             out / "usr/include/architecture/i386/fenv.h", selection="Libm derivation")
     install(ROOT / "templates/arm64_fenv.h",
@@ -709,7 +518,6 @@ def main() -> None:
 
     with tempfile.TemporaryDirectory(prefix="apple-oss-generated-") as temporary:
         generated = generated_apple_headers(Path(temporary), libc_flags)
-        rpcsvc = librpcsvc_headers(Path(temporary))
         with (ROOT / "inputs/header-sources.tsv").open(newline="") as stream:
             for row in csv.DictReader(stream, delimiter="\t"):
                 relative = Path(row["install_path"])
@@ -734,26 +542,14 @@ def main() -> None:
 
     install_math(out)
     install_fenv(out)
-    for name in ("device/device_types.h", "mach-o/dyld_images.h",
-                 "sys/syscall.h", "utmpx.h"):
+    for name in ("device/device_types.h", "mach-o/dyld_images.h", "utmpx.h"):
         install_bytes(generated[name], out / "usr/include" / name,
                       f"generated:{name} via install_c.py:generated_apple_headers",
-                      ("xnu/bsd/sys/Makefile:INSTALL_MI_GEN_LIST"
-                       if name == "sys/syscall.h" else "generated explicit"))
-    for name, data in sorted(rpcsvc.items()):
-        install_bytes(data, out / "usr/include" / name,
-                      f"generated:rpcgen:{name} from sources/Librpcsvc/{Path(name).stem}.x",
-                      "Librpcsvc/xcodescripts/install_rpcsvc.sh:rpcgen")
+                      "generated explicit")
 
     for relative, reference in EXTRAS.items():
         install(source_path(reference, Path(relative)), out / "usr/include" / relative,
                 selection="EXTRAS")
-    header_links = (ROOT / "sources/libresolv/xcodescripts/headers.sh").read_text()
-    if 'ln -s ../nameser.h "$DIR"' not in header_links:
-        raise ValueError("libresolv arpa/nameser.h link rule changed")
-    install_symlink("../nameser.h", out / "usr/include/arpa/nameser.h",
-                    "derived:sources/libresolv/xcodescripts/headers.sh",
-                    "libresolv/xcodescripts/headers.sh:arpa/nameser.h")
     install_bytes(target_conditionals(), out / "usr/include/TargetConditionals.h",
                   "derived:sources/CarbonHeaders/TargetConditionals.h via target_conditionals",
                   "CarbonHeaders derivation")
@@ -761,97 +557,42 @@ def main() -> None:
     for repo, source_dir, target_dir in SOURCE_TREES:
         source_root = ROOT / "sources" / repo / source_dir
         for source in sorted(source_root.rglob("*.h")):
-            if source.relative_to(source_root).as_posix() in SOURCE_TREE_OMIT.get(repo, set()):
-                continue
             destination = out / "usr/include" / target_dir / source.relative_to(source_root)
+            if destination.relative_to(out).as_posix() not in SELECTED:
+                continue
             if not destination.exists():
                 install(source, destination, selection="SOURCE_TREES")
 
-    for relative in sorted(libc_public):
+    for relative in sorted(libc_public &
+                           {path.removeprefix("usr/include/") for path in SELECTED}):
         destination = out / "usr/include" / relative
         if not destination.exists():
             install(ROOT / "sources/Libc/include" / relative, destination,
                     selection="Libc/xcodescripts/headers.sh:public")
 
-    for relative, source in libinfo_macos_headers():
-        destination = out / "usr/include" / relative
-        if not destination.exists():
-            install(ROOT / "sources/Libinfo" / source, destination,
-                    selection="Libinfo/xcodescripts/install_files.sh:macosx")
-
-    for relative, source in (
-            ("get_compat.h", "gen/get_compat.h"),
-            ("tzfile.h", "stdtime/FreeBSD/tzfile.h")):
-        path = ROOT / "sources/Libc" / source
-        install_bytes(libc_public_header(path, libc_flags), out / "usr/include" / relative,
-                      f"sources/Libc/{source}",
-                      "Libc/xcodescripts/headers.sh:public")
-
-    install(ROOT / "sources/launchd/liblaunch/vproc.h",
-            out / "usr/include/vproc.h",
-            selection="launchd Xcode Public Headers")
-    install(ROOT / "sources/launchd/liblaunch/bootstrap.h",
-            out / "usr/include/servers/bootstrap.h",
-            selection="launchd/xcscripts/liblaunch-postflight.sh")
-    install_symlink("bootstrap.h", out / "usr/include/servers/bootstrap_defs.h",
-                    "derived:sources/launchd/xcscripts/liblaunch-postflight.sh",
-                    "launchd/xcscripts/liblaunch-postflight.sh")
-
     for source_dir, target_dir, list_name in XNU_PUBLIC_MAKE_DIRS:
         for name in xnu_public_make_headers(source_dir, list_name):
             source = ROOT / "sources/xnu" / source_dir / name
             destination = out / "usr/include" / target_dir / name
+            if destination.relative_to(out).as_posix() not in SELECTED:
+                continue
             if not destination.exists():
                 install(source, destination,
                         selection=f"{source_dir}/Makefile:{list_name}")
 
     for name in libsyscall_public_mach_headers():
+        if f"usr/include/mach/{name}" not in SELECTED:
+            continue
         install(ROOT / "sources/xnu/libsyscall/mach/mach" / name,
                 out / "usr/include/mach" / name,
                 selection="xnu/libsyscall/xcodescripts/mach_install_mig.sh:MACH_HDRS")
 
-    for name in libsyscall_public_server_headers():
-        install(ROOT / "sources/xnu/libsyscall/mach/servers" / name,
-                out / "usr/include/servers" / name,
-                selection="xnu/libsyscall/xcodescripts/mach_install_mig.sh:SERVER_HDRS")
-
-    for name in openbsm_public_headers():
-        source = ROOT / "sources/OpenBSM/openbsm/bsm" / name
-        destination = out / "usr/include/bsm" / name
-        selection = "OpenBSM/OpenBSM.xcodeproj/project.pbxproj:usr/include/bsm"
-        if name == "audit_filter.h":
-            install_bytes(openbsm_audit_filter(), destination,
-                          "derived:sources/OpenBSM/openbsm/bsm/audit_filter.h",
-                          selection)
-        else:
-            install(source, destination, selection=selection)
-
     for relative in architecture_public_headers():
+        if f"usr/include/architecture/{relative.as_posix()}" not in SELECTED:
+            continue
         install(ROOT / "sources/architecture" / relative,
                 out / "usr/include/architecture" / relative,
                 selection="architecture/Makefile:copyhdrs")
-
-    for name in libsyscall_public_os_headers():
-        install(ROOT / "sources/xnu/libsyscall/os" / name,
-                out / "usr/include/os" / name,
-                selection="xnu/libsyscall/Libsyscall.xcodeproj:OS_PUBLIC_HEADERS_FOLDER_PATH")
-
-    for arch in ("arm", "arm64", "i386"):
-        names = xnu_public_make_headers(f"osfmk/mach/{arch}", "INSTALL_MD_GEN_LIST")
-        if names != ["asm.h"]:
-            raise ValueError(f"XNU mach/{arch} generated header list changed")
-        source = ROOT / "sources/xnu/osfmk" / arch / "asm.h"
-        result = subprocess.run(["unifdef", *xnu_public_flags(), str(source)],
-                                capture_output=True)
-        if result.returncode not in (0, 1):
-            raise RuntimeError(f"XNU mach/{arch}/asm.h unifdef failed: {result.stderr}")
-        install_bytes(result.stdout, out / "usr/include/mach" / arch / "asm.h",
-                      f"generated:unifdef:sources/xnu/osfmk/{arch}/asm.h",
-                      f"osfmk/mach/{arch}/Makefile:INSTALL_MD_GEN_LIST")
-
-    for source in libunwind_public_headers():
-        install(source, out / "usr/include" / source.name,
-                selection="libunwind/apple-install-libunwind.sh:include")
 
     for repo, source_dir, target_dir, names in SOURCE_GROUPS:
         for name in names:
@@ -866,15 +607,15 @@ def main() -> None:
         # libsyscall/xcodescripts/mach_install_mig.sh is the user-level
         # installation recipe. XNU's MIG_USHDRS are kernel exports only.
         for source in sorted((mig_out / "arm64/mach").glob("*.h")):
-            if source.name.endswith("_server.h"):
-                continue
             install(source, out / "usr/include/mach" / source.name,
                     f"generated:system-mig:{source.name} via generate_mig.py",
                     "xnu/libsyscall/xcodescripts/mach_install_mig.sh:public")
-        install(mig_out / "arm64/servers/netname.h",
-                out / "usr/include/servers/netname.h",
-                "generated:system-mig:netname.h via generate_mig.py",
-                "xnu/libsyscall/xcodescripts/mach_install_mig.sh:netname")
+
+    if set(PROVENANCE) != SELECTED:
+        missing = sorted(SELECTED - set(PROVENANCE))
+        extra = sorted(set(PROVENANCE) - SELECTED)
+        raise ValueError(f"profile mismatch: {len(missing)} missing, {len(extra)} extra; "
+                         f"first missing={missing[:1]}, extra={extra[:1]}")
 
     (out / "header-provenance.json").write_text(json.dumps({
         "schema": 2, "files": dict(sorted(PROVENANCE.items()))

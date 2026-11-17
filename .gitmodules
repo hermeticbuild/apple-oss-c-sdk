@@ -4,9 +4,6 @@
 [submodule "sources/AvailabilityVersions"]
 	path = sources/AvailabilityVersions
 	url = https://github.com/apple-oss-distributions/AvailabilityVersions.git
-[submodule "sources/CF"]
-	path = sources/CF
-	url = https://github.com/apple-oss-distributions/CF.git
 [submodule "sources/Libc"]
 	path = sources/Libc
 	url = https://github.com/apple-oss-distributions/Libc.git
@@ -40,21 +37,12 @@
 [submodule "sources/zlib"]
 	path = sources/zlib
 	url = https://github.com/apple-oss-distributions/zlib.git
-[submodule "sources/bootstrap_cmds"]
-	path = sources/bootstrap_cmds
-	url = https://github.com/apple-oss-distributions/bootstrap_cmds.git
 [submodule "sources/CommonCrypto"]
 	path = sources/CommonCrypto
 	url = https://github.com/apple-oss-distributions/CommonCrypto.git
 [submodule "sources/libiconv"]
 	path = sources/libiconv
 	url = https://github.com/apple-oss-distributions/libiconv.git
-[submodule "sources/Libnotify"]
-	path = sources/Libnotify
-	url = https://github.com/apple-oss-distributions/Libnotify.git
-[submodule "sources/removefile"]
-	path = sources/removefile
-	url = https://github.com/apple-oss-distributions/removefile.git
 [submodule "sources/cctools"]
 	path = sources/cctools
 	url = https://github.com/apple-oss-distributions/cctools.git
@@ -64,27 +52,6 @@
 [submodule "sources/libunwind"]
 	path = sources/libunwind
 	url = https://github.com/apple-oss-distributions/libunwind.git
-[submodule "sources/launchd"]
-	path = sources/launchd
-	url = https://github.com/apple-oss-distributions/launchd.git
-[submodule "sources/swift-corelibs-foundation"]
-	path = sources/swift-corelibs-foundation
-	url = https://github.com/swiftlang/swift-corelibs-foundation.git
-[submodule "sources/Librpcsvc"]
-	path = sources/Librpcsvc
-	url = https://github.com/apple-oss-distributions/Librpcsvc.git
-[submodule "sources/OpenBSM"]
-	path = sources/OpenBSM
-	url = https://github.com/apple-oss-distributions/OpenBSM.git
-[submodule "sources/libresolv"]
-	path = sources/libresolv
-	url = https://github.com/apple-oss-distributions/libresolv.git
-[submodule "sources/mDNSResponder"]
-	path = sources/mDNSResponder
-	url = https://github.com/apple-oss-distributions/mDNSResponder.git
-[submodule "sources/syslog"]
-	path = sources/syslog
-	url = https://github.com/apple-oss-distributions/syslog.git
 [submodule "sources/architecture"]
 	path = sources/architecture
 	url = https://github.com/apple-oss-distributions/architecture.git
