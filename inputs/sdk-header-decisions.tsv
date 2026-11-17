@@ -1,14 +1,14 @@
-pattern	decision	reason
-float.h	omit	Pinned Clang resource float.h supplies the C constants on Apple targets; its SDK include_next branches are for MVS, MinGW, MSVC, and AIX.
-_modules/*	omit	SDK Clang module shims; module compilation is outside the textual C-header installation.
-net-snmp/*	omit	Bundled Net-SNMP library API; separate dependency, outside the standalone macOS C runtime headers.
-apache2/*	omit	Bundled Apache HTTP Server API; separate dependency, outside the standalone macOS C runtime headers.
-apr-1/*	omit	Bundled Apache Portable Runtime API; separate dependency, outside the standalone macOS C runtime headers.
-libxml/*	omit	Bundled libxml2 API; separate dependency, outside the standalone macOS C runtime headers.
-libxslt/*	omit	Bundled libxslt API; separate dependency, outside the standalone macOS C runtime headers.
-libexslt/*	omit	Bundled libexslt API; separate dependency, outside the standalone macOS C runtime headers.
-unicode/*	omit	Bundled ICU API; separate dependency, outside the standalone macOS C runtime headers.
-curl/*	omit	Bundled libcurl API; separate dependency, outside the standalone macOS C runtime headers.
-cups/*	omit	Bundled CUPS API; separate dependency, outside the standalone macOS C runtime headers.
-pcap/*	omit	Bundled libpcap API; separate dependency, outside the standalone macOS C runtime headers.
-editline/*	omit	Bundled libedit API; separate dependency, outside the standalone macOS C runtime headers.
+pattern	decision	reason	evidence	reviewed_sdk	approved_paths_sha256
+float.h	omit	Pinned Clang resource float.h supplies the C constants on Apple targets; its SDK include_next branches are for MVS, MinGW, MSVC, and AIX.	Pinned lib/clang/23/include/float.h target conditionals; C probe float.h passes without SDK float.h.	macosx26.5	478771dc47f3b2ec4c92deb2671617dd23a54d005ca791c36c9848699961af6c
+_modules/*	omit	SDK Clang module shims; module compilation is outside the textual C-header installation.	SDK 26.5 _modules/ paths; C probe uses textual C compilation without -fmodules.	macosx26.5	daa8212c72e3f4d2bb22e212689a86447407f287c01b4c493b11903de619a7dc
+net-snmp/*	omit	Bundled Net-SNMP library API; separate dependency, outside the standalone macOS C runtime headers.	SDK 26.5 net-snmp/ library namespace; absent from C probe closure.	macosx26.5	ec3f2366ef946f57725819e18719d8473b9998df090b8c78972d142fa2b9d277
+apache2/*	omit	Bundled Apache HTTP Server API; separate dependency, outside the standalone macOS C runtime headers.	SDK 26.5 apache2/ library namespace; absent from C probe closure.	macosx26.5	3886d199e842cb3dfba5721e595349be7e8430ae4a4886bcb1da43c0194e368d
+apr-1/*	omit	Bundled Apache Portable Runtime API; separate dependency, outside the standalone macOS C runtime headers.	SDK 26.5 apr-1/ library namespace; absent from C probe closure.	macosx26.5	1ce1c254fd60f15133c89a50e648c7e4e88fd4f11d79e5ba8c80de33e22a69a9
+libxml/*	omit	Bundled libxml2 API; separate dependency, outside the standalone macOS C runtime headers.	SDK 26.5 libxml/ library namespace; absent from C probe closure.	macosx26.5	d0df7034628453532351c7f1da789bb2d0efe79d70596a280464883aaf13441f
+libxslt/*	omit	Bundled libxslt API; separate dependency, outside the standalone macOS C runtime headers.	SDK 26.5 libxslt/ library namespace; absent from C probe closure.	macosx26.5	e0008bd64301a4ecf0b07531728abb576a8da77fc654f73191bf044421a3206e
+libexslt/*	omit	Bundled libexslt API; separate dependency, outside the standalone macOS C runtime headers.	SDK 26.5 libexslt/ library namespace; absent from C probe closure.	macosx26.5	2a8e53eb5502b523c88b15608620042187ab8bf5ebf99e8dce2e3e687585241f
+unicode/*	omit	Bundled ICU API; separate dependency, outside the standalone macOS C runtime headers.	SDK 26.5 unicode/ library namespace; absent from C probe closure.	macosx26.5	ad9622a83a3263f736c65184cde8d64394385b09efb361d22d60aa91957f1461
+curl/*	omit	Bundled libcurl API; separate dependency, outside the standalone macOS C runtime headers.	SDK 26.5 curl/ library namespace; absent from C probe closure.	macosx26.5	20ae5eb5bb21b9db8c2248d1ef486393c207156a5eec37f91076ebfcb61f30ae
+cups/*	omit	Bundled CUPS API; separate dependency, outside the standalone macOS C runtime headers.	SDK 26.5 cups/ library namespace; absent from C probe closure.	macosx26.5	c7ec8c4b1fb52a49493606a9d5a79125f54d59d93bfee5a636f9e33e59bf5d6e
+pcap/*	omit	Bundled libpcap API; separate dependency, outside the standalone macOS C runtime headers.	SDK 26.5 pcap/ library namespace; absent from C probe closure.	macosx26.5	6d46fee2f6e89cf41ffddeee06a9fd5199978a7dfe6bfd1149769b0b14be74b8
+editline/*	omit	Bundled libedit API; separate dependency, outside the standalone macOS C runtime headers.	SDK 26.5 editline/ library namespace; absent from C probe closure.	macosx26.5	1427bf24e08ea4b4daaeac1ac7998bddc2cc75f1d96b97a952ee4c36bf4ec7ed

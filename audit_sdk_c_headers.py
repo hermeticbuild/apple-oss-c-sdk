@@ -14,6 +14,8 @@ import subprocess
 from collections import Counter
 from pathlib import Path
 
+from probe_c_closure import digest_tree
+
 
 def installed_header(root: Path, relative: Path) -> bool:
     path = root / "usr/include" / relative
@@ -44,8 +46,9 @@ def decision_rules(path: Path) -> list[dict[str, str]]:
         rules = list(csv.DictReader(source, delimiter="\t"))
     patterns = set()
     for rule in rules:
-        if set(rule) != {"pattern", "decision", "reason"}:
-            raise ValueError("decision ledger must have pattern, decision, reason columns")
+        if set(rule) != {"pattern", "decision", "reason", "evidence", "reviewed_sdk",
+                         "approved_paths_sha256"}:
+            raise ValueError("decision ledger needs pattern, decision, reason, evidence, reviewed_sdk, approved_paths_sha256")
         if rule["decision"] not in {"include", "omit"} or not rule["reason"].strip():
             raise ValueError(f"invalid decision rule: {rule}")
         if rule["pattern"] in patterns:
@@ -54,10 +57,69 @@ def decision_rules(path: Path) -> list[dict[str, str]]:
     return rules
 
 
+def scope_approvals(path: Path) -> dict[str, dict[str, str]]:
+    with path.open(newline="") as source:
+        rows = list(csv.DictReader(source, delimiter="\t"))
+    result = {}
+    for row in rows:
+        if set(row) != {"category", "reviewed_sdk", "approved_paths_sha256", "evidence"}:
+            raise ValueError("scope approvals need category, reviewed_sdk, approved_paths_sha256, evidence")
+        if row["category"] in result or not row["evidence"].strip():
+            raise ValueError(f"invalid or duplicate scope approval: {row}")
+        result[row["category"]] = row
+    return result
+
+
+def path_digest(paths: list[str]) -> str:
+    return hashlib.sha256("\n".join(paths).encode()).hexdigest()
+
+
+def baseline_paths(path: Path) -> tuple[set[str], dict]:
+    baseline = json.loads(path.read_text())
+    if baseline.get("schema") not in (2, 3):
+        raise ValueError("unsupported SDK inventory baseline schema")
+    paths = [entry["path"] for entry in baseline["entries"]]
+    if len(paths) != len(set(paths)) or path_digest(paths) != baseline["path_list_sha256"]:
+        raise ValueError("SDK inventory baseline path list is inconsistent")
+    return set(paths), baseline["sdk"]
+
+
+def installed_provenance(installation: Path) -> dict[str, dict[str, str]]:
+    path = installation / "header-provenance.json"
+    if not path.is_file():
+        raise ValueError("C installation has no header-provenance.json; regenerate it")
+    manifest = json.loads(path.read_text())
+    if manifest.get("schema") != 2:
+        raise ValueError("unsupported C installation provenance schema")
+    for relative, record in manifest["files"].items():
+        parts = Path(relative)
+        if (parts.is_absolute() or ".." in parts.parts or not record.get("origin")
+                or not record.get("selection")):
+            raise ValueError(f"invalid provenance path or origin: {relative}")
+        candidate = installation / parts
+        if not candidate.is_file() or not candidate.resolve().is_relative_to(installation):
+            raise ValueError(f"provenance file absent from installation: {relative}")
+        if hashlib.sha256(candidate.read_bytes()).hexdigest() != record["sha256"]:
+            raise ValueError(f"installed file differs from provenance manifest: {relative}")
+    installed = {file.relative_to(installation).as_posix()
+                 for file in installation.rglob("*")
+                 if file.is_file() and file != path}
+    unmapped = installed - manifest["files"].keys()
+    if unmapped:
+        raise ValueError(f"installed files lack provenance: {sorted(unmapped)[:5]}")
+    return manifest["files"]
+
+
 def audit(sdk: Path, installation: Path, resource: Path,
           closure: set[str] | None, lookup_candidates: set[str] | None,
-          rules: list[dict[str, str]]) -> dict:
+          rules: list[dict[str, str]], baseline: set[str] | None = None,
+          scope_rules: dict[str, dict[str, str]] | None = None,
+          generated_closure: set[str] | None = None) -> dict:
     sdk, installation, resource = sdk.resolve(), installation.resolve(), resource.resolve()
+    settings = sdk / "SDKSettings.json"
+    metadata = json.loads(settings.read_text()) if settings.is_file() else {}
+    sdk_name = metadata.get("CanonicalName")
+    provenance = installed_provenance(installation)
     include = sdk / "usr/include"
     frameworks = sdk / "System/Library/Frameworks"
     excluded = Counter()
@@ -66,14 +128,19 @@ def audit(sdk: Path, installation: Path, resource: Path,
     missing = []
     installed = 0
     compiler_overlaps = 0
+    installed_out_of_scope = []
     decisions = Counter()
     matched_rules = Counter()
+    rule_paths: dict[str, list[str]] = {}
+    scope_paths: dict[str, list[str]] = {}
     for path in sorted(include.rglob("*")):
         if not (path.is_file() or path.is_symlink()):
             continue
         relative = path.relative_to(include)
         name = relative.as_posix()
         record = {"path": name}
+        if baseline is not None:
+            record["new_since_baseline"] = name not in baseline
         if relative.parts[0] == "c++":
             category, reason = "c++", "libc++ headers belong to the LLVM toolchain"
         elif relative.parts[0] == "objc":
@@ -86,8 +153,13 @@ def audit(sdk: Path, installation: Path, resource: Path,
             category = None
         if category:
             excluded[category] += 1
+            scope_paths.setdefault(category, []).append(name)
+            if installed_header(installation, relative):
+                record["present_in_installation"] = True
+                installed_out_of_scope.append(name)
             record.update(state="excluded", decision="omit", reason=reason,
-                          decision_source="scope")
+                          decision_source="scope", scope_category=category,
+                          review_status="pending", evidence="")
             entries.append(record)
             decisions["omit"] += 1
             continue
@@ -98,6 +170,11 @@ def audit(sdk: Path, installation: Path, resource: Path,
             installed += 1
             counts["installed"] += 1
             record["state"] = "installed"
+            source = provenance.get(f"usr/include/{name}")
+            record["provenance_status"] = "verified" if source else "missing"
+            if source:
+                record["origin"] = source["origin"]
+                record["selection"] = source["selection"]
         else:
             counts["missing"] += 1
             record["state"] = "missing"
@@ -118,69 +195,148 @@ def audit(sdk: Path, installation: Path, resource: Path,
         if matches:
             rule = matches[0]
             matched_rules[rule["pattern"]] += 1
+            rule_paths.setdefault(rule["pattern"], []).append(name)
             if rule["decision"] == "omit" and (present or name in (closure or set())):
                 raise ValueError(f"cannot omit installed or probe-reached header: {name}")
             record.update(decision=rule["decision"], reason=rule["reason"],
-                          decision_source="manual")
+                          decision_source="manual", evidence=rule["evidence"],
+                          decision_rule=rule["pattern"], review_status="pending")
         elif present:
+            probed = closure is not None and name in closure
             record.update(decision="include",
                           reason="retained in the pinned Apple OSS C installation",
-                          decision_source="installation")
+                          decision_source="installation",
+                          review_status=("approved" if record["provenance_status"] == "verified"
+                                         and probed else "pending"),
+                          evidence=("version-matched C probe closure and verified source" if probed
+                                    else "source selection is recorded; need/scope review pending"))
         elif closure is not None and name in closure:
             record.update(decision="include",
                           reason="required by the checked-in C probe SDK closure",
-                          decision_source="probe")
+                          decision_source="probe", review_status="approved",
+                          evidence="inputs/c-probe.c and the version-matched reference closure")
         elif record.get("compiler_resource_overlap"):
             record.update(decision="review",
                           reason="compiler header overlaps SDK path; assess include_next and API parity",
-                          decision_source="unreviewed")
+                          decision_source="unreviewed", review_status="pending",
+                          evidence="")
         else:
             record.update(decision="review",
                           reason="not covered by the current probe; assess need and provenance",
-                          decision_source="unreviewed")
+                          decision_source="unreviewed", review_status="pending",
+                          evidence="")
+        if record.get("new_since_baseline"):
+            record["review_status"] = "pending"
         decisions[record["decision"]] += 1
         entries.append(record)
-    settings = sdk / "SDKSettings.json"
-    metadata = json.loads(settings.read_text()) if settings.is_file() else {}
+    rules_by_pattern = {rule["pattern"]: rule for rule in rules}
+    for record in entries:
+        if record["decision_source"] == "manual":
+            rule = rules_by_pattern[record["decision_rule"]]
+            approved = (rule["reviewed_sdk"] == sdk_name and rule["evidence"].strip()
+                        and rule["approved_paths_sha256"] == path_digest(
+                            sorted(rule_paths[record["decision_rule"]])))
+            record["review_status"] = ("approved" if approved and
+                                       not record.get("new_since_baseline") else "pending")
+        elif record["decision_source"] == "scope":
+            rule = (scope_rules or {}).get(record["scope_category"], {})
+            record["evidence"] = rule.get("evidence", "")
+            approved = (rule.get("reviewed_sdk") == sdk_name and rule.get("evidence")
+                        and rule.get("approved_paths_sha256") == path_digest(
+                            sorted(scope_paths[record["scope_category"]])))
+            record["review_status"] = ("approved" if approved and
+                                       not record.get("new_since_baseline") else "pending")
+    approvals = Counter(record["review_status"] for record in entries)
+    current_paths = {entry["path"] for entry in entries}
+    installation_only = []
+    for relative, source in sorted(provenance.items()):
+        if not relative.startswith("usr/include/"):
+            continue
+        name = relative.removeprefix("usr/include/")
+        if name in current_paths:
+            continue
+        reached = generated_closure is not None and name in generated_closure
+        installation_only.append({
+            "path": name, "state": "installation_only",
+            "decision": "include" if reached else "review",
+            "review_status": "approved" if reached else "pending",
+            "reason": ("reached by the generated C probe with verified installer provenance"
+                       if reached else "no path in this SDK; assess need and public provenance"),
+            "origin": source["origin"], "selection": source["selection"],
+            "in_generated_probe_closure": reached,
+        })
     return {
-        "schema": 2,
+        "schema": 3,
         "sdk": {key: metadata[key] for key in ("CanonicalName", "Version")
                 if key in metadata},
         "scope": "all SDK usr/include file entries; C candidates are .h outside c++, objc, and framework symlinks",
-        "path_list_sha256": hashlib.sha256(
-            "\n".join(entry["path"] for entry in entries).encode()).hexdigest(),
+        "path_list_sha256": path_digest([entry["path"] for entry in entries]),
         "counts": {
             "installed": installed,
             "missing": len(missing),
             "compiler_resource_overlaps_among_missing": compiler_overlaps,
             "excluded": dict(sorted(excluded.items())),
             "decisions": dict(sorted(decisions.items())),
+            "review_status": dict(sorted(approvals.items())),
+            "installed_without_provenance": sum(
+                entry.get("provenance_status") == "missing" for entry in entries),
+            "installed_out_of_scope": len(installed_out_of_scope),
+            "installation_only": len(installation_only),
+            "installation_only_pending": sum(
+                entry["review_status"] == "pending" for entry in installation_only),
         },
         "by_directory": dict(sorted(by_directory.items())),
         "manual_rules": dict(sorted(matched_rules.items())),
+        "rule_path_hashes": {pattern: path_digest(sorted(paths))
+                             for pattern, paths in sorted(rule_paths.items())},
+        "scope_path_hashes": {category: path_digest(sorted(paths))
+                              for category, paths in sorted(scope_paths.items())},
         "entries": entries,
         "missing": missing,
+        "missing_required": [entry["path"] for entry in entries
+                             if entry["state"] == "missing" and entry["decision"] == "include"],
+        "installed_out_of_scope": installed_out_of_scope,
+        "installation_only": installation_only,
+        "new_paths": sorted(current_paths - baseline) if baseline is not None else [],
+        "removed_paths": sorted(baseline - current_paths) if baseline is not None else [],
     }
 
 
 def review_markdown(report: dict) -> str:
     groups: dict[str, list[dict]] = {}
     for entry in report["entries"]:
-        if entry["decision"] == "review":
+        if entry["review_status"] == "pending":
             parts = entry["path"].split("/")
             group = parts[0] if len(parts) > 1 else "<root>"
             groups.setdefault(group, []).append(entry)
     total = sum(map(len, groups.values()))
+    extras: dict[str, list[dict]] = {}
+    for entry in report["installation_only"]:
+        if entry["review_status"] != "pending":
+            continue
+        parts = entry["path"].split("/")
+        group = parts[0] if len(parts) > 1 else "<root>"
+        extras.setdefault(group, []).append(entry)
     lines = [f"# macOS SDK {report['sdk'].get('Version', '?')} C headers for review",
-             "", f"{total} paths absent from the C installation. These were not reached",
-             "by the current C probe and have no reviewed omit rule. Clang resource",
-             "overlaps still require an API-parity decision.", ""]
+             "", f"{total} SDK paths lack an approved disposition, plus",
+             f"{report['counts']['installation_only_pending']} installed headers absent from this SDK",
+             "that are not reached by the generated C probe.",
+             "An installed path",
+             "still needs a source and scope review; a missing path needs a",
+             "supported include or omit decision. New SDK paths always need review.", ""]
     for group, entries in sorted(groups.items(), key=lambda item: (-len(item[1]), item[0])):
         title = "Root-level" if group == "<root>" else f"`{group}/`"
         lines.extend((f"## {title} ({len(entries)})", ""))
         for entry in entries:
             suffix = " — Clang resource overlap" if entry.get("compiler_resource_overlap") else ""
-            lines.append(f"- `{entry['path']}`{suffix}")
+            lines.append(f"- `{entry['path']}` — proposed {entry['decision']}{suffix}")
+        lines.append("")
+    lines.extend(("## Installation-only headers needing review", ""))
+    for group, entries in sorted(extras.items(), key=lambda item: (-len(item[1]), item[0])):
+        title = "Root-level" if group == "<root>" else f"`{group}/`"
+        lines.extend((f"### {title} ({len(entries)})", ""))
+        for entry in entries:
+            lines.append(f"- `{entry['path']}` — {entry['selection']}: {entry['origin']}")
         lines.append("")
     return "\n".join(lines)
 
@@ -193,14 +349,21 @@ def main() -> None:
                         help="clang from the pinned minimal LLVM prebuilt")
     parser.add_argument("--reference", type=Path,
                         help="optional C probe closure manifest to mark reached paths")
+    parser.add_argument("--generated-probe", type=Path,
+                        help="C probe manifest from the generated installation")
+    parser.add_argument("--baseline", type=Path,
+                        help="prior path inventory; new paths require review and removed paths block release")
     parser.add_argument("--decisions", type=Path,
                         default=Path(__file__).resolve().parent / "inputs/sdk-header-decisions.tsv",
                         help="reviewed include/omit decisions; defaults to the checked-in ledger")
+    parser.add_argument("--scope-approvals", type=Path,
+                        default=Path(__file__).resolve().parent / "inputs/sdk-scope-approvals.tsv",
+                        help="reviewed SDK path sets for out-of-scope categories")
     parser.add_argument("--out", required=True, type=Path)
     parser.add_argument("--review-out", type=Path,
                         help="optional Markdown list of paths still needing a decision")
     parser.add_argument("--require-decisions", action="store_true",
-                        help="fail if any in-scope path still needs review")
+                        help="release gate: require approved decisions and installed required paths")
     args = parser.parse_args()
     sdk, installation = args.sdk.resolve(), args.installation.resolve()
     if not (sdk / "usr/include").is_dir():
@@ -211,13 +374,37 @@ def main() -> None:
         [str(args.clang), "-print-resource-dir"], text=True).strip()).resolve() / "include"
     if not resource.is_dir():
         parser.error("Clang resource include directory does not exist")
+    if not args.clang.is_file():
+        parser.error("Clang binary does not exist")
     settings = sdk / "SDKSettings.json"
     metadata = json.loads(settings.read_text()) if settings.is_file() else {}
     reference = json.loads(args.reference.read_text()) if args.reference else None
+    generated = json.loads(args.generated_probe.read_text()) if args.generated_probe else None
+    if reference:
+        if reference["compiler_binary_sha256"] != hashlib.sha256(args.clang.read_bytes()).hexdigest():
+            parser.error("Clang binary differs from probe reference")
+        if reference["resource_headers_sha256"] != digest_tree(resource):
+            parser.error("Clang resource headers differ from probe reference")
+        probe = Path(__file__).resolve().parent / "inputs/c-probe.c"
+        if reference["probe_sha256"] != hashlib.sha256(probe.read_bytes()).hexdigest():
+            parser.error("checked-in C probe differs from reference")
+    if generated:
+        if not reference:
+            parser.error("--generated-probe requires --reference")
+        for key in ("compiler_binary_sha256", "resource_headers_sha256",
+                    "probe_sha256", "target"):
+            if generated[key] != reference[key]:
+                parser.error(f"generated probe {key} differs from reference")
     closure, lookup_candidates = (closure_paths(reference, metadata.get("Version"))
                                   if reference else (None, None))
+    baseline, baseline_sdk = (baseline_paths(args.baseline)
+                              if args.baseline else (None, None))
+    generated_closure = (closure_paths(generated, None)[0] if generated else None)
     report = audit(sdk, installation, resource, closure, lookup_candidates,
-                   decision_rules(args.decisions))
+                   decision_rules(args.decisions), baseline,
+                   scope_approvals(args.scope_approvals), generated_closure)
+    if baseline_sdk:
+        report["baseline_sdk"] = baseline_sdk
     if reference:
         report["reference"] = {
             "sdk": reference.get("sdk", {}),
@@ -227,6 +414,8 @@ def main() -> None:
             "compiler_binary_sha256": reference["compiler_binary_sha256"],
             "resource_headers_sha256": reference["resource_headers_sha256"],
         }
+    if generated:
+        report["generated_probe_sha256"] = generated["probe_sha256"]
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
     if args.review_out:
@@ -240,14 +429,37 @@ def main() -> None:
                                 for key, value in counts["excluded"].items()))
     print("Decisions:", ", ".join(f"{key}={value}"
                                 for key, value in counts["decisions"].items()))
+    print("Review status:", ", ".join(f"{key}={value}"
+                                    for key, value in counts["review_status"].items()))
+    print(f"Required but missing: {len(report['missing_required'])}; "
+          f"installed without provenance: {counts['installed_without_provenance']}; "
+          f"installed out of scope: {counts['installed_out_of_scope']}; "
+          f"installation-only pending: {counts['installation_only_pending']}; "
+          f"new paths: {len(report['new_paths'])}; removed paths: {len(report['removed_paths'])}")
     for directory, values in sorted(report["by_directory"].items(),
                                     key=lambda item: (-item[1]["missing"], item[0]))[:20]:
         if values["missing"]:
             print(f"{directory}: {values['missing']} absent / "
                   f"{values['installed']} installed")
     print(f"Full path report: {args.out}")
-    if args.require_decisions and counts["decisions"].get("review", 0):
-        parser.exit(1, "unreviewed in-scope SDK headers remain\n")
+    if args.require_decisions:
+        if not reference or not generated or baseline is None:
+            parser.exit(1, "release gate needs --reference, --generated-probe, and --baseline\n")
+        failures = []
+        if counts["review_status"].get("pending", 0):
+            failures.append(f"{counts['review_status']['pending']} pending decisions")
+        if report["missing_required"]:
+            failures.append(f"{len(report['missing_required'])} required paths absent")
+        if counts["installed_without_provenance"]:
+            failures.append(f"{counts['installed_without_provenance']} installed paths lack provenance")
+        if counts["installed_out_of_scope"]:
+            failures.append(f"{counts['installed_out_of_scope']} out-of-scope paths installed")
+        if counts["installation_only_pending"]:
+            failures.append(f"{counts['installation_only_pending']} installation-only headers need review")
+        if report["removed_paths"]:
+            failures.append(f"{len(report['removed_paths'])} removed paths need explanation")
+        if failures:
+            parser.exit(1, "release gate failed: " + ", ".join(failures) + "\n")
 
 
 if __name__ == "__main__":

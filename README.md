@@ -30,6 +30,8 @@ host bootstrap tools. System `mig` receives `-cc "$LLVM_CLANG"`, so it uses
 the pinned prebuilt as its C preprocessor. No host compiler or Homebrew headers
 are inputs. The installed tree contains
 `usr/include` and the open-source CoreFoundation framework headers.
+It also contains `header-provenance.json`, recording each installed file's
+pinned source selection and SHA256. The C-only recipe omits Objective-C headers.
 It does not contain Clang resource headers, libc++ headers, libraries, TBDs, or
 SDK metadata. `check_c_headers.py` uses `-nostdinc`, then names only Clang's
 resource directory and this installation; it checks both target architectures.
@@ -90,6 +92,8 @@ python3 audit_sdk_c_headers.py --clang "$LLVM_CLANG" \
   --sdk /absolute/path/to/MacOSX26.5.sdk \
   --installation /tmp/apple-oss-c-headers \
   --reference /tmp/apple-c-reference-26.5.json \
+  --generated-probe /tmp/apple-c-generated-26.5.json \
+  --baseline inventories/macosx26.5.json \
   --out inventories/macosx26.5.json \
   --review-out inventories/macosx26.5-review.md
 ```
@@ -97,16 +101,29 @@ python3 audit_sdk_c_headers.py --clang "$LLVM_CLANG" \
 The checked-in `inventories/macosx26.5.json` is a versioned path database of
 every file entry under SDK `usr/include`. Each path records whether it is
 installed, absent, or outside this C-header scope, plus an `include`, `omit`,
-or `review` disposition, its source, and a reason. `include` means retain in
+or `review` proposed disposition, its source, approval status, evidence, and
+reason. `include` means retain in
 this installation; it does not assert that every consumer needs the header.
 The script excludes `c++/`, `objc/`,
 non-`.h` files, and symlinks into frameworks from C-installation candidates;
 their paths and reasons remain visible in the database. Reviewed directory
 rules in `inputs/sdk-header-decisions.tsv` omit bundled libraries and SDK
-module shims from the core C installation. A `review` decision is explicitly
-unfinished; the current 26.5 snapshot has 277 such paths. Use
-`--require-decisions` as a gate once all paths have been assessed.
-`inventories/macosx26.5-review.md` groups all pending paths for human review.
+module shims from the core C installation. A rule has an SDK-specific review
+stamp, evidence, and a hash of its reviewed path set. Scope exclusions have
+the same protection in `inputs/sdk-scope-approvals.tsv`. A newly added or
+removed member invalidates the approval even after the inventory is updated.
+`--baseline` also reports added and removed SDK paths. The current 26.5
+snapshot has 482 pending approvals: 205 installed paths outside the probe
+closure whose need/scope is unsettled, plus 277 absent candidates. The other
+532 installed SDK paths are reached by the probe and have verified installer
+provenance. Another 28 probe-required paths are absent from the
+installation. The reverse audit also finds 342 installed C headers without a
+matching 26.5 SDK path. Five are reached by the generated C probe; the other
+337 remain pending, including headers from broad XNU source-tree walks.
+`--require-decisions` requires a baseline and both probe manifests, then
+fails on pending approvals, missing required paths, unexplained removals,
+unreviewed installation-only headers, or out-of-scope installed paths. The checked-in
+`inventories/macosx26.5-review.md` groups pending paths for human review.
 
 The report flags Clang resource overlaps and `#include_next` use; it never
 silently treats a compiler overlap as installed. An optional `--reference`

@@ -8,6 +8,8 @@ See README.md before treating the result as a release.
 
 import argparse
 import csv
+import hashlib
+import json
 import os
 import shlex
 import subprocess
@@ -17,6 +19,8 @@ from pathlib import Path
 from generate_mig import generate as generate_mig
 
 ROOT = Path(__file__).resolve().parent
+INSTALL_ROOT: Path | None = None
+PROVENANCE: dict[str, dict[str, str]] = {}
 
 EXTRAS = {
     "_bounds.h": "Libc:include/_bounds.h",
@@ -80,10 +84,6 @@ SOURCE_GROUPS = (
         "ip_icmp.h", "tcp.h", "tcp_timer.h", "tcp_var.h", "udp.h")),
     ("xnu", "bsd/netinet6", "netinet6", (
         "in6.h", "ipsec.h", "scope6_var.h")),
-    ("objc4", "runtime", "objc", (
-        "NSObjCRuntime.h", "NSObject.h", "message.h", "objc-api.h",
-        "objc-auto.h", "objc-exception.h", "objc-sync.h", "objc.h",
-        "runtime.h")),
     ("Libinfo", "rpc.subproj", "rpc", (
         "auth.h", "auth_unix.h", "clnt.h", "pmap_clnt.h", "pmap_prot.h",
         "pmap_rmt.h", "pmap_wakeup.h", "rpc.h", "rpc_msg.h", "svc.h",
@@ -107,17 +107,30 @@ EXTRAS.update({
 })
 
 
-def install(source: Path, destination: Path) -> None:
-    install_bytes(source.read_bytes(), destination)
+def install(source: Path, destination: Path, origin: str | None = None,
+            selection: str = "direct") -> None:
+    if origin is None:
+        resolved = source.resolve()
+        if not resolved.is_relative_to(ROOT):
+            raise ValueError(f"source outside pinned inputs needs an origin: {source}")
+        origin = resolved.relative_to(ROOT).as_posix()
+    install_bytes(source.read_bytes(), destination, origin, selection)
 
 
-def install_bytes(data: bytes, destination: Path) -> None:
+def install_bytes(data: bytes, destination: Path, origin: str,
+                  selection: str = "direct") -> None:
+    if INSTALL_ROOT is None:
+        raise ValueError("installation root is not set")
+    relative = destination.relative_to(INSTALL_ROOT).as_posix()
     if destination.exists():
         if destination.read_bytes() != data:
             raise ValueError(f"header collision: {destination}")
         return
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_bytes(data)
+    PROVENANCE[relative] = {"origin": origin,
+                            "selection": selection,
+                            "sha256": hashlib.sha256(data).hexdigest()}
 
 
 def libc_unifdef_flags() -> list[str]:
@@ -335,12 +348,12 @@ def install_math(out: Path) -> None:
         raise ValueError("Libm math.h architecture switch changed")
     text = text.replace(before, "#elif defined(__arm__) || defined(__arm64__)\n")
     target = out / "usr/include/math.h"
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(text)
+    install_bytes(text.encode(), target, "derived:sources/Libm/Source/math.h via install_math",
+                  "Libm derivation")
     install(ROOT / "sources/Libm/Source/ARM/math.h",
-            out / "usr/include/architecture/arm/math.h")
+            out / "usr/include/architecture/arm/math.h", selection="Libm derivation")
     install(ROOT / "sources/Libm/Source/Intel/math.h",
-            out / "usr/include/architecture/i386/math.h")
+            out / "usr/include/architecture/i386/math.h", selection="Libm derivation")
 
 
 def install_fenv(out: Path) -> None:
@@ -352,14 +365,14 @@ def install_fenv(out: Path) -> None:
     if text.count(before) != 1:
         raise ValueError("Libm fenv.h architecture switch changed")
     target = out / "usr/include/fenv.h"
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(text.replace(before, after))
+    install_bytes(text.replace(before, after).encode(), target,
+                  "derived:sources/Libm/Source/fenv.h via install_fenv", "Libm derivation")
     install(ROOT / "sources/Libm/Source/ARM/fenv.h",
-            out / "usr/include/architecture/arm/fenv.h")
+            out / "usr/include/architecture/arm/fenv.h", selection="Libm derivation")
     install(ROOT / "sources/Libm/Source/Intel/fenv.h",
-            out / "usr/include/architecture/i386/fenv.h")
+            out / "usr/include/architecture/i386/fenv.h", selection="Libm derivation")
     install(ROOT / "templates/arm64_fenv.h",
-            out / "usr/include/architecture/arm64/fenv.h")
+            out / "usr/include/architecture/arm64/fenv.h", selection="Libm derivation")
 
 
 def main() -> None:
@@ -373,6 +386,8 @@ def main() -> None:
     out = args.out.absolute()
     if out.exists():
         parser.error("output already exists; choose an empty path")
+    global INSTALL_ROOT
+    INSTALL_ROOT = out
 
     libc_flags = libc_unifdef_flags()
 
@@ -388,19 +403,27 @@ def main() -> None:
                         data = libc_public_header(libc_source, libc_flags)
                     else:
                         data = generated[str(relative)]
-                    install_bytes(data, destination_path(out, relative))
+                    install_bytes(data, destination_path(out, relative),
+                                  f"{reference} via inputs/header-sources.tsv:{relative}",
+                                  "header-sources.tsv")
                     continue
                 source = source_path(reference, relative)
-                install(source, destination_path(out, relative))
+                install(source, destination_path(out, relative),
+                        selection="header-sources.tsv")
 
     install_math(out)
     install_fenv(out)
     for name in ("device/device_types.h", "mach-o/dyld_images.h", "utmpx.h"):
-        install_bytes(generated[name], out / "usr/include" / name)
+        install_bytes(generated[name], out / "usr/include" / name,
+                      f"generated:{name} via install_c.py:generated_apple_headers",
+                      "generated explicit")
 
     for relative, reference in EXTRAS.items():
-        install(source_path(reference, Path(relative)), out / "usr/include" / relative)
-    install_bytes(target_conditionals(), out / "usr/include/TargetConditionals.h")
+        install(source_path(reference, Path(relative)), out / "usr/include" / relative,
+                selection="EXTRAS")
+    install_bytes(target_conditionals(), out / "usr/include/TargetConditionals.h",
+                  "derived:sources/CarbonHeaders/TargetConditionals.h via target_conditionals",
+                  "CarbonHeaders derivation")
 
     for repo, source_dir, target_dir in SOURCE_TREES:
         source_root = ROOT / "sources" / repo / source_dir
@@ -409,18 +432,24 @@ def main() -> None:
                 continue
             destination = out / "usr/include" / target_dir / source.relative_to(source_root)
             if not destination.exists():
-                install(source, destination)
+                install(source, destination, selection="SOURCE_TREES")
 
     for repo, source_dir, target_dir, names in SOURCE_GROUPS:
         for name in names:
             install(ROOT / "sources" / repo / source_dir / name,
-                    out / "usr/include" / target_dir / name)
+                    out / "usr/include" / target_dir / name,
+                    selection="SOURCE_GROUPS")
 
     with tempfile.TemporaryDirectory(prefix="apple-oss-mig-") as temporary:
         mig_out = Path(temporary) / "generated"
         generate_mig(args.mig.absolute(), args.clang.absolute(), out, mig_out)
         for source in sorted((mig_out / "arm64/mach").glob("*.h")):
-            install(source, out / "usr/include/mach" / source.name)
+            install(source, out / "usr/include/mach" / source.name,
+                    f"generated:system-mig:{source.name} via generate_mig.py", "MIG")
+
+    (out / "header-provenance.json").write_text(json.dumps({
+        "schema": 2, "files": dict(sorted(PROVENANCE.items()))
+    }, indent=2, sort_keys=True) + "\n")
 
     print(out)
 

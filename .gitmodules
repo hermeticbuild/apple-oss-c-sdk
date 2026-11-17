@@ -37,9 +37,6 @@
 [submodule "sources/CarbonHeaders"]
 	path = sources/CarbonHeaders
 	url = https://github.com/apple-oss-distributions/CarbonHeaders.git
-[submodule "sources/objc4"]
-	path = sources/objc4
-	url = https://github.com/apple-oss-distributions/objc4.git
 [submodule "sources/zlib"]
 	path = sources/zlib
 	url = https://github.com/apple-oss-distributions/zlib.git
