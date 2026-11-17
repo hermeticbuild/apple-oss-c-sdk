@@ -15,7 +15,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--c-root", required=True, type=Path)
     parser.add_argument("--reference-sdk", required=True, type=Path)
-    parser.add_argument("--clang", default="/opt/homebrew/opt/llvm/bin/clang")
+    parser.add_argument("--clang", required=True,
+                        help="clang from the pinned minimal LLVM prebuilt")
     args = parser.parse_args()
     c_root = args.c_root.resolve()
     base = args.reference_sdk.resolve()

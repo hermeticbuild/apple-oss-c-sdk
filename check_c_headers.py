@@ -24,7 +24,8 @@ HEADERS = (
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--sysroot", required=True, type=Path)
-    parser.add_argument("--clang", default="/opt/homebrew/opt/llvm/bin/clang")
+    parser.add_argument("--clang", required=True,
+                        help="clang from the pinned minimal LLVM prebuilt")
     args = parser.parse_args()
     sdk = args.sysroot.resolve()
     resource = subprocess.check_output([args.clang, "-print-resource-dir"], text=True).strip()

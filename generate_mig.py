@@ -67,7 +67,8 @@ def generate(mig: Path, clang: Path, sysroot: Path, out: Path) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--mig", required=True, type=Path)
-    parser.add_argument("--clang", default="/opt/homebrew/opt/llvm/bin/clang", type=Path)
+    parser.add_argument("--clang", required=True, type=Path,
+                        help="clang from the pinned minimal LLVM prebuilt")
     parser.add_argument("--sysroot", required=True, type=Path)
     parser.add_argument("--out", required=True, type=Path)
     args = parser.parse_args()
@@ -75,7 +76,7 @@ def main() -> None:
         parser.error("output already exists")
     # Keep Bazel's `bazel-bin/mig` symlink path: mig.sh finds its runfiles
     # relative to the invoked path, not the resolved source script.
-    generate(args.mig.absolute(), args.clang.resolve(), args.sysroot.resolve(), args.out.absolute())
+    generate(args.mig.absolute(), args.clang.absolute(), args.sysroot.resolve(), args.out.absolute())
 
 
 if __name__ == "__main__":
