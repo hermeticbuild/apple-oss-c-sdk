@@ -10,31 +10,31 @@ supported include or omit decision. New SDK paths always need review.
 
 ## Root-level (10)
 
-- `AppleTextureEncoder.h` — proposed review
+- `AppleTextureEncoder.h` — proposed review — Standalone C scope and public source remain unproven; do not infer ownership from the SDK path alone.
 - `bootstrap.h` — proposed review — launchd publishes servers/bootstrap.h, but the SDK also has a distinct root bootstrap.h; its first-party install source is unresolved.
-- `cache.h` — proposed review
-- `cache_callbacks.h` — proposed review
-- `profile.h` — proposed review
-- `string_x86.h` — proposed include
-- `sysdir.h` — proposed review
-- `timingsafe.h` — proposed include
-- `unwind_arm_ehabi.h` — proposed review
-- `usbuf.h` — proposed review
+- `cache.h` — proposed review — The pinned HFS tree has an internal cache.h, but no evidence that it is this root SDK header.
+- `cache_callbacks.h` — proposed review — No matching pinned Apple OSS header or public installation rule has been identified.
+- `profile.h` — proposed review — XNU publishes architecture-specific machine/profile.h, but no rule maps it to the distinct root profile.h path.
+- `string_x86.h` — proposed include — The source is installed provisionally from libplatform, but its public SDK install rule is unproven.
+- `sysdir.h` — proposed review — Used by CoreFoundation source, but a public Apple OSS header source and install rule remain unlocated.
+- `timingsafe.h` — proposed include — The source is installed provisionally from libplatform, but its public SDK install rule is unproven.
+- `unwind_arm_ehabi.h` — proposed review — The pinned Apple libunwind public script copies only three include files and does not provide this extra SDK header.
+- `usbuf.h` — proposed review — No matching pinned Apple OSS header or public installation rule has been identified.
 
 ## `os/` (7)
 
-- `os/activity.h` — proposed review
-- `os/arch/arm64.h` — proposed review
+- `os/activity.h` — proposed review — Public user-level logging header source and install rule remain unlocated.
+- `os/arch/arm64.h` — proposed review — XNU has this source file, but its os/arch public CopyFiles phases are empty in the pinned project.
 - `os/log.h` — proposed review — XNU provides only a kernel-side os/log.h; public user header source remains unresolved.
-- `os/security_config.h` — proposed include
-- `os/signpost.h` — proposed review
+- `os/security_config.h` — proposed include — The source is installed provisionally from libplatform, but its public SDK install rule is unproven.
+- `os/signpost.h` — proposed review — Public user-level logging header source and install rule remain unlocated.
 - `os/trace.h` — proposed review — XNU provides only a kernel-side os/trace.h; public user header source remains unresolved.
-- `os/trace_base.h` — proposed review
+- `os/trace_base.h` — proposed review — Public user-level tracing header source and install rule remain unlocated.
 
 ## `libDER/` (2)
 
-- `libDER/DERItem.h` — proposed review
-- `libDER/libDER_config.h` — proposed review
+- `libDER/DERItem.h` — proposed review — XNU includes this file under EXTERNAL_HEADERS, but no public usr/include/libDER installation rule has been proven.
+- `libDER/libDER_config.h` — proposed review — XNU includes this file under EXTERNAL_HEADERS, but no public usr/include/libDER installation rule has been proven.
 
 ## `bsm/` (1)
 
@@ -42,6 +42,6 @@ supported include or omit decision. New SDK paths always need review.
 
 ## `infiniband/` (1)
 
-- `infiniband/verbs.h` — proposed review
+- `infiniband/verbs.h` — proposed review — Likely a separate RDMA library API, but its source and scope decision remain unproven.
 
 ## Installation-only headers needing review

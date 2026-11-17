@@ -130,6 +130,15 @@ class SdkHeaderAuditTest(unittest.TestCase):
             self.assertEqual(noted_entry["decision"], "review")
             self.assertEqual(noted_entry["review_status"], "pending")
             self.assertEqual(noted_entry["reason"], "public source unresolved")
+            installed_note = audit(sdk, installation, resource, {"probe.h"}, set(), [],
+                                   known, notes={"base.h": {
+                                       "reason": "public install rule unresolved",
+                                       "evidence": "source tree checked"}})
+            installed_entry = next(entry for entry in installed_note["entries"]
+                                   if entry["path"] == "base.h")
+            self.assertEqual(installed_entry["decision"], "include")
+            self.assertEqual(installed_entry["review_status"], "pending")
+            self.assertEqual(installed_entry["reason"], "public install rule unresolved")
             with self.assertRaisesRegex(ValueError, "stale or overridden review notes"):
                 audit(sdk, installation, resource, {"probe.h"}, set(), [],
                       known, notes={"probe.h": {

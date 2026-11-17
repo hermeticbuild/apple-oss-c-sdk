@@ -324,6 +324,10 @@ def audit(sdk: Path, installation: Path, resource: Path,
                           evidence=("version-matched C probe closure and verified source" if probed
                                     else (source["selection"] if listed else
                                           "source selection is recorded; need/scope review pending")))
+            if name in notes and not (probed or listed):
+                used_notes.add(name)
+                record.update(reason=notes[name]["reason"],
+                              evidence=notes[name]["evidence"])
         elif closure is not None and name in closure:
             record.update(decision="include",
                           reason="required by the checked-in C probe SDK closure",
@@ -462,7 +466,7 @@ def review_markdown(report: dict) -> str:
         lines.extend((f"## {title} ({len(entries)})", ""))
         for entry in entries:
             suffix = " — Clang resource overlap" if entry.get("compiler_resource_overlap") else ""
-            note = f" — {entry['reason']}" if entry["decision_source"] == "review_note" else ""
+            note = f" — {entry['reason']}" if entry.get("reason") else ""
             lines.append(f"- `{entry['path']}` — proposed {entry['decision']}{suffix}{note}")
         lines.append("")
     lines.extend(("## Installation-only headers needing review", ""))
