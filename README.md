@@ -103,7 +103,7 @@ non-`.h` files, and symlinks into frameworks from C-installation candidates;
 their paths and reasons remain visible in the database. Reviewed directory
 rules in `inputs/sdk-header-decisions.tsv` omit bundled libraries and SDK
 module shims from the core C installation. A `review` decision is explicitly
-unfinished; the current 26.5 snapshot has 278 such paths. Use
+unfinished; the current 26.5 snapshot has 277 such paths. Use
 `--require-decisions` as a gate once all paths have been assessed.
 
 The report flags Clang resource overlaps and `#include_next` use; it never

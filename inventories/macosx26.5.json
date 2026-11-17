@@ -293,8 +293,8 @@
     "compiler_resource_overlaps_among_missing": 3,
     "decisions": {
       "include": 765,
-      "omit": 2427,
-      "review": 278
+      "omit": 2428,
+      "review": 277
     },
     "excluded": {
       "c++": 1685,
@@ -16596,12 +16596,12 @@
     {
       "compiler_resource_overlap": true,
       "compiler_uses_include_next": true,
-      "decision": "review",
-      "decision_source": "unreviewed",
+      "decision": "omit",
+      "decision_source": "manual",
       "in_probe_closure": false,
       "path": "float.h",
       "probe_lookup_candidate": true,
-      "reason": "compiler header overlaps SDK path; assess include_next and API parity",
+      "reason": "Pinned Clang resource float.h supplies the C constants on Apple targets; its SDK include_next branches are for MVS, MinGW, MSVC, and AIX.",
       "state": "missing"
     },
     {
@@ -26249,6 +26249,7 @@
     "cups/*": 15,
     "curl/*": 11,
     "editline/*": 1,
+    "float.h": 1,
     "libexslt/*": 3,
     "libxml/*": 47,
     "libxslt/*": 21,
