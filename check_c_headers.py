@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check C headers with no include path outside this sysroot and Clang."""
+"""Check C headers and semantic fixtures with only this sysroot and Clang."""
 
 import argparse
 import subprocess
@@ -23,6 +23,15 @@ HEADERS = (
     "mach-o/dyld.h", "libkern/OSByteOrder.h", "CoreFoundation/CoreFoundation.h",
 )
 
+ROOT = Path(__file__).resolve().parent
+FIXTURES = (
+    ROOT / "tests/c/fenv_abi.c",
+    ROOT / "tests/c/stdatomic_init.c",
+    ROOT / "tests/c/target_conditionals.c",
+    ROOT / "tests/c/corefoundation_types.c",
+    ROOT / "tests/c/sandbox_signature.c",
+)
+
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -33,39 +42,29 @@ def main() -> int:
     sdk = args.sysroot.resolve()
     resource = subprocess.check_output([args.clang, "-print-resource-dir"], text=True).strip()
     failures = []
+    cases = [(header, "-", f"#include <{header}>\n") for header in HEADERS]
+    cases.extend((fixture.relative_to(ROOT).as_posix(), str(fixture), None)
+                 for fixture in FIXTURES)
     for arch in ("arm64", "x86_64"):
-        for header in HEADERS:
-            source = f"#include <{header}>\n"
-            if header == "fenv.h":
-                source += '_Static_assert(sizeof(fenv_t) == 16, "ABI");\n'
-            if header == "stdatomic.h":
-                source += "atomic_flag flag = ATOMIC_FLAG_INIT;\n"
-            if header == "TargetConditionals.h":
-                source += "#if !TARGET_OS_MAC || TARGET_OS_LINUX\n#error wrong macOS target flags\n#endif\n"
-                if arch == "arm64":
-                    source += "#if !TARGET_CPU_ARM64 || TARGET_CPU_X86_64\n#error wrong arm64 target flags\n#endif\n"
-                else:
-                    source += "#if TARGET_CPU_ARM64 || !TARGET_CPU_X86_64\n#error wrong x86_64 target flags\n#endif\n"
-            if header == "CoreFoundation/CoreFoundation.h":
-                source += "CFBundleRef bundle = 0;\n"
-            if header == "sandbox.h":
-                source += "int (*init_fn)(const char *, uint64_t, char **) = sandbox_init;\n"
-            command = [
-                args.clang, "-target", f"{arch}-apple-macos14.0", "-isysroot",
-                str(sdk), "-nostdinc", "-isystem", resource + "/include",
-                "-isystem", str(sdk / "usr/include"),
-                "-F", str(sdk / "System/Library/Frameworks"),
-                "-std=c11", "-fsyntax-only", "-x", "c", "-",
-            ]
-            result = subprocess.run(command, input=source, text=True,
+        command = [
+            args.clang, "-target", f"{arch}-apple-macos14.0", "-isysroot",
+            str(sdk), "-nostdinc", "-isystem", resource + "/include",
+            "-isystem", str(sdk / "usr/include"),
+            "-F", str(sdk / "System/Library/Frameworks"),
+            "-std=c11", "-fsyntax-only", "-x", "c",
+        ]
+        for label, path, source in cases:
+            result = subprocess.run([*command, path], input=source, text=True,
                                     capture_output=True)
             if result.returncode:
                 errors = [line for line in result.stderr.splitlines()
                           if "error:" in line]
-                failures.append((arch, header, errors[:2]))
-    print(f"{len(HEADERS) * 2 - len(failures)}/{len(HEADERS) * 2} passes")
-    for arch, header, lines in failures:
-        print(f"FAIL {arch} {header}")
+                failures.append((arch, label, errors[:2]))
+    total = (len(HEADERS) + len(FIXTURES)) * 2
+    print(f"{total - len(failures)}/{total} passes "
+          f"({len(HEADERS)} header includes and {len(FIXTURES)} C fixtures per target)")
+    for arch, label, lines in failures:
+        print(f"FAIL {arch} {label}")
         print("\n".join(lines))
     return 1 if failures else 0
 
