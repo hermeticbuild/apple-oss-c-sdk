@@ -12,14 +12,16 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parent
-ROOTS = ROOT / "inputs/c-probe-headers.txt"
+ROOTS = ROOT / "inputs/c-probe.c"
 TARGETS = ("arm64", "x86_64")
+COMBINED = "__combined__"
 ROOT_FLAGS = {"ucontext.h": ("-D_XOPEN_SOURCE=700",)}
 
 
 def header_roots() -> list[str]:
-    roots = [line.strip() for line in ROOTS.read_text().splitlines()
-             if line.strip() and not line.startswith("#")]
+    roots = re.findall(r"^#include\s*<([^>]+)>", ROOTS.read_text(), re.MULTILINE)
+    if not roots:
+        raise ValueError(f"no include roots in {ROOTS}")
     if len(roots) != len(set(roots)):
         raise ValueError(f"duplicate header in {ROOTS}")
     return roots
@@ -69,9 +71,12 @@ def run_probe(clang: Path, resource: Path, sysroot: Path, arch: str,
         "-F", str(sysroot / "System/Library/Frameworks"),
         "-std=c11", *ROOT_FLAGS.get(header, ()),
         "-fsyntax-only", "-H", "-MD", "-MF", str(depfile),
-        "-MT", "probe", "-x", "c", "-",
+        "-MT", "probe", "-x", "c",
     ]
-    result = subprocess.run(command, input=f"#include <{header}>\n",
+    combined = header == COMBINED
+    command.append(str(ROOTS) if combined else "-")
+    result = subprocess.run(command,
+                            input=None if combined else f"#include <{header}>\n",
                             text=True, capture_output=True)
     if result.returncode:
         return {}, result.stderr.strip()
@@ -85,6 +90,8 @@ def run_probe(clang: Path, resource: Path, sysroot: Path, arch: str,
         found[kind].add(relative)
     looked_up = {"resource": set(), "sysroot": set()}
     for path in dependencies(depfile):
+        if combined and path == ROOTS.resolve():
+            continue
         kind, relative = classify(path, resource, sysroot)
         if relative not in found[kind]:
             looked_up[kind].add(relative)
@@ -98,6 +105,8 @@ def compare(actual: dict, reference: dict, sysroot: Path,
     gaps = []
     if actual["schema"] != reference["schema"]:
         gaps.append("reference closure schema differs")
+    if actual["probe_sha256"] != reference["probe_sha256"]:
+        gaps.append("checked-in C probe differs from reference closure")
     if actual["compiler"] != reference["compiler"]:
         gaps.append("compiler version differs from reference closure")
     if actual["compiler_binary_sha256"] != reference["compiler_binary_sha256"]:
@@ -141,7 +150,7 @@ def main() -> int:
     sdk_settings = sysroot / "SDKSettings.json"
     sdk = json.loads(sdk_settings.read_text()) if sdk_settings.is_file() else {}
     manifest = {
-        "schema": 1,
+        "schema": 2,
         "compiler": version,
         "compiler_binary_sha256": hashlib.sha256(clang.read_bytes()).hexdigest(),
         "resource_headers_sha256": digest_tree(resource),
@@ -149,6 +158,7 @@ def main() -> int:
         "target": "macos14.0",
         "root_flags": {header: list(flags) for header, flags in ROOT_FLAGS.items()},
         "roots": str(ROOTS.relative_to(ROOT)),
+        "probe_sha256": hashlib.sha256(ROOTS.read_bytes()).hexdigest(),
         "targets": {},
     }
     errors = []
@@ -157,7 +167,7 @@ def main() -> int:
         depfile = Path(temporary) / "probe.d"
         for arch in TARGETS:
             entries = manifest["targets"][arch] = {}
-            for header in roots:
+            for header in (COMBINED, *roots):
                 found, error = run_probe(clang, resource, sysroot, arch,
                                          header, depfile)
                 entries[header] = {"error": error} if error else found
@@ -169,7 +179,8 @@ def main() -> int:
     args.out.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
     gaps = compare(manifest, json.loads(args.reference.read_text()),
                    sysroot, resource) if args.reference else []
-    print(f"{len(roots) * len(TARGETS) - len(errors)}/{len(roots) * len(TARGETS)} probes passed")
+    total = (len(roots) + 1) * len(TARGETS)
+    print(f"{total - len(errors)}/{total} probes passed (combined + individual)")
     for line in errors + gaps:
         print(line)
     return 1 if errors or gaps else 0

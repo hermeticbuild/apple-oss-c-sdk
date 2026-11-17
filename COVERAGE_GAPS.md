@@ -1,13 +1,15 @@
 # C coverage gaps against macOS SDK 26.5
 
-Reference: `inputs/c-probe-headers.txt`, LLVM 23.1.2 minimal prebuilt
+Reference: `inputs/c-probe.c`, LLVM 23.1.2 minimal prebuilt
 `llvm-23.1.2-2` for Darwin arm64, `-target arm64-apple-macos14.0` and
 `x86_64-apple-macos14.0`, `-std=c11`. The reference uses an official SDK only
 as a local compile/coverage oracle. No SDK header content enters the installer.
 
-Both architecture reference runs pass all 179 roots (358 probes). The current
-Apple OSS installation passes 354/358; `simd/simd.h` and `xpc/xpc.h` fail on
-both architectures. The path comparison reports 35 unique absent files:
+Both architecture reference runs pass the combined C file and all 179 roots
+(360 probes). The current Apple OSS installation passes 354/360: the combined
+file stops at `simd/simd.h`, and the isolated `simd/simd.h` and `xpc/xpc.h`
+roots fail on both architectures. The path comparison reports 35 unique
+absent files:
 
 | Group | Missing paths | Source status |
 | --- | ---: | --- |

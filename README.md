@@ -31,7 +31,7 @@ resource directory and this installation; it checks both target architectures.
 
 ## C coverage reference
 
-`inputs/c-probe-headers.txt` is the checked-in, extensible root list, seeded
+`inputs/c-probe.c` is the checked-in, extensible translation unit, seeded
 from Zig's `tools/macos-headers.c` at commit
 `6b0a1d8b426a9b60f999358d4b7f57aa0b231777` without Objective-C roots.
 The reference run requires an explicit, locally installed macOS SDK, used only
@@ -48,14 +48,16 @@ python3 probe_c_closure.py --clang "$LLVM_CLANG" \
   --out /tmp/apple-c-generated-26.5.json
 ```
 
-The probe compiles each root independently for arm64 and x86_64 with only the
+The probe compiles that single C file and then each include independently for
+arm64 and x86_64 with only the
 minimal prebuilt's resource headers and the chosen sysroot on the include
 path. Its manifest records compiler and resource-header hashes, SDK version
 when available, actual include closure from Clang `-H`, and dependency-only
 lookup candidates from `-MD`. The latter can include a header queried by
 `__has_include_next` without actually opening it. Comparison requires every
 actual SDK header path to exist in our installation, plus a successful compile
-of every root. Resource headers stay compiler-owned. The local reference
+of the combined file and every root. The combined run reached 12 `xlocale/*`
+headers that the independent runs did not. Resource headers stay compiler-owned. The local reference
 manifest is validation evidence, not a generation input.
 
 `inputs/header-sources.tsv` maps 162 installed header paths to pinned Apple
@@ -122,8 +124,9 @@ LLVM's libc++ headers. The path audit found 860 shared `usr/include` C paths,
 Clang when comparing with SDK Gen. These counts do not establish semantic parity.
 
 Expanded qualification with the pinned LLVM minimal prebuilt and official
-macOS 26.5 SDK: 358/358 reference C probes compile. The current generated C
-installation compiles 354/358; only the SIMD and XPC roots fail on both
+macOS 26.5 SDK: 360/360 reference C probes compile. The current generated C
+installation compiles 354/360; the combined probe stops at SIMD and the
+individual SIMD and XPC roots fail on both
 architectures. The reference include closure has 35 distinct header paths
 absent from the standalone installation; see [COVERAGE_GAPS.md](COVERAGE_GAPS.md).
 After the Apple OSS header additions, the restricted SDK Gen composition
