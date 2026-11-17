@@ -7,14 +7,14 @@ from pathlib import Path
 
 HEADERS = (
     "Availability.h", "assert.h", "complex.h", "copyfile.h", "ctype.h",
-    "dlfcn.h", "dirent.h", "errno.h", "execinfo.h", "fcntl.h",
-    "fenv.h", "float.h", "fnmatch.h", "glob.h", "inttypes.h",
+    "device/device_port.h", "dlfcn.h", "dirent.h", "errno.h", "execinfo.h", "fcntl.h",
+    "fenv.h", "float.h", "fnmatch.h", "glob.h", "hfs/hfs_mount.h", "inttypes.h",
     "langinfo.h", "limits.h", "locale.h", "math.h", "pthread.h",
     "pwd.h", "sched.h", "setjmp.h", "signal.h", "spawn.h",
     "stdarg.h", "stdatomic.h", "stdbool.h", "stddef.h", "stdint.h", "stdio.h",
     "stdlib.h", "string.h", "strings.h", "sandbox.h", "sys/cdefs.h", "sys/dirent.h",
     "sys/mman.h", "sys/param.h", "sys/resource.h", "sys/select.h",
-    "sys/socket.h", "sys/stat.h", "sys/sysctl.h", "sys/time.h",
+    "sys/socket.h", "sys/stat.h", "sys/syscall.h", "sys/sysctl.h", "sys/time.h",
     "sys/types.h", "sys/uio.h", "sys/wait.h", "termios.h", "time.h",
     "tgmath.h", "TargetConditionals.h", "unistd.h", "wchar.h", "wctype.h", "mach/mach.h",
     "mach-o/dyld.h", "libkern/OSByteOrder.h", "CoreFoundation/CoreFoundation.h",

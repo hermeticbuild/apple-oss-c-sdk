@@ -133,12 +133,14 @@
 #include <crt_externs.h>
 #include <db.h>
 #include <device/device_types.h>
+#include <device/device_port.h>
 #include <dispatch/dispatch.h>
 #include <err.h>
 #include <execinfo.h>
 #include <fts.h>
 #include <getopt.h>
 #include <hfs/hfs_format.h>
+#include <hfs/hfs_mount.h>
 #include <hfs/hfs_unistr.h>
 #include <ifaddrs.h>
 #include <libkern/OSAtomic.h>
@@ -211,6 +213,7 @@
 #include <sys/paths.h>
 #include <sys/random.h>
 #include <sys/sysctl.h>
+#include <sys/syscall.h>
 #include <sys/timex.h>
 #include <sysexits.h>
 #include <ucontext.h>
