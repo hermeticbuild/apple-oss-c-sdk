@@ -89,6 +89,7 @@ This composition is for local validation only. SDK Gen's TBD export provenance
 and redistribution rights are outside this C-header recipe. The
 `CoreFoundation.tbd` amendment is also a separately recorded link asset, not
 part of the standalone C installation.
+See [LICENSING.md](LICENSING.md) for the preliminary source and terms review.
 The LLVM binaries currently load `/usr/lib/libc++.1.dylib`; the LLVM 23 archive
 supplements it at link time. Hermetic LLVM's existing `libcxx.shared` target
 currently cannot supply a macOS dylib: with duplicate libc++ headers removed
