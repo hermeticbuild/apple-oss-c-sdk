@@ -37,8 +37,23 @@ resource directory and this installation; it checks both target architectures.
 ## C coverage reference
 
 `inputs/c-probe.c` is the checked-in, extensible translation unit, seeded
-from Zig's `tools/macos-headers.c` at commit
-`6b0a1d8b426a9b60f999358d4b7f57aa0b231777` without Objective-C roots.
+from [Zig's `tools/macos-headers.c`](https://codeberg.org/ziglang/zig/src/commit/6b0a1d8b426a9b60f999358d4b7f57aa0b231777/tools/macos-headers.c).
+Its 179 roots are grouped by their first matching inventory: 27 of 29
+[ISO C11 standard headers](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf)
+(including all 15 [ANSI C89 / ISO C90](https://www.iso.org/standard/17782.html)
+headers), 55 additional
+[POSIX.1-2017 Issue 7 headers](https://pubs.opengroup.org/onlinepubs/9699919799/basedefs/contents.html),
+and 97 macOS/BSD, framework, or other extension headers. Counting the 24
+C11/POSIX overlaps, the probe covers 79 of the 82 POSIX header entries.
+The five unseeded standard roots (`threads.h`, `uchar.h`, `mqueue.h`,
+`stropts.h`, `trace.h`) are absent from the macOS 26.5 SDK reference. These
+are header-name coverage counts, not claims of API or standards conformance.
+Newer standard editions are outside this inventory.
+The probe also records its Zig seed differences: five `objc/*` roots are
+outside its C-only scope, and `net/ipsec_offload.h` is absent from the SDK;
+`sandbox.h`, `TargetConditionals.h`, and `CoreFoundation/CoreFoundation.h` are
+added. See `COVERAGE_GAPS.md` for included roots that our installation still
+lacks.
 The reference run requires an explicit, locally installed macOS SDK, used only
 to observe header paths and compile the probes. No SDK file is copied into the
 C installation.
