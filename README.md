@@ -90,7 +90,8 @@ python3 audit_sdk_c_headers.py --clang "$LLVM_CLANG" \
   --sdk /absolute/path/to/MacOSX26.5.sdk \
   --installation /tmp/apple-oss-c-headers \
   --reference /tmp/apple-c-reference-26.5.json \
-  --out inventories/macosx26.5.json
+  --out inventories/macosx26.5.json \
+  --review-out inventories/macosx26.5-review.md
 ```
 
 The checked-in `inventories/macosx26.5.json` is a versioned path database of
@@ -105,6 +106,7 @@ rules in `inputs/sdk-header-decisions.tsv` omit bundled libraries and SDK
 module shims from the core C installation. A `review` decision is explicitly
 unfinished; the current 26.5 snapshot has 277 such paths. Use
 `--require-decisions` as a gate once all paths have been assessed.
+`inventories/macosx26.5-review.md` groups all pending paths for human review.
 
 The report flags Clang resource overlaps and `#include_next` use; it never
 silently treats a compiler overlap as installed. An optional `--reference`

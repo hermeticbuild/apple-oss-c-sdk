@@ -163,6 +163,28 @@ def audit(sdk: Path, installation: Path, resource: Path,
     }
 
 
+def review_markdown(report: dict) -> str:
+    groups: dict[str, list[dict]] = {}
+    for entry in report["entries"]:
+        if entry["decision"] == "review":
+            parts = entry["path"].split("/")
+            group = parts[0] if len(parts) > 1 else "<root>"
+            groups.setdefault(group, []).append(entry)
+    total = sum(map(len, groups.values()))
+    lines = [f"# macOS SDK {report['sdk'].get('Version', '?')} C headers for review",
+             "", f"{total} paths absent from the C installation. These were not reached",
+             "by the current C probe and have no reviewed omit rule. Clang resource",
+             "overlaps still require an API-parity decision.", ""]
+    for group, entries in sorted(groups.items(), key=lambda item: (-len(item[1]), item[0])):
+        title = "Root-level" if group == "<root>" else f"`{group}/`"
+        lines.extend((f"## {title} ({len(entries)})", ""))
+        for entry in entries:
+            suffix = " — Clang resource overlap" if entry.get("compiler_resource_overlap") else ""
+            lines.append(f"- `{entry['path']}`{suffix}")
+        lines.append("")
+    return "\n".join(lines)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--sdk", required=True, type=Path)
@@ -175,6 +197,8 @@ def main() -> None:
                         default=Path(__file__).resolve().parent / "inputs/sdk-header-decisions.tsv",
                         help="reviewed include/omit decisions; defaults to the checked-in ledger")
     parser.add_argument("--out", required=True, type=Path)
+    parser.add_argument("--review-out", type=Path,
+                        help="optional Markdown list of paths still needing a decision")
     parser.add_argument("--require-decisions", action="store_true",
                         help="fail if any in-scope path still needs review")
     args = parser.parse_args()
@@ -205,6 +229,9 @@ def main() -> None:
         }
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
+    if args.review_out:
+        args.review_out.parent.mkdir(parents=True, exist_ok=True)
+        args.review_out.write_text(review_markdown(report))
     counts = report["counts"]
     print(f"SDK {report['sdk'].get('Version', '?')}: "
           f"{counts['installed']} installed, {counts['missing']} absent; "
