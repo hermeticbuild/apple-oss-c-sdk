@@ -70,3 +70,21 @@
 [submodule "sources/swift-corelibs-foundation"]
 	path = sources/swift-corelibs-foundation
 	url = https://github.com/swiftlang/swift-corelibs-foundation.git
+[submodule "sources/Librpcsvc"]
+	path = sources/Librpcsvc
+	url = https://github.com/apple-oss-distributions/Librpcsvc.git
+[submodule "sources/OpenBSM"]
+	path = sources/OpenBSM
+	url = https://github.com/apple-oss-distributions/OpenBSM.git
+[submodule "sources/libresolv"]
+	path = sources/libresolv
+	url = https://github.com/apple-oss-distributions/libresolv.git
+[submodule "sources/mDNSResponder"]
+	path = sources/mDNSResponder
+	url = https://github.com/apple-oss-distributions/mDNSResponder.git
+[submodule "sources/syslog"]
+	path = sources/syslog
+	url = https://github.com/apple-oss-distributions/syslog.git
+[submodule "sources/architecture"]
+	path = sources/architecture
+	url = https://github.com/apple-oss-distributions/architecture.git

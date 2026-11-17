@@ -33,6 +33,8 @@ def generate(mig: Path, clang: Path, sysroot: Path, out: Path) -> None:
     for arch, mig_arch in (("arm64", "armv7"), ("x86_64", "i386")):
         destination = out / arch / "mach"
         destination.mkdir(parents=True)
+        server_destination = out / arch / "servers"
+        server_destination.mkdir()
         # mig(1) documents -cc as the way to select its C preprocessor.
         common = [str(mig), "-cc", str(clang), "-novouchers", "-arch", mig_arch,
                   "-isysroot", str(sysroot), "-I" + str(XNU / "osfmk")]
@@ -53,12 +55,23 @@ def generate(mig: Path, clang: Path, sysroot: Path, out: Path) -> None:
                                 str(XNU / "osfmk/mach" / f"{name}.defs")]
             subprocess.run(command, check=True)
 
+        script = (XNU / "libsyscall/xcodescripts/mach_install_mig.sh").read_text()
+        if '-header "$SERVER_HEADER_DST/netname.h"' not in script:
+            raise ValueError("XNU netname MIG install rule changed")
+        command = common + ["-user", "/dev/null", "-server", "/dev/null",
+                            "-header", str(server_destination / "netname.h"),
+                            str(XNU / "libsyscall/mach/servers/netname.defs")]
+        subprocess.run(command, check=True)
+
     arm = out / "arm64/mach"
     intel = out / "x86_64/mach"
     mismatched = [p.name for p in arm.glob("*.h")
                   if p.read_bytes() != (intel / p.name).read_bytes()]
     if mismatched:
         raise ValueError(f"architecture-specific MIG output: {mismatched}")
+    if ((out / "arm64/servers/netname.h").read_bytes() !=
+            (out / "x86_64/servers/netname.h").read_bytes()):
+        raise ValueError("architecture-specific netname MIG output")
     print(f"generated {len(user_names)} user + {len(server_names)} server headers per architecture")
 
 

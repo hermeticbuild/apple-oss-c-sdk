@@ -6,11 +6,14 @@ import subprocess
 from pathlib import Path
 
 HEADERS = (
-    "Availability.h", "assert.h", "complex.h", "copyfile.h", "ctype.h",
+    "Availability.h", "assert.h", "checkint.h", "complex.h", "copyfile.h", "ctype.h",
     "device/device_port.h", "dlfcn.h", "dirent.h", "errno.h", "execinfo.h", "fcntl.h",
     "fenv.h", "float.h", "fnmatch.h", "glob.h", "hfs/hfs_mount.h", "inttypes.h",
     "langinfo.h", "limits.h", "locale.h", "math.h", "pthread.h",
-    "pwd.h", "sched.h", "setjmp.h", "signal.h", "spawn.h",
+    "pthread_impl.h", "pthread_spis.h",
+    "pwd.h", "sched.h", "servers/key_defs.h", "servers/ls_defs.h",
+    "servers/netname.h", "servers/netname_defs.h", "servers/nm_defs.h",
+    "setjmp.h", "signal.h", "spawn.h",
     "stdarg.h", "stdatomic.h", "stdbool.h", "stddef.h", "stdint.h", "stdio.h",
     "stdlib.h", "string.h", "strings.h", "sandbox.h", "sys/cdefs.h", "sys/dirent.h",
     "sys/mman.h", "sys/param.h", "sys/resource.h", "sys/select.h",
