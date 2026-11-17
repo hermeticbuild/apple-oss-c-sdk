@@ -137,9 +137,33 @@ def installed_provenance(installation: Path) -> dict[str, dict[str, str]]:
 
 
 def public_install_provenance(source: dict[str, str]) -> bool:
+    if (source["origin"].startswith("sources/architecture/") and
+            source["selection"] == "architecture/Makefile:copyhdrs"):
+        return True
     if (source["origin"].startswith("generated:system-mig:") and
             source["selection"] ==
             "xnu/libsyscall/xcodescripts/mach_install_mig.sh:public"):
+        return True
+    if (source["origin"].startswith("sources/xnu/libsyscall/mach/mach/") and
+            source["selection"] ==
+            "xnu/libsyscall/xcodescripts/mach_install_mig.sh:MACH_HDRS"):
+        return True
+    if (source["origin"].startswith("sources/xnu/libsyscall/mach/servers/") and
+            source["selection"] ==
+            "xnu/libsyscall/xcodescripts/mach_install_mig.sh:SERVER_HDRS"):
+        return True
+    if (source["origin"] == "sources/xnu/libsyscall/os/proc.h" and
+            source["selection"] ==
+            "xnu/libsyscall/Libsyscall.xcodeproj:OS_PUBLIC_HEADERS_FOLDER_PATH"):
+        return True
+    if (re.fullmatch(r"generated:unifdef:sources/xnu/osfmk/(?:arm|arm64|i386)/asm\.h",
+                     source["origin"]) and
+            re.fullmatch(r"osfmk/mach/(?:arm|arm64|i386)/Makefile:INSTALL_MD_GEN_LIST",
+                         source["selection"])):
+        return True
+    if (source["origin"] == "generated:system-mig:netname.h via generate_mig.py" and
+            source["selection"] ==
+            "xnu/libsyscall/xcodescripts/mach_install_mig.sh:netname"):
         return True
     if (source["origin"].startswith("generated:sys/syscall.h via ") and
             source["selection"] == "xnu/bsd/sys/Makefile:INSTALL_MI_GEN_LIST"):
@@ -148,6 +172,9 @@ def public_install_provenance(source: dict[str, str]) -> bool:
             source["selection"] == "hfs Xcode Public Headers"):
         return True
     if (source["origin"].startswith("sources/Libc/include/") and
+            source["selection"] == "Libc/xcodescripts/headers.sh:public"):
+        return True
+    if (source["origin"].startswith("generated:libc via inputs/header-sources.tsv:") and
             source["selection"] == "Libc/xcodescripts/headers.sh:public"):
         return True
     if (source["origin"].startswith(("sources/Libc/gen/", "sources/Libc/stdtime/")) and
@@ -164,6 +191,27 @@ def public_install_provenance(source: dict[str, str]) -> bool:
     if (source["origin"].startswith("sources/Libinfo/") and
             source["selection"] == "Libinfo/xcodescripts/install_files.sh:macosx"):
         return True
+    if (source["origin"] == "derived:sources/libresolv/xcodescripts/headers.sh" and
+            source["selection"] ==
+            "libresolv/xcodescripts/headers.sh:arpa/nameser.h"):
+        return True
+    if (source["origin"].startswith("generated:rpcgen:rpcsvc/") and
+            source["selection"] == "Librpcsvc/xcodescripts/install_rpcsvc.sh:rpcgen"):
+        return True
+    if (source["origin"].startswith("sources/libunwind/libunwind/include/") and
+            source["selection"] == "libunwind/apple-install-libunwind.sh:include"):
+        return True
+    if (source["origin"].startswith(("sources/OpenBSM/openbsm/bsm/",
+                                      "derived:sources/OpenBSM/openbsm/bsm/")) and
+            source["selection"] ==
+            "OpenBSM/OpenBSM.xcodeproj/project.pbxproj:usr/include/bsm"):
+        return True
+    for repo in ("Libnotify", "libdispatch", "libpthread", "removefile", "copyfile",
+                 "libresolv", "syslog"):
+        if (source["origin"].startswith(f"sources/{repo}/") and
+                source["selection"] ==
+                f"{repo}/{repo}.xcodeproj/project.pbxproj:Public"):
+            return True
     return (source["origin"].startswith("sources/xnu/") and
             bool(re.fullmatch(r"[^:]+/Makefile:INSTALL_(?:MI|MD)_LIST",
                               source["selection"])))

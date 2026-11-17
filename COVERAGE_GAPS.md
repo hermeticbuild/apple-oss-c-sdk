@@ -5,10 +5,10 @@ Reference: `inputs/c-probe.c`, LLVM 23.1.2 minimal prebuilt
 `x86_64-apple-macos14.0`, `-std=c11`. The reference uses an official SDK only
 as a local compile/coverage oracle. No SDK header content enters the installer.
 
-Both architecture reference runs pass the combined C file and all 182 roots
-(366 probes). The current Apple OSS installation passes 360/366: the combined
+Both architecture reference runs pass the combined C file and all 237 roots
+(476 probes). The current Apple OSS installation passes 470/476: the combined
 file stops at `simd/simd.h`, and the isolated `simd/simd.h` and `xpc/xpc.h`
-roots fail on both architectures. The path comparison reports 35 unique
+roots fail on both architectures. The path comparison reports 36 unique
 absent files:
 
 | Group | Missing paths | Source status |
@@ -17,6 +17,7 @@ absent files:
 | SIMD | 16 | No first-party Apple OSS source or public install rule identified. Keep unresolved. |
 | XPC | 11 | No `apple-oss-distributions/libxpc` or `xpc` repository identified. Keep unresolved. |
 | `tgmath.h` | 1 | Clang's resource `tgmath.h` uses `#include_next` on hosted Apple targets. The generated installation compiles using its fallback, but no independent Apple OSS source for the SDK's extra header was located. Keep as API parity gap. |
+| `unwind_itanium.h` | 1 | Xcode's `unwind.h` includes this file. The pinned Apple `libunwind` public install script copies only `__libunwind_config.h`, `libunwind.h`, and `unwind.h`; no Apple OSS source for this extra header has been identified. Keep unresolved. |
 
 Final source sweep: the current `apple-oss-distributions` repository inventory
 has `CF` and `Libm`, but no named SIMD or XPC source repository; its
@@ -45,6 +46,16 @@ SIMD paths, each under `usr/include/simd/`: `base.h`, `common.h`,
 XPC paths, each under `usr/include/xpc/`: `activity.h`, `availability.h`,
 `base.h`, `connection.h`, `debug.h`, `endpoint.h`, `listener.h`,
 `peer_requirement.h`, `rich_error.h`, `session.h`, `xpc.h`.
+
+The pinned Apple `architecture/Makefile:copyhdrs` installs all 19 headers
+for the arm and i386 families, and all 19 source files match Xcode 26.5 byte
+for byte. Fourteen are individually compilable C probe roots for both targets.
+The remaining five are installed but intentionally not C roots: the official
+SDK's `architecture/alignment.h` fails on both targets;
+`architecture/i386/pio.h` fails on arm64; and
+`architecture/arm/{asm_help,cframe,reg_help}.h` fail on x86_64. They carry
+architecture-specific or assembler-only definitions. The standalone recipe
+does not have a source gap for these paths.
 
 `float.h` is **not** an absent required SDK header. Clang's resource
 `float.h` is the only one opened by the reference compilation. `-MD` also

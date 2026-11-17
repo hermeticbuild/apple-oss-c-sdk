@@ -2,7 +2,4 @@ path	sdk	reason	evidence
 bootstrap.h	macosx26.5	launchd publishes servers/bootstrap.h, but the SDK also has a distinct root bootstrap.h; its first-party install source is unresolved.	Pinned launchd Xcode public header phase and postflight move; SDK 26.5 root path.
 os/log.h	macosx26.5	XNU provides only a kernel-side os/log.h; public user header source remains unresolved.	Pinned XNU libkern/os/log.h and libkern/os/Makefile public install list.
 os/trace.h	macosx26.5	XNU provides only a kernel-side os/trace.h; public user header source remains unresolved.	Pinned XNU libkern/os/trace.h and libkern/os/Makefile public install list.
-bsm/audit_filter.h	macosx26.5	Absent from pinned XNU public bsm install list; OpenBSM source evaluation pending.	Pinned XNU bsd/bsm/Makefile; SDK 26.5 path.
-bsm/audit_session.h	macosx26.5	Absent from pinned XNU public bsm install list; OpenBSM source evaluation pending.	Pinned XNU bsd/bsm/Makefile; SDK 26.5 path.
-bsm/audit_uevents.h	macosx26.5	Absent from pinned XNU public bsm install list; OpenBSM source evaluation pending.	Pinned XNU bsd/bsm/Makefile; SDK 26.5 path.
-bsm/libbsm.h	macosx26.5	Absent from pinned XNU public bsm install list; OpenBSM source evaluation pending.	Pinned XNU bsd/bsm/Makefile; SDK 26.5 path.
+bsm/audit_session.h	macosx26.5	Absent from XNU and OpenBSM public header installs; first-party source remains unresolved.	Pinned XNU bsd/bsm/Makefile and OpenBSM Xcode usr/include/bsm CopyFiles phase; SDK 26.5 path.

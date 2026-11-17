@@ -5,13 +5,13 @@
 // TargetConditionals.h, and CoreFoundation/CoreFoundation.h.
 // ucontext.h requires _XOPEN_SOURCE; _DARWIN_C_SOURCE retains Darwin extensions.
 //
-// Header-inclusion coverage (179 unique roots, not API conformance):
+// Header-inclusion coverage (237 unique roots, not API conformance):
 // Inventory editions are fixed here; newer C/POSIX editions are not counted.
 //   ISO C11 (WG14 N1570, 7.1.2): 27/29; absent: threads.h, uchar.h.
 //   ANSI C89 (subset of C11): 15/15.
 //   POSIX.1-2017 Issue 7 (Base Definitions, Ch. 13): 79/82;
 //     absent: mqueue.h, stropts.h, trace.h. 24 POSIX roots overlap C11.
-//   macOS/BSD, frameworks, and other extensions: 97 additional roots.
+//   macOS/BSD, frameworks, and other extensions: 155 additional roots.
 // The five absent standard roots are absent from both the macOS 26.5 SDK and
 // our pinned Clang resource headers; POSIX counts include optional facilities.
 // See COVERAGE_GAPS.md for roots included here but missing from our installation.
@@ -116,11 +116,12 @@
 #include <utmpx.h>
 #include <wordexp.h>
 
-// macOS/BSD, frameworks, and other extensions: 97 roots.
+// macOS/BSD, frameworks, and other extensions: 155 roots.
 // Zig seed: https://codeberg.org/ziglang/zig/src/commit/6b0a1d8b426a9b60f999358d4b7f57aa0b231777/tools/macos-headers.c
 // Unseeded Zig roots: objc/NSObjCRuntime.h, objc/NSObject.h, objc/message.h,
 // objc/objc-runtime.h, objc/objc.h (outside C-only scope); net/ipsec_offload.h
-// (absent from macOS 26.5 SDK). Three additional roots are listed above.
+// (absent from macOS 26.5 SDK). Additional roots exercise Apple OSS public
+// install manifests.
 #include <AssertMacros.h>
 #include <Block.h>
 #include <CommonCrypto/CommonCrypto.h>
@@ -128,12 +129,42 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <MacTypes.h>
 #include <TargetConditionals.h>
+#include <__libunwind_config.h>
 #include <ar.h>
+#include <asl.h>
+#if defined(APPLE_C_PROBE_ARCHITECTURE_HEADERS)
+// Independently compiled roots. Some architecture headers define overlapping
+// assembler helpers; five more public paths fail even against Xcode 26.5 when
+// individually included for one or both targets (see COVERAGE_GAPS.md).
+#include <architecture/byte_order.h>
+#include <architecture/arm/byte_order.h>
+#include <architecture/i386/alignment.h>
+#include <architecture/i386/asm_help.h>
+#include <architecture/i386/byte_order.h>
+#include <architecture/i386/cpu.h>
+#include <architecture/i386/desc.h>
+#include <architecture/i386/fpu.h>
+#include <architecture/i386/frame.h>
+#include <architecture/i386/io.h>
+#include <architecture/i386/reg_help.h>
+#include <architecture/i386/sel.h>
+#include <architecture/i386/table.h>
+#include <architecture/i386/tss.h>
+#endif
+#include <atm/atm_types.h>
+#include <arpa/nameser.h>
+#include <bsm/audit_filter.h>
+#include <bsm/audit_uevents.h>
+#include <bsm/libbsm.h>
+#include <checkint.h>
 #include <copyfile.h>
 #include <crt_externs.h>
 #include <db.h>
 #include <device/device_types.h>
 #include <device/device_port.h>
+#include <dns.h>
+#include <dns_sd.h>
+#include <dns_util.h>
 #include <dispatch/dispatch.h>
 #include <err.h>
 #include <execinfo.h>
@@ -153,6 +184,7 @@
 #include <libkern/OSThermalNotification.h>
 #include <libkern/OSTypes.h>
 #include <libproc.h>
+#include <libunwind.h>
 #include <mach-o/arch.h>
 #include <mach-o/arm/reloc.h>
 #include <mach-o/arm64/reloc.h>
@@ -172,6 +204,13 @@
 #include <mach-o/utils.h>
 #include <mach-o/x86_64/reloc.h>
 #include <mach/clock.h>
+// Assembly helper macros such as addr16 collide with C field names.
+// These three headers are individually compiled roots only.
+#if defined(APPLE_C_PROBE_ASM_HEADERS)
+#include <mach/arm/asm.h>
+#include <mach/arm64/asm.h>
+#include <mach/i386/asm.h>
+#endif
 #include <mach/exception.h>
 #include <mach/mach.h>
 #include <mach/mach_time.h>
@@ -198,10 +237,43 @@
 #include <net/route.h>
 #include <netinet/ip.h>
 #include <netinet/udp.h>
+#include <nameser.h>
 #include <os/lock.h>
+#include <os/proc.h>
 #include <os/os_sync_wait_on_address.h>
 #include <paths.h>
+#include <pthread_impl.h>
+#include <pthread_spis.h>
+#include <resolv.h>
+// Legacy rpcsvc interfaces are checked individually; they share generated
+// identifiers with each other and with unrelated headers.
+#if defined(APPLE_C_PROBE_LEGACY_RPCSVC)
+#include <rpcsvc/bootparam_prot.h>
+#include <rpcsvc/klm_prot.h>
+#include <rpcsvc/mount.h>
+#include <rpcsvc/nfs_prot.h>
+#include <rpcsvc/nlm_prot.h>
+#include <rpcsvc/rex.h>
+#include <rpcsvc/rnusers.h>
+#include <rpcsvc/rquota.h>
+#include <rpcsvc/rstat.h>
+#include <rpcsvc/rusers.h>
+#include <rpcsvc/rwall.h>
+#include <rpcsvc/sm_inter.h>
+#include <rpcsvc/spray.h>
+#include <rpcsvc/yp.h>
+#include <rpcsvc/yppasswd.h>
+#endif
 #include <sandbox.h>
+// Apple's servers/key_defs.h defines key_t differently from sys/types.h.
+// Keep it as an individually compiled root; it cannot share this translation unit.
+#if defined(APPLE_C_PROBE_LEGACY_SERVERS)
+#include <servers/key_defs.h>
+#endif
+#include <servers/ls_defs.h>
+#include <servers/netname.h>
+#include <servers/netname_defs.h>
+#include <servers/nm_defs.h>
 #include <simd/simd.h>
 #include <sys/acl.h>
 #include <sys/attr.h>
@@ -217,6 +289,7 @@
 #include <sys/timex.h>
 #include <sysexits.h>
 #include <ucontext.h>
+#include <unwind.h>
 #include <vis.h>
 #include <xlocale.h>
 #include <xpc/xpc.h>

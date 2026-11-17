@@ -22,6 +22,27 @@ class SdkHeaderAuditTest(unittest.TestCase):
             "origin": "sources/Libinfo/rpc.subproj/auth.h",
             "selection": "Libinfo/xcodescripts/install_files.sh:macosx"}))
         self.assertTrue(public_install_provenance({
+            "origin": "sources/xnu/libsyscall/mach/mach/mach_right.h",
+            "selection": "xnu/libsyscall/xcodescripts/mach_install_mig.sh:MACH_HDRS"}))
+        self.assertTrue(public_install_provenance({
+            "origin": "generated:system-mig:netname.h via generate_mig.py",
+            "selection": "xnu/libsyscall/xcodescripts/mach_install_mig.sh:netname"}))
+        self.assertTrue(public_install_provenance({
+            "origin": "sources/Libnotify/notify.h",
+            "selection": "Libnotify/Libnotify.xcodeproj/project.pbxproj:Public"}))
+        self.assertTrue(public_install_provenance({
+            "origin": "generated:rpcgen:rpcsvc/mount.h from sources/Librpcsvc/mount.x",
+            "selection": "Librpcsvc/xcodescripts/install_rpcsvc.sh:rpcgen"}))
+        self.assertTrue(public_install_provenance({
+            "origin": "sources/libunwind/libunwind/include/unwind.h",
+            "selection": "libunwind/apple-install-libunwind.sh:include"}))
+        self.assertTrue(public_install_provenance({
+            "origin": "generated:unifdef:sources/xnu/osfmk/arm64/asm.h",
+            "selection": "osfmk/mach/arm64/Makefile:INSTALL_MD_GEN_LIST"}))
+        self.assertTrue(public_install_provenance({
+            "origin": "derived:sources/OpenBSM/openbsm/bsm/audit_filter.h",
+            "selection": "OpenBSM/OpenBSM.xcodeproj/project.pbxproj:usr/include/bsm"}))
+        self.assertTrue(public_install_provenance({
             "origin": "generated:system-mig:mach_vm.h via generate_mig.py",
             "selection": "xnu/libsyscall/xcodescripts/mach_install_mig.sh:public"}))
         self.assertFalse(public_install_provenance({

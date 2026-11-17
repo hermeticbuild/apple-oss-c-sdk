@@ -25,7 +25,8 @@ Clang and its resource headers come from the same SHA256-verified `@llvm`
 minimal prebuilt. `resolve_llvm_clang.py` checks hermetic-llvm's index against
 `inputs/llvm-minimal-prebuilt.json` before fetching LLVM 23.1.2 release 2.
 Keep the `bin/clang` symlink name: the prebuilt is a multicall executable.
-Python 3, Perl, `unifdef`, `awk`, Bazel, and macOS `/usr/bin/mig` are allowed
+Python 3, Perl, `unifdef`, `awk`, Bazel, macOS `/usr/bin/mig`, and
+`/usr/bin/rpcgen` are allowed
 host bootstrap tools. System `mig` receives `-cc "$LLVM_CLANG"`, so it uses
 the pinned prebuilt as its C preprocessor. No host compiler or Homebrew headers
 are inputs. The installed tree contains
@@ -40,12 +41,12 @@ resource directory and this installation; it checks both target architectures.
 
 `inputs/c-probe.c` is the checked-in, extensible translation unit, seeded
 from [Zig's `tools/macos-headers.c`](https://codeberg.org/ziglang/zig/src/commit/6b0a1d8b426a9b60f999358d4b7f57aa0b231777/tools/macos-headers.c).
-Its 182 roots are grouped by their first matching inventory: 27 of 29
+Its 237 roots are grouped by their first matching inventory: 27 of 29
 [ISO C11 standard headers](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf)
 (including all 15 [ANSI C89 / ISO C90](https://www.iso.org/standard/17782.html)
 headers), 55 additional
 [POSIX.1-2017 Issue 7 headers](https://pubs.opengroup.org/onlinepubs/9699919799/basedefs/contents.html),
-and 100 macOS/BSD, framework, or other extension headers. Counting the 24
+and 155 macOS/BSD, framework, or other extension headers. Counting the 24
 C11/POSIX overlaps, the probe covers 79 of the 82 POSIX header entries.
 The five unseeded standard roots (`threads.h`, `uchar.h`, `mqueue.h`,
 `stropts.h`, `trace.h`) are absent from the macOS 26.5 SDK reference. These
@@ -113,12 +114,12 @@ stamp, evidence, and a hash of its reviewed path set. Scope exclusions have
 the same protection in `inputs/sdk-scope-approvals.tsv`. A newly added or
 removed member invalidates the approval even after the inventory is updated.
 `--baseline` also reports added and removed SDK paths. The current 26.5
-snapshot has 120 pending approvals: 28 installed paths outside the probe
-closure whose need/scope is unsettled, plus 92 absent candidates. Another
-535 installed SDK paths are reached by the probe; 221 more unprobed paths
-are listed in pinned Apple OSS public install manifests. All installed paths have
-verified installer provenance. Another 28 probe-required paths are absent from the
-installation. The reverse audit also finds 12 installed C headers without a
+snapshot has 21 pending approvals: 3 installed paths outside the probe
+closure whose public-install provenance is unsettled, plus 18 absent
+candidates. Another 843 SDK C paths are installed in the standalone tree.
+All installed paths have verified installer provenance. Another 29
+probe-required `usr/include` paths are absent from the installation. The
+reverse audit also finds 12 installed C headers without a
 matching 26.5 SDK path. Four are reached by the generated C probe. All 12
 have exact-path, origin- and content-hash-locked decisions in
 `inputs/installation-only-decisions.tsv`; a new or changed extra needs review.
@@ -140,7 +141,7 @@ each SDK version and review the diff; a path's presence alone does not prove
 that it is needed or that its contents are licensed for redistribution.
 Compilation and API behavior remain the job of the C probe and LLVM build.
 
-`inputs/header-sources.tsv` maps 161 installed header paths to pinned Apple
+`inputs/header-sources.tsv` maps 135 installed header paths to pinned Apple
 source or an Apple generation path. Other closure candidates come from the
 explicit source groups and trees in `install_c.py`. The pinned
 `Libc/xcodescripts/headers.sh` public arrays select Libc headers;
@@ -152,6 +153,15 @@ preprocessor. XNU's `make_symbol_aliasing.sh`, `make_posix_availability.sh`,
 public `SINCFRAME_UNIFDEF` settings, and `mach_install_mig.sh`/`osfmk/mach/Makefile`
 drive the generated sys and MIG headers. Both architecture-specific MIG runs
 must produce identical public header bytes before installation.
+`Librpcsvc/xcodescripts/install_rpcsvc.sh` generates the 15 public `rpcsvc/*`
+headers from its `.x` files with the macOS system `rpcgen`; all 15 generated
+files match Xcode 26.5 byte for byte. OpenBSM's Xcode `usr/include/bsm`
+copy phase selects three headers; its old `audit_filter.h` needs an explicit
+`bsm/libbsm.h` include to compile independently. `libresolv`'s Xcode public
+header phase and `headers.sh` install DNS headers and the `arpa/nameser.h`
+symlink. `syslog`'s public phase installs `asl.h`. The `architecture`
+Makefile's `copyhdrs` target selects 19 arm and i386-family headers, all
+byte-identical to Xcode 26.5.
 The expanded coverage uses XNU's public `DATAFILES`/`INSTALL_MI_LIST` for
 `sys/`, `sys/_types/`, `machine/`, `arm/`, `arm64/`, `i386/`, `mach/`,
 `os/`, `netinet/`, `netinet6/`, `nfs/`, `pexpert/`, and other public
@@ -200,7 +210,7 @@ SDK Gen overlay and builds `@llvm-project//llvm:llvm` for both macOS targets.
 It accepts the SDK Gen tree, LLVM libc++ inputs, and any TBD amendment as
 explicit external paths; no SDK-derived TBD is stored in this repository.
 
-Local qualification on 2026-11-17: 124/124 isolated C header probes passed;
+Local qualification on 2026-11-17: 140/140 C smoke probes passed;
 the C smoke compiled to both Mach-O architectures with no SDK header in either
 dependency file. LLVM 23.1.2 built for arm64 and x86_64 using the restricted
 composition (419 TBDs, no SDK Gen headers); both binaries ran. Repeating both
@@ -210,11 +220,16 @@ LLVM's libc++ headers. The path audit found 860 shared `usr/include` C paths,
 795 byte-identical and 65 different, plus `float.h` and `tgmath.h` supplied by
 Clang when comparing with SDK Gen. These counts do not establish semantic parity.
 
+The SDK Gen composition input above reports `macosx27.0` in its
+`SDKSettings.json`; Xcode 26.5 is the separate official header-coverage
+oracle. The LLVM build demonstrates this specific SDK Gen TBD and metadata
+composition, not SDK-version parity.
+
 Expanded qualification with the pinned LLVM minimal prebuilt and official
-macOS 26.5 SDK: 366/366 reference C probes compile. The current generated C
-installation compiles 360/366; the combined probe stops at SIMD and the
+macOS 26.5 SDK: 476/476 reference C probes compile. The current generated C
+installation compiles 470/476; the combined probe stops at SIMD and the
 individual SIMD and XPC roots fail on both
-architectures. The reference include closure has 35 distinct header paths
+architectures. The reference include closure has 36 distinct header paths
 absent from the standalone installation; see [COVERAGE_GAPS.md](COVERAGE_GAPS.md).
 After the Apple OSS header additions, the restricted SDK Gen composition
 again built LLVM 23.1.2 for arm64 and x86_64. Both Mach-O binaries ran
@@ -246,7 +261,7 @@ hermetic-llvm source change is included here.
 ## Current limits
 
 Some non-XNU source-tree walks remain broad while LLVM qualification is in
-progress; 28 installed SDK paths outside the probe still need individual
+progress; 3 installed SDK paths outside the probe still need individual
 scope review before release. A path comparison
 against SDK Gen is only a path check: SDK Gen emits per-symbol CoreFoundation
 headers, while this recipe installs Apple's 39 umbrella headers. It does not
