@@ -96,6 +96,15 @@ def main() -> None:
         source = cf_root / relative
         if not source.is_dir():
             parser.error(f"Apple OSS CoreFoundation headers not found: {source}")
+        cf_manifest = json.loads((cf_root / "header-provenance.json").read_text())
+        expected = {name for name in cf_manifest["files"]
+                    if name.startswith(relative.as_posix() + "/")}
+        present = {path.relative_to(cf_root).as_posix()
+                   for path in source.rglob("*") if path.is_file() or path.is_symlink()}
+        if not expected or present != expected:
+            parser.error("CoreFoundation file set differs from provenance")
+        if any(path.is_symlink() for path in source.rglob("*")):
+            parser.error("CoreFoundation source contains a symlink")
         shutil.copytree(source, out / relative, dirs_exist_ok=True)
 
     # hermetic-llvm's osx extension requests both public and private glob
@@ -124,9 +133,7 @@ def main() -> None:
     c_provenance = out / "header-provenance.json"
     provenance = json.loads(c_provenance.read_text())
     if args.corefoundation_c_root:
-        cf_provenance = json.loads(
-            (args.corefoundation_c_root / "header-provenance.json").read_text())
-        for relative, record in cf_provenance["files"].items():
+        for relative, record in cf_manifest["files"].items():
             if relative.startswith("System/Library/Frameworks/CoreFoundation.framework/Headers/"):
                 copied = out / relative
                 if not copied.is_file() or hashlib.sha256(copied.read_bytes()).hexdigest() != record["sha256"]:
