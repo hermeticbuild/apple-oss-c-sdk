@@ -33,6 +33,8 @@ def main() -> None:
                         help="pinned LLVM source libunwind/include directory")
     parser.add_argument("--corefoundation-tbd-override", type=Path,
                         help="optional external CoreFoundation link-stub amendment")
+    parser.add_argument("--corefoundation-c-root", type=Path,
+                        help="full Apple OSS C installation supplying CoreFoundation headers")
     parser.add_argument("--overlay-reference", action="store_true",
                         help="secondary proof: overlay C headers onto the full reference SDK")
     parser.add_argument("--framework-header", action="append", default=[],
@@ -82,11 +84,19 @@ def main() -> None:
         parser.error("--framework-header is for restricted composition only")
     for name in args.framework_header:
         if name == "CoreFoundation":
-            parser.error("CoreFoundation headers are owned by the C installation")
+            parser.error("CoreFoundation headers require --corefoundation-c-root")
         relative = Path("System/Library/Frameworks") / f"{name}.framework/Headers"
         if not (base / relative).is_dir():
             parser.error(f"framework headers not found: {relative}")
         shutil.copytree(base / relative, out / relative)
+
+    if args.corefoundation_c_root:
+        cf_root = args.corefoundation_c_root.resolve()
+        relative = Path("System/Library/Frameworks/CoreFoundation.framework/Headers")
+        source = cf_root / relative
+        if not source.is_dir():
+            parser.error(f"Apple OSS CoreFoundation headers not found: {source}")
+        shutil.copytree(source, out / relative, dirs_exist_ok=True)
 
     # hermetic-llvm's osx extension requests both public and private glob
     # patterns for each default framework. SDK Gen has no private framework
@@ -113,6 +123,15 @@ def main() -> None:
     # hermetic-llvm.
     c_provenance = out / "header-provenance.json"
     provenance = json.loads(c_provenance.read_text())
+    if args.corefoundation_c_root:
+        cf_provenance = json.loads(
+            (args.corefoundation_c_root / "header-provenance.json").read_text())
+        for relative, record in cf_provenance["files"].items():
+            if relative.startswith("System/Library/Frameworks/CoreFoundation.framework/Headers/"):
+                copied = out / relative
+                if not copied.is_file() or hashlib.sha256(copied.read_bytes()).hexdigest() != record["sha256"]:
+                    parser.error(f"CoreFoundation differs from provenance: {relative}")
+                provenance["files"][relative] = record
     for name, expected in unwind_lock["sha256"].items():
         source = args.libunwind_headers / name
         relative = f"usr/include/{name}"

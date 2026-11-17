@@ -20,6 +20,9 @@ git submodule update --init --recursive
 python3 install_c.py --clang "$LLVM_CLANG" --out /tmp/apple-oss-c-headers
 python3 check_c_headers.py --clang "$LLVM_CLANG" --sysroot /tmp/apple-oss-c-headers
 python3 tests/fenv_runtime.py  # arm64 macOS host only
+python3 package_c_profile.py --installation /tmp/apple-oss-c-headers \
+  --out /tmp/apple-oss-c-default
+python3 check_c_profile.py --clang "$LLVM_CLANG" --sysroot /tmp/apple-oss-c-default
 ```
 
 Clang and its resource headers come from the same SHA256-verified `@llvm`
@@ -37,6 +40,27 @@ pinned source selection and SHA256. The C-only recipe omits Objective-C headers.
 It does not contain Clang resource headers, libc++ headers, libraries, TBDs, or
 SDK metadata. `check_c_headers.py` uses `-nostdinc`, then names only Clang's
 resource directory and this installation; it checks both target architectures.
+It generates trivial one-header include checks, then compiles the checked-in
+semantic fixtures in `tests/c/` for ABI and target-macro declarations.
+
+`install_c.py` creates the full Apple OSS staging installation for audit and
+qualification. `package_c_profile.py` packages the default consumer C tree:
+535 `usr/include` files selected by the checked-in
+`inputs/profiles/default-headers.txt`. The 174 roots in
+`inputs/profiles/default-roots.txt` come from Zig's macOS C probe after
+excluding Objective-C, unavailable SIMD/XPC, and `net/ipsec_offload.h`.
+The manifest is the union of the two target include closures, including 12
+`xlocale` files reached by the combined translation unit. Its source is the
+Apple OSS installation; SDK headers are never copied into the package.
+`check_c_profile.py` compiles each root and `tests/c/default_profile.c` for
+both targets. The full staging tree remains available for auditing and future
+consumer-specific packages.
+
+Qualification on 2026-11-17: the 535-header package passed all 350 default
+profile probes. Restricted composition with Apple OSS CoreFoundation and
+SDK Gen 27.0 link assets built LLVM 23.1.2 for arm64 and x86_64. Both output
+binaries were inspected as Mach-O for their target architecture and ran
+`readelf --version`. The CoreFoundation C fixture also compiled for both.
 
 ## C coverage reference
 
@@ -214,9 +238,13 @@ matches so an upstream change cannot silently alter the output.
 
 ## LLVM composition proof
 
-`compose_sdk.py` combines the C installation with only SDK Gen metadata and
+`compose_sdk.py` combines the default C package with only SDK Gen metadata and
 TBD files, plus hermetic-llvm libc++ headers, a supplemental libc++ archive,
-and a pinned LLVM libunwind header set. The LLVM 23.1.2 source comes from
+Apple OSS CoreFoundation headers from the full staging tree, and a pinned LLVM
+libunwind header set. Pass `--corefoundation-c-root` with that staging tree for
+the LLVM build. This keeps CoreFoundation outside the default C package while
+avoiding SDK Gen's generated CoreFoundation headers. The LLVM 23.1.2 source
+comes from
 hermetic-llvm's SHA256-locked `@llvm-project` archive;
 `resolve_llvm_libunwind.py` checks the five header hashes against
 `inputs/llvm-libunwind-headers.json`. The composed SDK overlays all five
@@ -234,7 +262,7 @@ SDK Gen overlay and builds `@llvm-project//llvm:llvm` for both macOS targets.
 It accepts the SDK Gen tree, LLVM libc++ inputs, and any TBD amendment as
 explicit external paths; no SDK-derived TBD is stored in this repository.
 
-Local qualification on 2026-11-17: 140/140 C smoke probes passed;
+Local qualification on 2026-11-17: 150/150 C smoke probes passed;
 the C smoke compiled to both Mach-O architectures with no SDK header in either
 dependency file. LLVM 23.1.2 built for arm64 and x86_64 using the restricted
 composition (419 TBDs, no SDK Gen headers); both binaries ran. Repeating both
@@ -294,7 +322,7 @@ Some non-XNU source-tree walks remain broad while LLVM qualification is in
 progress; 3 installed SDK paths outside the probe still need individual
 scope review before release. A path comparison
 against SDK Gen is only a path check: SDK Gen emits per-symbol CoreFoundation
-headers, while this recipe installs Apple's 39 umbrella headers. It does not
+headers, while this recipe installs 40 Apple OSS framework header files. It does not
 establish equivalent API coverage. The `sandbox.h`, arm64 `fenv.h`, and modern
 `TargetConditionals.h` derivations require upstream or ABI review before
 distribution.

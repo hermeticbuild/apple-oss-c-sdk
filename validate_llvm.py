@@ -32,6 +32,7 @@ def main() -> None:
                  "corefoundation-tbd-override", "llvm-repo", "work"):
         parser.add_argument("--" + name, type=Path, required=True)
     parser.add_argument("--mode", choices=("restricted", "overlay"), required=True)
+    parser.add_argument("--corefoundation-c-root", type=Path)
     parser.add_argument("--bazelrc", type=Path)
     args = parser.parse_args()
     paths = [args.c_root, args.reference_sdk, args.libcxx_headers,
@@ -40,6 +41,8 @@ def main() -> None:
              args.llvm_repo]
     if any(not path.exists() for path in paths):
         parser.error("one or more input paths do not exist")
+    if args.corefoundation_c_root and not args.corefoundation_c_root.is_dir():
+        parser.error("CoreFoundation C root does not exist")
     work = args.work.absolute()
     if work.exists():
         parser.error("work directory already exists")
@@ -54,6 +57,9 @@ def main() -> None:
                "--corefoundation-tbd-override",
                str(args.corefoundation_tbd_override.absolute()),
                "--out", str(sdk)]
+    if args.corefoundation_c_root:
+        command.extend(("--corefoundation-c-root",
+                        str(args.corefoundation_c_root.absolute())))
     if args.mode == "overlay":
         command.append("--overlay-reference")
     subprocess.run(command, check=True)
