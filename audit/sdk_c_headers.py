@@ -129,10 +129,21 @@ def installed_provenance(installation: Path) -> dict[str, dict[str, str]]:
             raise ValueError(f"provenance file absent from installation: {relative}")
         if hashlib.sha256(candidate.read_bytes()).hexdigest() != record["sha256"]:
             raise ValueError(f"installed file differs from provenance manifest: {relative}")
+    owner_path = installation / "header-owners.json"
+    if owner_path.is_file():
+        owners = json.loads(owner_path.read_text())
+        if owners.get("schema") != 1 or set(owners.get("files", {})) != set(manifest["files"]):
+            raise ValueError("C owner index differs from provenance path set")
+        for relative, record in owners["files"].items():
+            legacy = manifest["files"][relative]
+            if (record.get("origin") != legacy["origin"] or
+                    record.get("selection") != legacy["selection"] or
+                    not record.get("owner") or not record.get("inputs") or
+                    not record.get("transform")):
+                raise ValueError(f"invalid C owner record: {relative}")
     installed = {file.relative_to(installation).as_posix()
                  for file in installation.rglob("*")
-                 if file.is_file() and file not in
-                 {path, installation / "header-owners.json"}}
+                 if file.is_file() and file not in {path, owner_path}}
     unmapped = installed - manifest["files"].keys()
     if unmapped:
         raise ValueError(f"installed files lack provenance: {sorted(unmapped)[:5]}")

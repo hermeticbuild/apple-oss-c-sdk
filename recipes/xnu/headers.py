@@ -140,6 +140,7 @@ def produce_symbol_headers(assembly: Assembly, temporary: Path) -> None:
                      f"generated:apple via inputs/header-sources.tsv:{name}",
                      "header-sources.tsv",
                      inputs=(("sources/xnu/bsd/sys/make_symbol_aliasing.sh",
+                              "sources/AvailabilityVersions/availability",
                               "sources/AvailabilityVersions/availability.dsl")
                              if name == "sys/_symbol_aliasing.h" else
                              ("sources/xnu/bsd/sys/make_posix_availability.sh",)),
@@ -155,5 +156,7 @@ def produce_mig(assembly: Assembly, mig: Path, clang: Path,
                      f"generated:system-mig:{source.name} via generate_mig.py",
                      "xnu/libsyscall/xcodescripts/mach_install_mig.sh:public",
                      inputs=(f"sources/xnu/libsyscall/mach/{source.stem}.defs",
-                             "sources/xnu/libsyscall/xcodescripts/filter_mig.awk"),
+                             "sources/xnu/libsyscall/xcodescripts/filter_mig.awk",
+                             "sources/xnu/libsyscall/mach/add_attributes_to_mig.txt",
+                             "sources/xnu/libsyscall/xcodescripts/mach_install_mig.sh"),
                      transform="system MIG for arm64 and x86_64, then filter")

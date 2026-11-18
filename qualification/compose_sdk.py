@@ -70,6 +70,11 @@ def main() -> None:
         shutil.copytree(c_root, out, symlinks=True, dirs_exist_ok=True)
     else:
         shutil.copytree(c_root, out, symlinks=True)
+    # The owner index covers the standalone C installation only. The composed
+    # provenance below also covers CoreFoundation and LLVM runtime headers.
+    c_owner_index = out / "header-owners.json"
+    if c_owner_index.is_file():
+        c_owner_index.rename(out / "c-header-owners.json")
     log: list[tuple[str, str, str]] = []
     for name in ("SDKSettings.json", "SDKSettings.plist"):
         if (base / name).is_file():

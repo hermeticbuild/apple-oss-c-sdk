@@ -6,11 +6,35 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from audit_sdk_c_headers import (audit, closure_paths, path_digest,
-                                 public_install_provenance)
+from audit_sdk_c_headers import (audit, closure_paths, installed_provenance,
+                                 path_digest, public_install_provenance)
 
 
 class SdkHeaderAuditTest(unittest.TestCase):
+    def test_owner_index_must_match_provenance(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            installation = Path(temporary).resolve()
+            header = installation / "usr/include/example.h"
+            header.parent.mkdir(parents=True)
+            header.write_bytes(b"example")
+            record = {"origin": "sources/Libc/include/example.h",
+                      "selection": "test",
+                      "sha256": hashlib.sha256(b"example").hexdigest()}
+            (installation / "header-provenance.json").write_text(json.dumps({
+                "schema": 2, "files": {"usr/include/example.h": record}}))
+            owners = installation / "header-owners.json"
+            owners.write_text(json.dumps({"schema": 1, "files": {}}))
+            with self.assertRaisesRegex(ValueError, "owner index differs"):
+                installed_provenance(installation)
+            owners.write_text(json.dumps({"schema": 1, "files": {
+                "usr/include/example.h": {
+                    "owner": "Libc", "origin": record["origin"],
+                    "selection": record["selection"],
+                    "inputs": ["sources/Libc/include/example.h"],
+                    "transform": "copy"}}}))
+            self.assertEqual(installed_provenance(installation),
+                             {"usr/include/example.h": record})
+
     def test_public_install_evidence_requires_xnu_makefile(self):
         self.assertTrue(public_install_provenance({
             "origin": "sources/xnu/bsd/sys/socket.h",

@@ -21,9 +21,11 @@ Generated files have code beside their owning source family:
 owner, or incomplete profile. MIG alone needs the already selected headers as
 its sysroot, so assembly writes a private pre-MIG tree before the final tree.
 That bootstrap tree is discarded. In the final installation, `header-owners.json`
-maps each path to one producer, its pinned source inputs, source selection,
+maps each path to one producer, its direct pinned source inputs, source selection,
 and transformation. `header-provenance.json` preserves the audit's hash schema.
 The two manifests are generated from the same in-memory header records.
+MIG's transitive `.defs` includes, the selected compiler, and the host MIG
+binary are action inputs, but are not enumerated per header in this index.
 
 The 535-path profile, not the broad set of source headers, controls what ships.
 Adding a header requires a source or derivation, an explicit copy selection if
