@@ -14,9 +14,9 @@ import subprocess
 from collections import Counter
 from pathlib import Path
 
-from .probe_c_closure import digest_tree
+from .probe_c_closure import current_probe_path, digest_tree
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def installed_header(root: Path, relative: Path) -> bool:
@@ -188,7 +188,8 @@ def public_install_provenance(source: dict[str, str]) -> bool:
     if (source["origin"].startswith("sources/Libc/include/") and
             source["selection"] == "Libc/xcodescripts/headers.sh:public"):
         return True
-    if (source["origin"].startswith("generated:libc via inputs/header-sources.tsv:") and
+    if (source["origin"].startswith(("generated:libc via inputs/header-sources.tsv:",
+                                    "generated:libc via recipes/libc/headers.py:")) and
             source["selection"] == "Libc/xcodescripts/headers.sh:public"):
         return True
     if (source["origin"].startswith(("sources/Libc/gen/", "sources/Libc/stdtime/")) and
@@ -405,8 +406,11 @@ def audit(sdk: Path, installation: Path, resource: Path,
             continue
         reached = generated_closure is not None and name in generated_closure
         rule = extra_rules.get(name)
+        origin = source["origin"]
+        if name == "architecture/arm64/fenv.h" and origin == "templates/arm64_fenv.h":
+            origin = "recipes/libm/arm64_fenv.h"
         approved = bool(rule and rule["reviewed_sdk"] == sdk_name and
-                        rule["origin"] == source["origin"] and
+                        rule["origin"] == origin and
                         rule["sha256"] == source["sha256"])
         installation_only.append({
             "path": name, "state": "installation_only",
@@ -513,16 +517,16 @@ def main() -> None:
     parser.add_argument("--baseline", type=Path,
                         help="prior path inventory; new paths require review and removed paths block release")
     parser.add_argument("--decisions", type=Path,
-                        default=ROOT / "inputs/sdk-header-decisions.tsv",
+                        default=Path(__file__).with_name("data") / "sdk-header-decisions.tsv",
                         help="reviewed include/omit decisions; defaults to the checked-in ledger")
     parser.add_argument("--review-notes", type=Path,
-                        default=ROOT / "inputs/sdk-review-notes.tsv",
+                        default=Path(__file__).with_name("data") / "sdk-review-notes.tsv",
                         help="versioned source gaps that remain pending")
     parser.add_argument("--scope-approvals", type=Path,
-                        default=ROOT / "inputs/sdk-scope-approvals.tsv",
+                        default=Path(__file__).with_name("data") / "sdk-scope-approvals.tsv",
                         help="reviewed SDK path sets for out-of-scope categories")
     parser.add_argument("--extra-approvals", type=Path,
-                        default=ROOT / "inputs/installation-only-decisions.tsv",
+                        default=Path(__file__).with_name("data") / "installation-only-decisions.tsv",
                         help="reviewed installation paths absent from this SDK")
     parser.add_argument("--out", required=True, type=Path)
     parser.add_argument("--review-out", type=Path,
@@ -550,7 +554,7 @@ def main() -> None:
             parser.error("Clang binary differs from probe reference")
         if reference["resource_headers_sha256"] != digest_tree(resource):
             parser.error("Clang resource headers differ from probe reference")
-        probe = ROOT / reference["roots"]
+        probe = ROOT / current_probe_path(reference["roots"])
         if not probe.is_file() or not probe.resolve().is_relative_to(ROOT):
             parser.error("reference probe path is not a checked-in repository file")
         if reference["probe_sha256"] != hashlib.sha256(probe.read_bytes()).hexdigest():

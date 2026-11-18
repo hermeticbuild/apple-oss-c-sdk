@@ -8,8 +8,8 @@ import re
 import subprocess
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-PIN = ROOT / "inputs/llvm-libunwind-headers.json"
+HERE = Path(__file__).resolve().parent
+PIN = HERE / "data/llvm-libunwind-headers.json"
 
 
 def main() -> None:

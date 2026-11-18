@@ -55,17 +55,3 @@ def produce(assembly: Assembly) -> None:
                     raise ValueError(f"Xcode public phase does not select {source}")
             assembly.add(owner, path, source_file.read_bytes(), source,
                          selection)
-
-
-def validate_legacy_selection(assembly: Assembly) -> None:
-    """Keep the original 89 source decisions live during recipe migration."""
-    with (ROOT / "inputs/header-sources.tsv").open(newline="") as stream:
-        for row in csv.DictReader(stream, delimiter="\t"):
-            relative = row["install_path"]
-            path = f"usr/include/{relative}"
-            if row["source"].startswith("generated:"):
-                expected = f"{row['source']} via inputs/header-sources.tsv:{relative}"
-            else:
-                expected = "sources/" + row["source"].replace(":", "/", 1)
-            if path not in assembly.files or assembly.files[path].origin != expected:
-                raise ValueError(f"legacy source selection changed: {path}")

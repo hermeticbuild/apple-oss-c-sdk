@@ -12,7 +12,7 @@ import json
 import shutil
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+HERE = Path(__file__).resolve().parent
 
 
 def copy_file(source: Path, destination: Path, log: list[tuple[str, str, str]],
@@ -52,7 +52,7 @@ def main() -> None:
             parser.error(f"directory not found: {path}")
     if not args.libcxx_archive.is_file():
         parser.error("libc++ archive not found")
-    unwind_lock = json.loads((ROOT / "inputs/llvm-libunwind-headers.json").read_text())
+    unwind_lock = json.loads((HERE / "data/llvm-libunwind-headers.json").read_text())
     for name, expected in unwind_lock["sha256"].items():
         source = args.libunwind_headers / name
         if not source.is_file() or hashlib.sha256(source.read_bytes()).hexdigest() != expected:
@@ -153,7 +153,7 @@ def main() -> None:
         copy_file(source, out / relative, log, "llvm-libunwind")
         provenance["files"][relative] = {
             "origin": f"llvm-libunwind:llvmorg-{unwind_lock['llvm_version']}/libunwind/include/{name}",
-            "selection": "inputs/llvm-libunwind-headers.json",
+            "selection": "tools/qualification/data/llvm-libunwind-headers.json",
             "sha256": expected,
         }
     c_provenance.write_text(json.dumps(provenance, indent=2, sort_keys=True) + "\n")

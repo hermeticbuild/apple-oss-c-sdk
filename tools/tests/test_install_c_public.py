@@ -42,7 +42,7 @@ class XnuPublicHeadersTest(unittest.TestCase):
         self.assertIn("mach_init.h", libsyscall_public_mach_headers())
 
     def test_xcode_public_phase_selects_known_headers(self):
-        root = Path(__file__).resolve().parents[1]
+        root = Path(__file__).resolve().parents[2]
         self.assertEqual(public_xcode_selection(
             root / "sources/libpthread/include/pthread/pthread.h"),
             "libpthread/libpthread.xcodeproj/project.pbxproj:Public")

@@ -11,11 +11,19 @@ import tempfile
 from pathlib import Path
 
 
-ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_PROBE = ROOT / "inputs/c-probe.c"
+ROOT = Path(__file__).resolve().parents[2]
+DEFAULT_PROBE = ROOT / "tools/audit/fixtures/c-probe.c"
 TARGETS = ("arm64", "x86_64")
 COMBINED = "__combined__"
 ROOT_FLAGS = {"ucontext.h": ("-D_XOPEN_SOURCE=700",)}
+
+
+def current_probe_path(path: str) -> str:
+    """Resolve fixture names stored in closure reports before the layout move."""
+    return {
+        "inputs/c-probe.c": "tools/audit/fixtures/c-probe.c",
+        "tests/c/default_profile.c": "tools/qualification/fixtures/c/default_profile.c",
+    }.get(path, path)
 
 
 def header_roots(probe: Path) -> list[str]:
@@ -108,7 +116,7 @@ def compare(actual: dict, reference: dict, sysroot: Path,
         gaps.append("reference closure schema differs")
     if actual["probe_sha256"] != reference["probe_sha256"]:
         gaps.append("checked-in C probe differs from reference closure")
-    if actual["roots"] != reference["roots"]:
+    if current_probe_path(actual["roots"]) != current_probe_path(reference["roots"]):
         gaps.append("checked-in C probe path differs from reference closure")
     if actual["compiler"] != reference["compiler"]:
         gaps.append("compiler version differs from reference closure")
@@ -140,7 +148,7 @@ def main() -> int:
                         help="clang from the pinned minimal LLVM prebuilt")
     parser.add_argument("--sysroot", required=True, type=Path)
     parser.add_argument("--probe", type=Path, default=DEFAULT_PROBE,
-                        help="checked-in C root fixture (default: inputs/c-probe.c)")
+                        help="checked-in C root fixture (default: tools/audit/fixtures/c-probe.c)")
     parser.add_argument("--out", required=True, type=Path)
     parser.add_argument("--reference", type=Path,
                         help="reference closure JSON to check for missing paths")

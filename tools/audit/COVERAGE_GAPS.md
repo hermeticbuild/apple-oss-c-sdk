@@ -4,7 +4,7 @@ Historical full-installation audit. The normal 535-header scope is documented
 in `README.md`; this report is retained to revisit omitted paths and needs
 regeneration before it is used as a release gate.
 
-Reference: `inputs/c-probe.c`, LLVM 23.1.2 minimal prebuilt
+Reference: `tools/audit/fixtures/c-probe.c`, LLVM 23.1.2 minimal prebuilt
 `llvm-23.1.2-2` for Darwin arm64, `-target arm64-apple-macos14.0` and
 `x86_64-apple-macos14.0`, `-std=c11`. The reference uses an official SDK only
 as a local compile/coverage oracle. No SDK header content enters the installer.
@@ -52,7 +52,7 @@ XPC paths, each under `usr/include/xpc/`: `activity.h`, `availability.h`,
 
 Unwinding is a separate LLVM runtime layer. The pinned LLVM 23.1.2 source
 provides `unwind_itanium.h` and `unwind_arm_ehabi.h` alongside its three
-public libunwind headers. `compose_sdk.py` verifies all five file hashes,
+public libunwind headers. `tools/qualification/compose_sdk.py` verifies all five file hashes,
 then overlays this coherent set on the composed SDK; the standalone Apple
 C installation remains separate. `unwind.h` and its companion headers are
 checked by `check_libunwind_headers.py` and the LLVM build, outside this C-root

@@ -38,8 +38,8 @@ def produce(assembly: Assembly, temporary: Path) -> None:
                 raise ValueError("AvailabilityInternal.h visionos macros changed")
             data = text.replace(anchor, anchor + aliases).encode()
         assembly.add("AvailabilityVersions", f"usr/include/{target}", data,
-                     f"generated:apple via inputs/header-sources.tsv:{target}",
-                     "header-sources.tsv",
+                     f"generated:apple via recipes/availability_versions/headers.py:{target}",
+                     "recipes/availability_versions/headers.py",
                      inputs=(f"sources/AvailabilityVersions/templates/{name}",
                              "sources/AvailabilityVersions/availability",
                              "sources/AvailabilityVersions/availability.dsl"),

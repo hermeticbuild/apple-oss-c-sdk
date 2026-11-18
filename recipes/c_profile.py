@@ -3,8 +3,7 @@
 from pathlib import Path
 
 
-ROOT = Path(__file__).resolve().parent
-DEFAULT = ROOT / "inputs/profiles/default-headers.txt"
+DEFAULT = Path(__file__).with_name("default-headers.txt")
 
 
 def selected_paths(manifest: Path = DEFAULT) -> list[str]:

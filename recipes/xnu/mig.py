@@ -6,9 +6,10 @@ import re
 import subprocess
 from pathlib import Path
 
+from recipes.c_profile import selected_paths
+
 ROOT = Path(__file__).resolve().parents[2]
 XNU = ROOT / "sources/xnu"
-PROFILE = ROOT / "inputs/profiles/default-headers.txt"
 
 
 def names_from_apple_manifests() -> list[str]:
@@ -24,7 +25,7 @@ def names_from_apple_manifests() -> list[str]:
     if len(user) != 17:
         raise ValueError(f"unexpected Apple MIG manifest: {len(user)} user")
     selected = {line.removeprefix("usr/include/mach/").removesuffix(".h")
-                for line in PROFILE.read_text().splitlines()
+                for line in selected_paths()
                 if line.startswith("usr/include/mach/") and line.endswith(".h")}
     wanted = [name for name in user if name in selected]
     if len(wanted) != 11:

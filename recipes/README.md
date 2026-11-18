@@ -1,13 +1,12 @@
 # Header recipes
 
 `install_c.py` orchestrates producers and writes an empty installation. The
-public path set lives in `inputs/profiles/default-headers.txt`; `copies.tsv`
+public path set lives in `recipes/default-headers.txt`; `copies.tsv`
 is the resolved, explicit selection of directly copied Apple OSS files. Its
 columns are `install_path`, `source`, and `selection`. Every source is a path
 inside a pinned submodule. The producer is the source repository name.
-`inputs/header-sources.tsv` is the earlier 89-row selection ledger; the
-installer still checks it against the resolved recipes so its provenance
-claims remain enforced.
+The Libc recipe lists the selected transformed headers in
+`libc/strip-headers.txt`.
 
 Generated files have code beside their owning source family:
 

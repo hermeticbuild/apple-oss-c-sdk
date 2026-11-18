@@ -6,14 +6,17 @@ import re
 import subprocess
 from pathlib import Path
 
-from c_profile import DEFAULT, ROOT, selected_paths
+from recipes.c_profile import selected_paths
 
 
-ROOTS = ROOT / "inputs/profiles/default-roots.txt"
-COMBINED = ROOT / "tests/c/default_profile.c"
-FIXTURES = (ROOT / "tests/c/fenv_abi.c",
-            ROOT / "tests/c/stdatomic_init.c",
-            ROOT / "tests/c/target_conditionals.c")
+HERE = Path(__file__).resolve().parent
+
+
+ROOTS = HERE / "fixtures/default-roots.txt"
+COMBINED = HERE / "fixtures/c/default_profile.c"
+FIXTURES = (HERE / "fixtures/c/fenv_abi.c",
+            HERE / "fixtures/c/stdatomic_init.c",
+            HERE / "fixtures/c/target_conditionals.c")
 
 
 def main() -> int:
@@ -28,7 +31,7 @@ def main() -> int:
                                 COMBINED.read_text(), re.MULTILINE)
     if combined_roots != roots:
         parser.error("combined C fixture differs from the selected roots")
-    missing = [path for path in selected_paths(DEFAULT)
+    missing = [path for path in selected_paths()
                if not (sysroot / path).is_file()]
     if missing:
         parser.error(f"{len(missing)} manifest paths absent; first: {missing[0]}")
@@ -46,7 +49,7 @@ def main() -> int:
             if name == "__combined__":
                 command.append(str(COMBINED))
                 source = None
-            elif name.startswith(str(ROOT / "tests/c/")):
+            elif name.startswith(str(HERE / "fixtures/c/")):
                 command.append(name)
                 source = None
             else:

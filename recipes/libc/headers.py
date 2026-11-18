@@ -1,6 +1,5 @@
 """Libc's public header install rule and selected unifdef outputs."""
 
-import csv
 import os
 import re
 import shlex
@@ -85,25 +84,22 @@ def libc_public_header(source: Path, flags: list[str]) -> bytes:
 def produce(assembly: Assembly) -> None:
     flags = libc_unifdef_flags()
     public = set(libc_public_headers())
-    with (ROOT / "inputs/header-sources.tsv").open(newline="") as stream:
-        for row in csv.DictReader(stream, delimiter="\t"):
-            relative = row["install_path"]
-            if row["source"] != "generated:libc":
-                continue
-            if relative not in public:
-                raise ValueError(f"generated Libc header not in public list: {relative}")
-            data = libc_public_header(ROOT / "sources/Libc/include" / relative, flags)
-            assembly.add("Libc", f"usr/include/{relative}", data,
-                         f"generated:libc via inputs/header-sources.tsv:{relative}",
-                         "Libc/xcodescripts/headers.sh:public",
-                         inputs=(f"sources/Libc/include/{relative}",
-                                 "sources/Libc/xcodescripts/headers.sh",
-                                 "sources/Libc/xcodescripts/generate_features.pl"),
-                         transform="strip Libc regions and unifdef")
+    selection = Path(__file__).with_name("strip-headers.txt")
+    for relative in selection.read_text().splitlines():
+        if relative not in public:
+            raise ValueError(f"generated Libc header not in public list: {relative}")
+        data = libc_public_header(ROOT / "sources/Libc/include" / relative, flags)
+        assembly.add("Libc", f"usr/include/{relative}", data,
+                     f"generated:libc via recipes/libc/headers.py:{relative}",
+                     "Libc/xcodescripts/headers.sh:public",
+                     inputs=(f"sources/Libc/include/{relative}",
+                             "sources/Libc/xcodescripts/headers.sh",
+                             "sources/Libc/xcodescripts/generate_features.pl"),
+                     transform="strip Libc regions and unifdef")
     relative = "utmpx.h"
     data = libc_public_header(ROOT / "sources/Libc/include/NetBSD/utmpx.h", flags)
     assembly.add("Libc", f"usr/include/{relative}", data,
-                 "generated:utmpx.h via install_c.py:generated_apple_headers",
+                 "generated:utmpx.h via recipes/libc/headers.py",
                  "generated explicit",
                  inputs=("sources/Libc/include/NetBSD/utmpx.h",
                          "sources/Libc/xcodescripts/generate_features.pl"),

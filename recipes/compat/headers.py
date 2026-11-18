@@ -60,15 +60,15 @@ def target_conditionals() -> bytes:
 def produce(assembly: Assembly) -> None:
     assembly.add("CarbonHeaders", "usr/include/TargetConditionals.h",
                  target_conditionals(),
-                 "derived:sources/CarbonHeaders/TargetConditionals.h via target_conditionals",
+                 "derived:sources/CarbonHeaders/TargetConditionals.h via recipes/compat/headers.py",
                  "CarbonHeaders derivation",
                  inputs=("sources/CarbonHeaders/TargetConditionals.h",),
                  transform="resolve macOS placeholders and derive arm64 aliases")
     for name in ("grp.h", "pwd.h"):
         source = ROOT / "sources/Libinfo/lookup.subproj" / name
         assembly.add("Libinfo", f"usr/include/{name}", source.read_bytes(),
-                     f"generated:apple via inputs/header-sources.tsv:{name}",
-                     "header-sources.tsv",
+                     f"generated:apple via recipes/compat/headers.py:{name}",
+                     "recipes/compat/headers.py",
                      inputs=(source.relative_to(ROOT).as_posix(),),
                      transform="copy")
     dyld = ROOT / "sources/dyld/include/mach-o"
@@ -80,8 +80,8 @@ def produce(assembly: Assembly) -> None:
     if source.count(before) != 1:
         raise ValueError("dyld.h availability section changed")
     assembly.add("dyld", "usr/include/mach-o/dyld.h", source.replace(before, after),
-                 "generated:apple via inputs/header-sources.tsv:mach-o/dyld.h",
-                 "header-sources.tsv", inputs=("sources/dyld/include/mach-o/dyld.h",),
+                 "generated:apple via recipes/compat/headers.py:mach-o/dyld.h",
+                 "recipes/compat/headers.py", inputs=("sources/dyld/include/mach-o/dyld.h",),
                  transform="guard missing ExclaveKit availability macro")
     images = (dyld / "dyld_images.h").read_bytes()
     anchor = b"#define _DYLD_IMAGES_\n"
@@ -89,7 +89,7 @@ def produce(assembly: Assembly) -> None:
         raise ValueError("dyld_images.h guard changed")
     assembly.add("dyld", "usr/include/mach-o/dyld_images.h",
                  images.replace(anchor, anchor + b"#include <stdint.h>\n#include <mach/mach.h>\n"),
-                 "generated:mach-o/dyld_images.h via install_c.py:generated_apple_headers",
+                 "generated:mach-o/dyld_images.h via recipes/compat/headers.py",
                  "generated explicit",
                  inputs=("sources/dyld/include/mach-o/dyld_images.h",),
                  transform="add public dependency includes")

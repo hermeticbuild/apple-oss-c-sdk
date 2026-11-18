@@ -39,7 +39,7 @@ class Assembly:
             raise ValueError(f"header needs source inputs: {path}")
         for item in inputs:
             parts = Path(item).parts
-            if not parts or parts[0] not in {"sources", "templates"} or ".." in parts:
+            if not parts or parts[0] not in {"sources", "recipes"} or ".." in parts:
                 raise ValueError(f"input outside pinned recipe sources: {path}: {item}")
             if not (ROOT / item).is_file():
                 raise ValueError(f"recipe input does not exist: {path}: {item}")

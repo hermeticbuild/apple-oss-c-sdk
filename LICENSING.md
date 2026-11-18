@@ -5,8 +5,8 @@ This is a source and terms inventory for the prototype, not a legal clearance.
 ## Standalone C installation
 
 The installer reads pinned Apple OSS submodules, Apple OSS build generators,
-the arm64 `fenv.h` declaration in `templates/`, and documented compatibility
-edits in `install_c.py`. It reads no Xcode SDK or
+the arm64 `fenv.h` declaration in `recipes/libm/`, and documented compatibility
+edits in `recipes/`. It reads no Xcode SDK or
 Apple SDK Gen header. Apple's [APSL 2.0 text](https://opensource.apple.com/apsl/)
 permits use and external distribution of covered source for commercial or
 noncommercial purposes without a hardware condition in that license. It

@@ -3,33 +3,33 @@
 This is a read-only route for assessing the C installation against a specific
 macOS SDK. `probe_c_closure.py` records the two-target transitive path closure
 of a checked-in C fixture with the pinned LLVM Clang and its resource headers.
-Its default `inputs/c-probe.c` is deliberately broad. For the shipping profile,
-pass `--probe tests/c/default_profile.c` to both reference and generated runs.
+Its default `tools/audit/fixtures/c-probe.c` is deliberately broad. For the shipping profile,
+pass `--probe tools/qualification/fixtures/c/default_profile.c` to both reference and generated runs.
 `sdk_c_headers.py` inventories SDK paths and joins the checked-in decision
 ledgers. It never copies SDK header contents into a recipe.
-Set `LLVM_CLANG`, `SDK`, and `C_INSTALL` to absolute paths before running:
+Set `LLVM_CLANG`, `SDK`, and `C_INSTALL` to absolute paths before running from the repository root:
 
 ```sh
-python3 probe_c_closure.py --probe tests/c/default_profile.c \
+python3 -m tools.audit.probe_c_closure --probe tools/qualification/fixtures/c/default_profile.c \
   --clang "$LLVM_CLANG" --sysroot "$SDK" \
   --out /tmp/minimal-reference-closure.json
-python3 probe_c_closure.py --probe tests/c/default_profile.c \
+python3 -m tools.audit.probe_c_closure --probe tools/qualification/fixtures/c/default_profile.c \
   --clang "$LLVM_CLANG" --sysroot "$C_INSTALL" \
   --out /tmp/minimal-generated-closure.json
-python3 audit_sdk_c_headers.py \
+python3 -m tools.audit.sdk_c_headers \
   --sdk "$SDK" --installation "$C_INSTALL" --clang "$LLVM_CLANG" \
   --reference /tmp/minimal-reference-closure.json \
   --generated-probe /tmp/minimal-generated-closure.json \
-  --baseline inventories/macosx26.5.json \
+  --baseline tools/audit/inventories/macosx26.5.json \
   --out /tmp/macosx26.5-minimal-audit.json \
   --review-out /tmp/macosx26.5-minimal-review.md
 ```
 
-`inputs/sdk-header-decisions.tsv` records path or glob, include/omit decision,
+`data/sdk-header-decisions.tsv` records path or glob, include/omit decision,
 reason, evidence, reviewed SDK, and a digest of the approved matching path
-set. `inputs/sdk-review-notes.tsv` records unresolved source gaps.
-`inputs/sdk-scope-approvals.tsv` records approved out-of-scope path sets.
-`inputs/installation-only-decisions.tsv` accounts for paths absent from the
+set. `data/sdk-review-notes.tsv` records unresolved source gaps.
+`data/sdk-scope-approvals.tsv` records approved out-of-scope path sets.
+`data/installation-only-decisions.tsv` accounts for paths absent from the
 reviewed SDK. `inventories/macosx26.5.json` is the historical full-profile
 snapshot, useful as a path baseline but not a release approval for the
 535-header profile.
@@ -47,3 +47,6 @@ official SDK closure; our selected `<pthread.h>` compiles without that nested
 path. Do not silently approve either difference. The command succeeds as an
 inventory; `--require-decisions` remains red until these paths and the pending
 ledger are reviewed.
+
+The original source selection ledger is in [history](history/header-sources.tsv).
+The installer uses the active selections under `recipes/`.

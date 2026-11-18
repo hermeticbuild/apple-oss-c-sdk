@@ -7,8 +7,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-TEMPLATE = ROOT / "tests/llvm_consumer/MODULE.bazel.in"
+HERE = Path(__file__).resolve().parent
+TEMPLATE = HERE / "fixtures/llvm_consumer/MODULE.bazel.in"
 
 
 def archive_sdk(sdk: Path, archive: Path) -> str:
@@ -49,7 +49,7 @@ def main() -> None:
         parser.error("work directory already exists")
     work.mkdir(parents=True)
     sdk = work / "MacOSX.sdk"
-    command = [sys.executable, str(ROOT / "compose_sdk.py"),
+    command = [sys.executable, str(HERE / "compose_sdk.py"),
                "--c-root", str(args.c_root.absolute()),
                "--reference-sdk", str(args.reference_sdk.absolute()),
                "--libcxx-headers", str(args.libcxx_headers.absolute()),

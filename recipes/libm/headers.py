@@ -15,8 +15,8 @@ def produce(emit: Emit) -> None:
     if complex_source.count(old) != 1:
         raise ValueError("Libm complex.h architecture branch changed")
     emit("usr/include/complex.h", complex_source.replace(old, new),
-         "generated:apple via inputs/header-sources.tsv:complex.h",
-         "header-sources.tsv", ("sources/Libm/Source/complex.h",),
+         "generated:apple via recipes/libm/headers.py:complex.h",
+         "recipes/libm/headers.py", ("sources/Libm/Source/complex.h",),
          "guarded arm64 branch")
 
     source = ROOT / "sources/Libm/Source/math.h"
@@ -26,7 +26,7 @@ def produce(emit: Emit) -> None:
         raise ValueError("Libm math.h architecture switch changed")
     emit("usr/include/math.h", text.replace(before,
          "#elif defined(__arm__) || defined(__arm64__)\n").encode(),
-         "derived:sources/Libm/Source/math.h via install_math", "Libm derivation",
+         "derived:sources/Libm/Source/math.h via recipes/libm/headers.py", "Libm derivation",
          ("sources/Libm/Source/math.h",), "guarded arm64 branch")
 
     source = ROOT / "sources/Libm/Source/fenv.h"
@@ -37,9 +37,9 @@ def produce(emit: Emit) -> None:
     if text.count(before) != 1:
         raise ValueError("Libm fenv.h architecture switch changed")
     emit("usr/include/fenv.h", text.replace(before, after).encode(),
-         "derived:sources/Libm/Source/fenv.h via install_fenv", "Libm derivation",
+         "derived:sources/Libm/Source/fenv.h via recipes/libm/headers.py", "Libm derivation",
          ("sources/Libm/Source/fenv.h",), "arm64 fenv include selection")
     emit("usr/include/architecture/arm64/fenv.h",
-         (ROOT / "templates/arm64_fenv.h").read_bytes(),
-         "templates/arm64_fenv.h", "Libm derivation",
-         ("templates/arm64_fenv.h",), "local ABI declaration")
+         (ROOT / "recipes/libm/arm64_fenv.h").read_bytes(),
+         "recipes/libm/arm64_fenv.h", "Libm derivation",
+         ("recipes/libm/arm64_fenv.h",), "local ABI declaration")

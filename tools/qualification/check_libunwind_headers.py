@@ -7,8 +7,8 @@ import json
 import subprocess
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-PIN = ROOT / "inputs/llvm-libunwind-headers.json"
+HERE = Path(__file__).resolve().parent
+PIN = HERE / "data/llvm-libunwind-headers.json"
 TARGETS = ("arm64", "x86_64")
 ROOTS = ("__libunwind_config.h", "libunwind.h", "unwind.h")
 

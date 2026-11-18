@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from audit_sdk_c_headers import (audit, closure_paths, installed_provenance,
+from tools.audit.sdk_c_headers import (audit, closure_paths, installed_provenance,
                                  path_digest, public_install_provenance)
 
 

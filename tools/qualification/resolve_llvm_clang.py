@@ -8,8 +8,8 @@ import subprocess
 from pathlib import Path
 
 
-ROOT = Path(__file__).resolve().parents[1]
-PIN = ROOT / "inputs/llvm-minimal-prebuilt.json"
+HERE = Path(__file__).resolve().parent
+PIN = HERE / "data/llvm-minimal-prebuilt.json"
 
 
 def main() -> None:
