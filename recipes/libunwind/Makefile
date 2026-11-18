@@ -4,4 +4,3 @@
 stage: stage-libunwind
 stage-libunwind:
 	$(call copy-headers,libunwind,mach-o,sources/libunwind/libunwind/include/mach-o/compact_unwind_encoding.h)
-	$(call record-stage,libunwind,recipes/libunwind/Makefile)

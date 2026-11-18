@@ -11,6 +11,7 @@ esac
 mig=$2
 clang=$3
 sysroot=$4
+test -d "$sysroot/usr/include" || { echo "MIG sysroot missing: $sysroot" >&2; exit 1; }
 stage=$5
 out="$stage/dst/usr/include"
 xnu="$PWD/sources/xnu"

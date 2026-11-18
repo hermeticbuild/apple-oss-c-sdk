@@ -8,4 +8,3 @@ stage-libmalloc:
 		sources/libmalloc/include/malloc/_platform.h \
 		sources/libmalloc/include/malloc/_ptrcheck.h \
 		sources/libmalloc/include/malloc/malloc.h)
-	$(call record-stage,libmalloc,recipes/libmalloc/Makefile)

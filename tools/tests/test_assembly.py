@@ -1,11 +1,12 @@
 """Exercise the shell merge against real staged files and provenance records."""
 
 import hashlib
-import json
 import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+
+from tools.header_manifest import read_header_manifest
 
 ROOT = Path(__file__).resolve().parents[2]
 HEADER = "usr/include/example.h"
@@ -23,9 +24,10 @@ class MergeTest(unittest.TestCase):
         receipt.write_text("\t".join((path, owner, SOURCE, RULE, "copy", RULE, SOURCE)) + "\n")
         return receipt
 
-    def merge(self, output: Path, *receipts: Path):
+    def merge(self, output: Path, *receipts: Path, bootstrap: bool = False):
+        options = ["--bootstrap"] if bootstrap else []
         return subprocess.run(
-            ["/bin/sh", "recipes/merge.sh", str(output), *map(str, receipts)],
+            ["/bin/sh", "recipes/merge.sh", *options, str(output), *map(str, receipts)],
             cwd=ROOT, capture_output=True, text=True,
         )
 
@@ -38,8 +40,29 @@ class MergeTest(unittest.TestCase):
             data = (output / HEADER).read_bytes()
             self.assertEqual(data, b"example\n")
             self.assertEqual((output / HEADER).stat().st_mode & 0o777, 0o644)
-            provenance = json.loads((output / "header-provenance.json").read_text())
-            self.assertEqual(provenance["files"][HEADER]["sha256"], hashlib.sha256(data).hexdigest())
+            files, _ = read_header_manifest(output)
+            self.assertEqual(files[HEADER]["sha256"], hashlib.sha256(data).hexdigest())
+            self.assertEqual(files[HEADER]["inputs"], [RULE, SOURCE])
+
+    def test_bootstrap_installs_headers_without_a_manifest(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            output = root / "out"
+            result = self.merge(output, self.stage(root, "Libm"), bootstrap=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue((output / HEADER).is_file())
+            self.assertEqual(list(output.iterdir()), [output / "usr"])
+
+    def test_unrecorded_header_fails_before_publishing(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            output = root / "out"
+            receipt = self.stage(root, "Libm")
+            (receipt.parent / "dst/usr/include/extra.h").touch()
+            result = self.merge(output, receipt)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("stage paths differ", result.stderr)
+            self.assertFalse(output.exists())
 
     def test_duplicate_paths_fail_before_any_output_is_published(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -56,5 +79,5 @@ class MergeTest(unittest.TestCase):
             output = root / "out"
             result = self.merge(output, self.stage(root, "Libm", "usr/include/../x.h"))
             self.assertNotEqual(result.returncode, 0)
-            self.assertIn("invalid header record", result.stderr)
+            self.assertIn("stage paths differ", result.stderr)
             self.assertFalse(output.exists())

@@ -10,4 +10,3 @@ stage-CommonCrypto:
 		sources/CommonCrypto/include/CommonKeyDerivation.h \
 		sources/CommonCrypto/include/CommonRandom.h \
 		sources/CommonCrypto/include/CommonSymmetricKeywrap.h)
-	$(call record-stage,CommonCrypto,recipes/CommonCrypto/Makefile)

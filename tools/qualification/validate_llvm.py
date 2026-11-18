@@ -49,7 +49,7 @@ def main() -> None:
         parser.error("work directory already exists")
     work.mkdir(parents=True)
     sdk = work / "MacOSX.sdk"
-    command = [sys.executable, str(HERE / "compose_sdk.py"),
+    command = [sys.executable, "-m", "tools.qualification.compose_sdk",
                "--c-root", str(args.c_root.absolute()),
                "--reference-sdk", str(args.reference_sdk.absolute()),
                "--libcxx-headers", str(args.libcxx_headers.absolute()),
@@ -65,7 +65,7 @@ def main() -> None:
         command.extend(("--framework-header", name))
     if args.mode == "overlay":
         command.append("--overlay-reference")
-    subprocess.run(command, check=True)
+    subprocess.run(command, check=True, cwd=HERE.parents[1])
     archive = work / "MacOSX.sdk.tar.zst"
     digest = archive_sdk(sdk, archive)
     consumer = work / "consumer"

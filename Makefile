@@ -13,22 +13,26 @@ install:
 		$(MAKE) build-install STAGE="$$stage" CLANG="$(CLANG)" MIG="$(MIG)" OUT="$(OUT)"
 
 ifneq ($(strip $(STAGE)),)
-# Producer recipes seal their own staging directories before the merge.
+# Each copy writes its full receipt as it stages the file.
+recipe-path = $(or $(2),recipes/$(1)/Makefile)
 define copy-headers
 mkdir -p "$(STAGE)/$(1)/dst/usr/include/$(2)"
 install -m 644 $(3) "$(STAGE)/$(1)/dst/usr/include/$(2)/"
-@for source in $(3); do printf '%s\t%s\n' "$(2)/$${source##*/}" "$$source"; done \
-	>> "$(STAGE)/$(1)/direct-copies"
+@for source in $(3); do \
+	path="$(if $(filter .,$(2)),usr/include,usr/include/$(2))/$${source##*/}"; \
+	printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$$path" "$(1)" "$$source" \
+		"$(call recipe-path,$(1),$(4))" copy "$(call recipe-path,$(1),$(4))" "$$source"; \
+	done >> "$(STAGE)/$(1)/records"
 endef
 
-define record-stage
-/bin/sh recipes/stage.sh "$(STAGE)/$(1)" "$(1)" "$(2)" $(3)
+define record-installed
+/bin/sh recipes/record-installed.sh "$(STAGE)/$(1)" "$(1)" "$(2)" "$(3)" "$(4)" $(5) >> "$(STAGE)/$(1)/records"
 endef
 
-define header-override
+define header-record
 @{ printf '%s\t%s\t%s\t%s\t%s' "$(2)" "$(1)" "$(3)" "$(4)" "$(5)"; \
 	for input in $(6); do printf '\t%s' "$$input"; done; printf '\n'; } \
-	>> "$(STAGE)/$(1)/overrides"
+	>> "$(STAGE)/$(1)/records"
 endef
 
 .PHONY: stage build-install pre-mig
@@ -37,7 +41,7 @@ stage:
 include $(wildcard recipes/*/Makefile)
 
 pre-mig: stage
-	/bin/sh recipes/merge.sh "$(STAGE)/pre-mig" "$(STAGE)"/*/records
+	/bin/sh recipes/merge.sh --bootstrap "$(STAGE)/pre-mig" "$(STAGE)"/*/records
 
 build-install: mig-arm64 mig-x86_64
 	diff -rq "$(STAGE)/mig-arm64/dst/usr/include/mach" "$(STAGE)/mig-x86_64/dst/usr/include/mach"

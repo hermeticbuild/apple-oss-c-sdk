@@ -29,8 +29,8 @@ make install CLANG="$LLVM_CLANG" OUT=/tmp/apple-oss-c-headers
 
 The output directory must be new. The installer stages each upstream install
 separately, merges public headers, and compares MIG output across both targets.
-It emits `header-provenance.json` with source selections and hashes and
-`header-owners.json` with each header's producer, inputs, and transformation.
+It emits one `header-manifest.tsv` with each header's origin, producer,
+selection rule, inputs, transformation, and SHA-256.
 See [the recipes](recipes/README.md) for the production steps.
 
 ## Tools

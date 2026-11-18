@@ -7,4 +7,4 @@ stage-Libc:
 		ARCHS="arm64 x86_64" RC_ARCHS="arm64 x86_64" PLATFORM_NAME=macosx \
 		VARIANT_PLATFORM_NAME=macosx DEPLOYMENT_LOCATION=YES \
 		/bin/bash -e xcodescripts/headers.sh
-	$(call record-stage,Libc,sources/Libc/xcodescripts/headers.sh)
+	$(call record-installed,Libc,sources/Libc/xcodescripts/headers.sh,usr/include)

@@ -3,4 +3,3 @@
 stage: stage-hfs
 stage-hfs:
 	$(call copy-headers,hfs,hfs,sources/hfs/core/hfs_format.h sources/hfs/core/hfs_unistr.h)
-	$(call record-stage,hfs,recipes/hfs/Makefile)

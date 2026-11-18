@@ -11,4 +11,8 @@ stage-libpthread:
 		/bin/bash sources/libpthread/xcodescripts/install-sys-headers.sh
 	env -i PATH="$$PATH" ACTION=installhdrs DSTROOT="$(pthread_root)" \
 		/bin/bash -e sources/libpthread/xcodescripts/install-symlinks.sh
-	$(call record-stage,libpthread,recipes/libpthread/Makefile)
+	$(call record-installed,libpthread,recipes/libpthread/Makefile,usr/include/sys)
+	$(call record-installed,libpthread,recipes/libpthread/Makefile,usr/include/pthread.h)
+	$(call record-installed,libpthread,recipes/libpthread/Makefile,usr/include/pthread_impl.h)
+	$(call record-installed,libpthread,recipes/libpthread/Makefile,usr/include/pthread_spis.h)
+	$(call record-installed,libpthread,recipes/libpthread/Makefile,usr/include/sched.h)

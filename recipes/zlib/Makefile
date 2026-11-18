@@ -3,4 +3,3 @@
 stage: stage-zlib
 stage-zlib:
 	$(call copy-headers,zlib,.,sources/zlib/zlib/zconf.h sources/zlib/zlib/zlib.h)
-	$(call record-stage,zlib,recipes/zlib/Makefile)

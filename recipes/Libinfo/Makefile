@@ -6,4 +6,4 @@ stage-Libinfo:
 		PLATFORM_NAME=macosx ACTION=installhdrs \
 		INSTALL_OWNER="$$(id -un)" INSTALL_GROUP="$$(id -gn)" \
 		/bin/bash -e xcodescripts/install_files.sh
-	$(call record-stage,Libinfo,sources/Libinfo/xcodescripts/install_files.sh)
+	$(call record-installed,Libinfo,sources/Libinfo/xcodescripts/install_files.sh,usr/include)

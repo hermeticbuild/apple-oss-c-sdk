@@ -12,6 +12,8 @@ import json
 import shutil
 from pathlib import Path
 
+from tools.header_manifest import TSV_NAME, read_header_manifest
+
 HERE = Path(__file__).resolve().parent
 
 
@@ -72,6 +74,9 @@ def main() -> None:
         shutil.copytree(c_root, out, symlinks=True)
     # The owner index covers the standalone C installation only. The composed
     # provenance below also covers CoreFoundation and LLVM runtime headers.
+    c_manifest = out / TSV_NAME
+    if c_manifest.is_file():
+        c_manifest.rename(out / "c-header-manifest.tsv")
     c_owner_index = out / "header-owners.json"
     if c_owner_index.is_file():
         c_owner_index.rename(out / "c-header-owners.json")
@@ -139,7 +144,8 @@ def main() -> None:
     # coherent libunwind header set from the LLVM source already fetched by
     # hermetic-llvm.
     c_provenance = out / "header-provenance.json"
-    provenance = json.loads(c_provenance.read_text())
+    c_files, _ = read_header_manifest(c_root)
+    provenance = {"schema": 2, "files": c_files}
     if args.corefoundation_c_root:
         for relative, record in cf_manifest["files"].items():
             if relative.startswith("System/Library/Frameworks/CoreFoundation.framework/Headers/"):

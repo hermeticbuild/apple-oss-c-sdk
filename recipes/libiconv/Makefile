@@ -3,4 +3,3 @@
 stage: stage-libiconv
 stage-libiconv:
 	$(call copy-headers,libiconv,.,sources/libiconv/citrus/iconv.h)
-	$(call record-stage,libiconv,recipes/libiconv/Makefile)

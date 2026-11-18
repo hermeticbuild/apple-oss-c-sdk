@@ -8,9 +8,10 @@ runtime headers. `compose_sdk.py` joins the C installation with Apple SDK Gen
 link assets and framework headers, LLVM libc++, LLVM libunwind, and the
 temporary archived CoreFoundation header layer. `validate_llvm.py` archives
 that composition and builds `@llvm-project//llvm:llvm` on both macOS targets.
-The composition renames `header-owners.json` to `c-header-owners.json` to make
-its C-only scope explicit; the combined `header-provenance.json` includes the
-additional CoreFoundation and LLVM libunwind headers.
+The composition preserves the standalone inventory as `c-header-manifest.tsv`
+(or `c-header-owners.json` for older inputs). Its combined
+`header-provenance.json` also covers the additional CoreFoundation and LLVM
+libunwind headers.
 
 The [174 include roots](fixtures/c/default_profile.c) come from
 [Zig's macOS C probe](https://codeberg.org/ziglang/zig/src/commit/47ff97b60b1a8215d4d15bb5870ee14b178558b9/tools/macos-headers.c),

@@ -10,4 +10,3 @@ stage-libplatform:
 		sources/libplatform/include/libkern/OSSpinLockDeprecated.h)
 	$(call copy-headers,libplatform,os,sources/libplatform/include/os/lock.h sources/libplatform/include/os/os_sync_wait_on_address.h)
 	$(call copy-headers,libplatform,.,sources/libplatform/include/setjmp.h sources/libplatform/include/ucontext.h)
-	$(call record-stage,libplatform,recipes/libplatform/Makefile)

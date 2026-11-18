@@ -3,4 +3,3 @@
 stage: stage-copyfile
 stage-copyfile:
 	$(call copy-headers,copyfile,.,sources/copyfile/copyfile.h)
-	$(call record-stage,copyfile,recipes/copyfile/Makefile)

@@ -1,66 +1,78 @@
 #!/bin/sh
-# Merge sealed producer stages. No producer-specific rules belong here.
+# Merge finished producer stages into a new public include tree.
 set -eu
 export LC_ALL=C
+bootstrap=false
+if [ "$1" = --bootstrap ]; then bootstrap=true; shift; fi
 out=$1
 shift
-test ! -e "$out" && test ! -L "$out" || { echo "output already exists: $out" >&2; exit 1; }
+fail() { echo "$*" >&2; exit 1; }
+test ! -e "$out" && test ! -L "$out" || fail "output already exists: $out"
 parent=$(dirname "$out")
 mkdir -p "$parent"
 scratch=$(mktemp -d "$parent/.apple-headers.XXXXXX")
 trap 'rm -rf -- "$scratch"' EXIT
 tree="$scratch/tree"
 mkdir "$tree"
-
-# Keep the originating stage next to each row, and sort by installed path.
-for records do
-    test -s "$records" || { echo "empty stage: $records" >&2; exit 1; }
-    include=$(realpath "$(dirname "$records")/dst/usr/include")
-    awk -v include="$include" '{ print include "\t" $0 }' "$records"
-done > "$scratch/unsorted"
 tab=$(printf '\t')
-sort -t "$tab" -k2,2 "$scratch/unsorted" > "$scratch/records"
-awk -F '\t' '
-    NF < 7 || $2 !~ /^usr\/include\/[[:alnum:]_.+\/-]+\.h$/ || $2 ~ /(^|\/)\.\.?($|\/)|\/\// {
-        print "invalid header record:", $0 > "/dev/stderr"; exit 1
-    }
-    {
-        for (i = 1; i <= NF; i++) {
-            if ($i == "" || $i ~ /[[:cntrl:]]/) {
-                print "empty or invalid field for:", $2 > "/dev/stderr"; exit 1
-            }
-        }
-    }
-    $2 == previous {
-        print "multiple owners for " $2 ": " owner ", " $3 > "/dev/stderr"; exit 1
-    }
-    { previous=$2; owner=$3 }
-    END { if (!NR) exit 1 }
-' "$scratch/records"
+test "$#" -gt 0 || fail "no producer stages"
 
-while IFS="$tab" read -r include path owner origin selection transform inputs; do
-    source=$(realpath "$include/${path#usr/include/}")
-    case "$source" in "$include"/*) ;; *) echo "header escapes stage: $path" >&2; exit 1 ;; esac
-    test -f "$source"
-    # The validated input fields are tab-separated. Turn off glob expansion
-    # while splitting them, so source paths with spaces remain single inputs.
-    IFS="$tab"
-    set -f
-    for input in $inputs; do
-        case "$input" in
-            */../*|*/..|*/./*|*/.) echo "invalid producer input: $input" >&2; exit 1 ;;
-            sources/*|recipes/*) test -f "$input" || { echo "missing producer input: $input" >&2; exit 1; } ;;
-            *) echo "invalid producer input: $input" >&2; exit 1 ;;
+for records do
+    test -s "$records" || fail "empty stage: $records"
+    include=$(realpath "$(dirname "$records")/dst/usr/include")
+
+    # A producer must record exactly the headers it staged.
+    (cd "$include" && find . -name '*.h' \( -type f -o -type l \) -print) > "$scratch/found"
+    sed 's|^\./|usr/include/|' "$scratch/found" | sort > "$scratch/actual"
+    cut -f1 "$records" | sort > "$scratch/declared"
+    cmp -s "$scratch/actual" "$scratch/declared" || fail "stage paths differ from records: $records"
+
+    while IFS= read -r row; do
+        # Split the row on tabs only. Spaces in provenance remain literal.
+        IFS="$tab"; set -f; set -- $row; set +f; unset IFS
+        test "$#" -ge 6 || fail "invalid header record: $row"
+        path=$1
+        case "$path" in
+            *[!a-zA-Z0-9_.+/-]*|*//*|*/../*|*/./*) fail "invalid header record: $path" ;;
+            usr/include/*.h) ;;
+            *) fail "invalid header record: $path" ;;
         esac
-    done
-    set +f
-    unset IFS
-    directory="$tree/${path%/*}"
-    test -d "$directory" || mkdir -p "$directory"
-    install -m 0644 "$source" "$tree/$path"
-done < "$scratch/records"
+        # Rejoining also detects empty fields collapsed by shell splitting.
+        normalized=$(printf '%s\t' "$@")
+        test "${normalized%"$tab"}" = "$row" || fail "empty field for: $path"
+        for field do
+            case "$field" in *[[:cntrl:]]*) fail "invalid field for: $path" ;; esac
+        done
+        shift 5
+        for input do
+            case "$input" in
+                */../*|*/..|*/./*|*/.) fail "invalid producer input: $input" ;;
+                sources/*|recipes/*) test -f "$input" || fail "missing producer input: $input" ;;
+                *) fail "invalid producer input: $input" ;;
+            esac
+        done
+        source=$(realpath "$include/${path#usr/include/}")
+        case "$source" in "$include"/*) ;; *) fail "header escapes stage: $path" ;; esac
+        test -f "$source" || fail "staged header is not a file: $path"
+        test ! -e "$tree/$path" || fail "multiple owners for $path"
+        directory="$tree/${path%/*}"
+        test -d "$directory" || mkdir -p "$directory"
+        install -m 0644 "$source" "$tree/$path"
+        if ! "$bootstrap"; then printf '%s\n' "$row" >> "$scratch/rows"; fi
+    done < "$records"
+done
 
-(cd "$tree" && find usr/include -type f -exec shasum -a 256 {} +) > "$scratch/hashes"
-awk -v owners="$tree/header-owners.json" -v provenance="$tree/header-provenance.json" \
-    -f recipes/manifests.awk "$scratch/hashes" "$scratch/records"
+if ! "$bootstrap"; then
+    (cd "$tree" && find usr/include -type f -exec shasum -a 256 {} +) > "$scratch/hashes"
+    # shasum prints "digest  path". Join path-tab-digest to the producer records.
+    sed -E "s/^([0-9a-f]+)  (.*)$/\2$tab\1/" "$scratch/hashes" | sort -t "$tab" -k1,1 > "$scratch/by-path"
+    sort -t "$tab" -k1,1 "$scratch/rows" > "$scratch/records"
+    join -t "$tab" "$scratch/by-path" "$scratch/records" > "$scratch/manifest"
+    test "$(wc -l < "$scratch/manifest")" = "$(wc -l < "$scratch/records")" ||
+        fail "installed hashes do not cover the producer records"
+    {
+        printf 'path\tsha256\towner\torigin\tselection\ttransform\tinputs...\n'
+        cat "$scratch/manifest"
+    } > "$tree/header-manifest.tsv"
+fi
 mv "$tree" "$out"

@@ -14,6 +14,8 @@ import subprocess
 from collections import Counter
 from pathlib import Path
 
+from tools.header_manifest import read_header_manifest
+
 from .probe_c_closure import current_probe_path, digest_tree
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -113,13 +115,8 @@ def baseline_paths(path: Path) -> tuple[set[str], dict]:
 
 
 def installed_provenance(installation: Path) -> dict[str, dict[str, str]]:
-    path = installation / "header-provenance.json"
-    if not path.is_file():
-        raise ValueError("C installation has no header-provenance.json; regenerate it")
-    manifest = json.loads(path.read_text())
-    if manifest.get("schema") != 2:
-        raise ValueError("unsupported C installation provenance schema")
-    for relative, record in manifest["files"].items():
+    files, metadata = read_header_manifest(installation)
+    for relative, record in files.items():
         parts = Path(relative)
         if (parts.is_absolute() or ".." in parts.parts or not record.get("origin")
                 or not record.get("selection")):
@@ -129,25 +126,13 @@ def installed_provenance(installation: Path) -> dict[str, dict[str, str]]:
             raise ValueError(f"provenance file absent from installation: {relative}")
         if hashlib.sha256(candidate.read_bytes()).hexdigest() != record["sha256"]:
             raise ValueError(f"installed file differs from provenance manifest: {relative}")
-    owner_path = installation / "header-owners.json"
-    if owner_path.is_file():
-        owners = json.loads(owner_path.read_text())
-        if owners.get("schema") != 1 or set(owners.get("files", {})) != set(manifest["files"]):
-            raise ValueError("C owner index differs from provenance path set")
-        for relative, record in owners["files"].items():
-            legacy = manifest["files"][relative]
-            if (record.get("origin") != legacy["origin"] or
-                    record.get("selection") != legacy["selection"] or
-                    not record.get("owner") or not record.get("inputs") or
-                    not record.get("transform")):
-                raise ValueError(f"invalid C owner record: {relative}")
     installed = {file.relative_to(installation).as_posix()
                  for file in installation.rglob("*")
-                 if file.is_file() and file not in {path, owner_path}}
-    unmapped = installed - manifest["files"].keys()
+                 if file.is_file() and file not in metadata}
+    unmapped = installed - files.keys()
     if unmapped:
         raise ValueError(f"installed files lack provenance: {sorted(unmapped)[:5]}")
-    return manifest["files"]
+    return files
 
 
 def public_install_provenance(source: dict[str, str]) -> bool:

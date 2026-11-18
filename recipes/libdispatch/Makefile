@@ -29,4 +29,4 @@ stage-libdispatch:
 		file="$(dispatch_root)/usr/include/os/$$name"; \
 		unifdef $(dispatch_filter) -o "$$file" "$$file" || test "$$?" -eq 1; \
 	done
-	$(call record-stage,libdispatch,recipes/libdispatch/Makefile)
+	$(call record-installed,libdispatch,recipes/libdispatch/Makefile,usr/include/os)
