@@ -5,7 +5,6 @@ import subprocess
 from pathlib import Path
 
 from recipes.assembly import Assembly
-from .mig import generate as generate_mig
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -15,6 +14,11 @@ XNU_PUBLIC_MAKE_DIRS = (
     ("bsd/machine", "machine", "INSTALL_MI_LIST"),
     ("bsd/arm", "arm", "INSTALL_MD_LIST"),
     ("bsd/i386", "i386", "INSTALL_MD_LIST"),
+    ("bsd/uuid", "uuid", "INSTALL_MI_LIST"),
+    ("osfmk/arm", "arm", "INSTALL_MD_LIST"),
+    ("osfmk/i386", "i386", "INSTALL_MD_LIST"),
+    ("libkern/libkern/arm", "libkern/arm", "INSTALL_MD_LIST"),
+    ("libkern/libkern/i386", "libkern/i386", "INSTALL_MD_LIST"),
     ("bsd/net", "net", "INSTALL_MI_LIST"),
     ("libkern/libkern", "libkern", "INSTALL_MI_LIST"),
     ("bsd/netinet", "netinet", "INSTALL_MI_LIST"),
@@ -93,6 +97,16 @@ def public_copies():
     for name in libsyscall_public_mach_headers():
         yield (f"usr/include/mach/{name}", f"sources/xnu/libsyscall/mach/mach/{name}",
                "xnu/libsyscall/xcodescripts/mach_install_mig.sh:MACH_HDRS")
+
+    # Libsyscall.xcodeproj: public phases for gethostuuid and spawn; the
+    # embedded-private copy phase resolves to /usr/include on macOS for libproc.
+    for name, path in (
+        ("gethostuuid.h", "gethostuuid.h"),
+        ("spawn.h", "spawn/spawn.h"),
+        ("libproc.h", "libproc/libproc.h"),
+    ):
+        yield (f"usr/include/{name}", f"sources/xnu/libsyscall/wrappers/{path}",
+               "libsyscall/Libsyscall.xcodeproj/project.pbxproj:macosx")
 
 
 def produce_public(assembly: Assembly) -> None:
@@ -179,15 +193,13 @@ def produce_symbol_headers(assembly: Assembly, temporary: Path) -> None:
                      transform="XNU public header generator")
 
 
-def produce_mig(assembly: Assembly, mig: Path, clang: Path,
-                sysroot: Path, temporary: Path) -> None:
-    out = temporary / "mig"
-    generate_mig(mig, clang, sysroot, out)
-    for source in sorted((out / "arm64/mach").glob("*.h")):
+def collect_mig(assembly: Assembly, out: Path) -> None:
+    for source in sorted((out / "mach").glob("*.h")):
         assembly.add("xnu", f"usr/include/mach/{source.name}", source.read_bytes(),
-                     f"generated:system-mig:{source.name} via recipes/xnu/mig.py",
+                     f"generated:system-mig:{source.name} via recipes/xnu/mig.sh",
                      "xnu/libsyscall/xcodescripts/mach_install_mig.sh:public",
-                     inputs=(f"sources/xnu/libsyscall/mach/{source.stem}.defs",
+                     inputs=("recipes/xnu/mig.sh",
+                             f"sources/xnu/libsyscall/mach/{source.stem}.defs",
                              "sources/xnu/libsyscall/xcodescripts/filter_mig.awk",
                              "sources/xnu/libsyscall/mach/add_attributes_to_mig.txt",
                              "sources/xnu/libsyscall/xcodescripts/mach_install_mig.sh"),

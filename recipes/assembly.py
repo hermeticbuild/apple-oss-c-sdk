@@ -45,29 +45,28 @@ class Assembly:
                 raise ValueError(f"recipe input does not exist: {path}: {item}")
         self.files[path] = Header(data, owner, origin, selection, inputs, transform)
 
-    def write(self, root: Path, *, complete: bool) -> None:
+    def write(self, root: Path) -> None:
         if root.exists():
             raise ValueError(f"output already exists: {root}")
         for path, header in sorted(self.files.items()):
             destination = root / path
             destination.parent.mkdir(parents=True, exist_ok=True)
             destination.write_bytes(header.data)
-        if complete:
-            (root / "header-provenance.json").write_text(json.dumps({
-                "schema": 2,
-                "files": {path: {
-                    "origin": header.origin,
-                    "selection": header.selection,
-                    "sha256": hashlib.sha256(header.data).hexdigest(),
-                } for path, header in sorted(self.files.items())},
-            }, indent=2, sort_keys=True) + "\n")
-            (root / "header-owners.json").write_text(json.dumps({
-                "schema": 1,
-                "files": {path: {
-                    "owner": header.owner,
-                    "origin": header.origin,
-                    "selection": header.selection,
-                    "inputs": list(header.inputs),
-                    "transform": header.transform,
-                } for path, header in sorted(self.files.items())},
-            }, indent=2, sort_keys=True) + "\n")
+        (root / "header-provenance.json").write_text(json.dumps({
+            "schema": 2,
+            "files": {path: {
+                "origin": header.origin,
+                "selection": header.selection,
+                "sha256": hashlib.sha256(header.data).hexdigest(),
+            } for path, header in sorted(self.files.items())},
+        }, indent=2, sort_keys=True) + "\n")
+        (root / "header-owners.json").write_text(json.dumps({
+            "schema": 1,
+            "files": {path: {
+                "owner": header.owner,
+                "origin": header.origin,
+                "selection": header.selection,
+                "inputs": list(header.inputs),
+                "transform": header.transform,
+            } for path, header in sorted(self.files.items())},
+        }, indent=2, sort_keys=True) + "\n")

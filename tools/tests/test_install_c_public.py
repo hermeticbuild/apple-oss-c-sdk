@@ -2,9 +2,7 @@
 
 import unittest
 
-from recipes.public_sources import public_xcode_selection
 from recipes.xnu.headers import libsyscall_public_mach_headers, xnu_public_make_headers
-from pathlib import Path
 
 
 class XnuPublicHeadersTest(unittest.TestCase):
@@ -27,14 +25,6 @@ class XnuPublicHeadersTest(unittest.TestCase):
             "osfmk/mach_debug", "INSTALL_MI_LIST"))
         self.assertEqual(len(libsyscall_public_mach_headers()), 10)
         self.assertIn("mach_init.h", libsyscall_public_mach_headers())
-
-    def test_xcode_public_phase_selects_known_headers(self):
-        root = Path(__file__).resolve().parents[2]
-        self.assertEqual(public_xcode_selection(
-            root / "sources/libpthread/include/pthread/pthread.h"),
-            "libpthread/libpthread.xcodeproj/project.pbxproj:Public")
-        self.assertIsNone(public_xcode_selection(
-            root / "sources/libplatform/include/string_x86.h"))
 
 
 if __name__ == "__main__":

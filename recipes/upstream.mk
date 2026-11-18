@@ -14,6 +14,7 @@ architecture CarbonHeaders:
 	mkdir -p "$(STAGE)/$@/dst"
 	env -i PATH="$$PATH" $(MAKE) -C "sources/$@" installhdrs \
 		DSTROOT="$(STAGE)/$@/dst" RC_ARCHS="$(ARCHS)"
+	$(call record-stage,$@,sources/$@/Makefile)
 
 Libinfo:
 	mkdir -p "$(STAGE)/$@/dst"
@@ -21,6 +22,7 @@ Libinfo:
 		PLATFORM_NAME=macosx ACTION=installhdrs \
 		INSTALL_OWNER="$$(id -un)" INSTALL_GROUP="$$(id -gn)" \
 		/bin/bash -e xcodescripts/install_files.sh
+	$(call record-stage,$@,sources/$@/xcodescripts/install_files.sh)
 
 Libc:
 	mkdir -p "$(STAGE)/$@/dst" "$(STAGE)/$@/derived"
@@ -29,9 +31,11 @@ Libc:
 		ARCHS="$(ARCHS)" RC_ARCHS="$(ARCHS)" PLATFORM_NAME=macosx \
 		VARIANT_PLATFORM_NAME=macosx DEPLOYMENT_LOCATION=YES \
 		/bin/bash -e xcodescripts/headers.sh
+	$(call record-stage,$@,sources/$@/xcodescripts/headers.sh)
 
 AvailabilityVersions:
 	mkdir -p "$(STAGE)/$@/dst"
 	env -i PATH="$$PATH" $(MAKE) -C "sources/$@" installhdrs \
 		DSTROOT="$(STAGE)/$@/dst" OBJROOT="$(STAGE)/$@/obj" \
 		SYMROOT="$(STAGE)/$@/sym" CMAKE="$(CMAKE)" NINJA="$(NINJA)"
+	$(call record-stage,$@,sources/AvailabilityVersions/CMakeLists.txt)

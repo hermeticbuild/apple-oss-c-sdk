@@ -23,7 +23,7 @@ LLVM_REPO=/absolute/path/to/hermetic-llvm
 LLVM_CLANG=$(python3 -m tools.qualification.resolve_llvm_clang --llvm-repo "$LLVM_REPO")
 
 git submodule update --init --recursive
-python3 install_c.py --clang "$LLVM_CLANG" --out /tmp/apple-oss-c-headers
+make install CLANG="$LLVM_CLANG" OUT=/tmp/apple-oss-c-headers
 ```
 
 The output directory must be new. The installer stages each upstream install
