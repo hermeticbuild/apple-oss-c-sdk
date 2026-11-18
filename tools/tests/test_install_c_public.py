@@ -2,25 +2,12 @@
 
 import unittest
 
-from recipes.libc.headers import libc_public_headers
-from recipes.public_sources import architecture_public_headers, public_xcode_selection
+from recipes.public_sources import public_xcode_selection
 from recipes.xnu.headers import libsyscall_public_mach_headers, xnu_public_make_headers
 from pathlib import Path
 
 
 class XnuPublicHeadersTest(unittest.TestCase):
-    def test_architecture_make_installs_both_cpu_families(self):
-        headers = {path.as_posix() for path in architecture_public_headers()}
-        self.assertEqual(len(headers), 19)
-        self.assertIn("byte_order.h", headers)
-
-    def test_libc_script_lists_public_paths_and_moves_asm_private(self):
-        headers = set(libc_public_headers())
-        self.assertIn("stdio.h", headers)
-        self.assertIn("arpa/inet.h", headers)
-        self.assertNotIn("asm.h", headers)
-        self.assertNotIn("authentication.h", headers)
-
     def test_sys_list_excludes_private_kernel_headers(self):
         headers = set(xnu_public_make_headers("bsd/sys", "INSTALL_MI_LIST"))
         self.assertIn("socket.h", headers)

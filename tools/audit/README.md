@@ -32,7 +32,7 @@ set. `data/sdk-review-notes.tsv` records unresolved source gaps.
 `data/installation-only-decisions.tsv` accounts for paths absent from the
 reviewed SDK. `inventories/macosx26.5.json` is the historical full-profile
 snapshot, useful as a path baseline but not a release approval for the
-535-header profile.
+current upstream-driven installation.
 
 The 2026-11-18 minimal fixture passed 350/350 probes against both official SDK
 26.5 and our installation. The path inventory reported 531 matching installed
@@ -50,3 +50,8 @@ ledger are reviewed.
 
 The original source selection ledger is in [history](history/header-sources.tsv).
 The installer uses the active selections under `recipes/`.
+
+Use `probe_c_closure --reference` to check the coverage floor. The comparison
+accepts the pinned Clang implementation of `tgmath.h` when the same successful
+probe actually opened that resource header. The full inventory still reports
+the absent SDK path and historical scope decisions.

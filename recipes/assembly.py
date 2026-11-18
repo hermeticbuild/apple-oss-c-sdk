@@ -19,15 +19,15 @@ class Header:
 
 
 class Assembly:
-    def __init__(self, selected: set[str]):
-        self.selected = selected
+    def __init__(self):
         self.files: dict[str, Header] = {}
 
     def add(self, owner: str, path: str, data: bytes, origin: str,
             selection: str, *, inputs: tuple[str, ...] | None = None,
             transform: str = "copy") -> None:
-        if path not in self.selected:
-            raise ValueError(f"header outside default profile: {path}")
+        parts = Path(path).parts
+        if parts[:2] != ("usr", "include") or ".." in parts or len(parts) < 3:
+            raise ValueError(f"invalid C header path: {path}")
         previous = self.files.get(path)
         if previous is not None:
             raise ValueError(f"multiple owners for {path}: {previous.owner}, {owner}")
@@ -46,9 +46,6 @@ class Assembly:
         self.files[path] = Header(data, owner, origin, selection, inputs, transform)
 
     def write(self, root: Path, *, complete: bool) -> None:
-        if complete and set(self.files) != self.selected:
-            missing = sorted(self.selected - set(self.files))
-            raise ValueError(f"profile missing {len(missing)} headers: {missing[:3]}")
         if root.exists():
             raise ValueError(f"output already exists: {root}")
         for path, header in sorted(self.files.items()):

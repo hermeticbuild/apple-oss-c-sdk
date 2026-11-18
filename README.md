@@ -1,12 +1,11 @@
 # Apple OSS macOS C headers (prototype)
 
-This repository installs a minimal, standalone C header tree for macOS arm64
-and x86_64 cross-compilation. Its normal output is exactly the 535 paths in
-[`recipes/default-headers.txt`](recipes/default-headers.txt).
-The installer reads pinned Apple OSS submodules and local derivations; it does
-not read or copy headers from Xcode or Apple SDK Gen. Clang resource headers,
-libc++, libunwind runtime headers, libraries, SDK metadata, TBDs, and framework
-headers are outside this C installation.
+This repository builds a standalone C header tree for macOS arm64 and x86_64
+cross-compilation from pinned Apple OSS submodules and local compatibility
+recipes. Each qualified Apple install command contributes its public headers.
+The SDK coverage probes under `tools/` measure the result. Clang resource
+headers, libc++, the libunwind runtime, libraries, and frameworks come from
+separate toolchain inputs.
 The retained Apple OSS `libunwind` submodule supplies only
 `mach-o/compact_unwind_encoding.h`, a Mach-O format header named by Zig's C
 probe. The installer does not publish `unwind.h`, `libunwind.h`, or
@@ -14,8 +13,9 @@ probe. The installer does not publish `unwind.h`, `libunwind.h`, or
 
 ## Generate the C installation
 
-Run from the repository root on macOS. The installer uses Python 3, Perl,
-`unifdef`, `awk`, system MIG, and Clang. Supply the pinned LLVM 23.1.2 minimal
+Run from the repository root on macOS. The installer uses Make, CMake, Ninja,
+Python 3, Perl, `ed`, `unifdef`, `awk`, system MIG, and Clang. CMake and
+Ninja default to tools on `PATH` and can be set with `CMAKE` and `NINJA`. Supply the pinned LLVM 23.1.2 minimal
 prebuilt Clang. The resolver command below uses hermetic-llvm and Bazel.
 
 ```sh
@@ -26,9 +26,8 @@ git submodule update --init --recursive
 python3 install_c.py --clang "$LLVM_CLANG" --out /tmp/apple-oss-c-headers
 ```
 
-The output directory must be new. The installer checks Apple source install
-lists where available, applies the recipes, and compares MIG output across both
-targets. It emits `header-provenance.json` with source selections and hashes and
+The output directory must be new. The installer stages each upstream install
+separately, merges public headers, and compares MIG output across both targets. It emits `header-provenance.json` with source selections and hashes and
 `header-owners.json` with each header's producer, inputs, and transformation.
 See [the recipes](recipes/README.md) for the production steps.
 

@@ -130,6 +130,7 @@ def compare(actual: dict, reference: dict, sysroot: Path,
         if set(actual["targets"][arch]) != set(reference["targets"][arch]):
             gaps.append(f"{arch} probe roots differ from reference closure")
         for header, expected in reference["targets"][arch].items():
+            observed = actual["targets"][arch].get(header, {})
             for provider in ("resource", "sysroot"):
                 base = resource if provider == "resource" else sysroot
                 for path in expected.get(provider, []):
@@ -138,6 +139,11 @@ def compare(actual: dict, reference: dict, sysroot: Path,
                     relative = installed_path(path) if provider == "sysroot" else path
                     candidate = base / relative
                     if not candidate.is_file() or not candidate.resolve().is_relative_to(base):
+                        # On Apple targets Clang's tgmath.h uses include_next
+                        # if present and otherwise supplies its own C implementation.
+                        if (provider == "sysroot" and relative == "usr/include/tgmath.h"
+                                and "tgmath.h" in observed.get("resource", [])):
+                            continue
                         gaps.append(f"{arch} {header}: missing {provider}/{relative}")
     return gaps
 

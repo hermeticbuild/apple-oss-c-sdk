@@ -151,6 +151,10 @@ def installed_provenance(installation: Path) -> dict[str, dict[str, str]]:
 
 
 def public_install_provenance(source: dict[str, str]) -> bool:
+    origin = source["origin"].removeprefix("derived:")
+    if (origin.startswith("staged:") and
+            source["selection"].startswith(f"sources/{origin.split(':', 2)[1]}/")):
+        return True
     if (source["origin"].startswith("sources/architecture/") and
             source["selection"] == "architecture/Makefile:copyhdrs"):
         return True
@@ -158,7 +162,7 @@ def public_install_provenance(source: dict[str, str]) -> bool:
             source["selection"] ==
             "xnu/libsyscall/xcodescripts/mach_install_mig.sh:public"):
         return True
-    if (source["origin"].startswith("sources/xnu/libsyscall/mach/mach/") and
+    if (origin.startswith("sources/xnu/libsyscall/mach/mach/") and
             source["selection"] ==
             "xnu/libsyscall/xcodescripts/mach_install_mig.sh:MACH_HDRS"):
         return True
@@ -227,7 +231,7 @@ def public_install_provenance(source: dict[str, str]) -> bool:
                 source["selection"] ==
                 f"{repo}/{repo}.xcodeproj/project.pbxproj:Public"):
             return True
-    return (source["origin"].startswith("sources/xnu/") and
+    return (origin.startswith("sources/xnu/") and
             bool(re.fullmatch(r"[^:]+/Makefile:INSTALL_(?:MI|MD)_LIST",
                               source["selection"])))
 

@@ -6,13 +6,9 @@ import re
 import subprocess
 from pathlib import Path
 
-from recipes.c_profile import selected_paths
-
-
 HERE = Path(__file__).resolve().parent
 
 
-ROOTS = HERE / "fixtures/default-roots.txt"
 COMBINED = HERE / "fixtures/c/default_profile.c"
 FIXTURES = (HERE / "fixtures/c/fenv_abi.c",
             HERE / "fixtures/c/stdatomic_init.c",
@@ -25,16 +21,9 @@ def main() -> int:
     parser.add_argument("--sysroot", required=True, type=Path)
     args = parser.parse_args()
     sysroot = args.sysroot.resolve()
-    roots = [line for line in ROOTS.read_text().splitlines()
-             if line and not line.startswith("#")]
-    combined_roots = re.findall(r"^#include <([^>]+)>",
-                                COMBINED.read_text(), re.MULTILINE)
-    if combined_roots != roots:
-        parser.error("combined C fixture differs from the selected roots")
-    missing = [path for path in selected_paths()
-               if not (sysroot / path).is_file()]
-    if missing:
-        parser.error(f"{len(missing)} manifest paths absent; first: {missing[0]}")
+    roots = re.findall(r"^#include <([^>]+)>", COMBINED.read_text(), re.MULTILINE)
+    if not roots or len(roots) != len(set(roots)):
+        parser.error("C fixture must contain unique include roots")
     resource = subprocess.check_output(
         [str(args.clang), "-print-resource-dir"], text=True).strip()
     failures = []

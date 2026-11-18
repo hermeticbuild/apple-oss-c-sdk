@@ -2,26 +2,25 @@
 """Assemble the selected Apple OSS C header recipes into an empty sysroot."""
 
 import argparse
+import subprocess
 import tempfile
 from pathlib import Path
 
-from recipes.c_profile import selected_paths
 from recipes.assembly import Assembly
-from recipes.availability_versions.headers import produce as produce_availability
+from recipes.upstream import collect as collect_upstream
 from recipes.compat.headers import produce as produce_compat
 from recipes.copies import produce as produce_copies
-from recipes.libc.headers import produce as produce_libc
 from recipes.libm.headers import produce as produce_libm
-from recipes.xnu.headers import (produce_mig, produce_symbol_headers,
+from recipes.xnu.headers import (produce_mig, produce_public, produce_symbol_headers,
                                  produce_unifdef)
 
 
 def assemble(mig: Path, clang: Path, out: Path) -> None:
     if out.exists():
         raise ValueError(f"output already exists: {out}")
-    assembly = Assembly(set(selected_paths()))
+    assembly = Assembly()
     produce_copies(assembly)
-    produce_libc(assembly)
+    produce_public(assembly)
     produce_libm(lambda path, data, origin, selection, inputs, transform:
                  assembly.add("Libm", path, data, origin, selection,
                               inputs=inputs, transform=transform))
@@ -29,7 +28,10 @@ def assemble(mig: Path, clang: Path, out: Path) -> None:
     produce_unifdef(assembly)
     with tempfile.TemporaryDirectory(prefix="apple-oss-c-recipes-") as temporary:
         staging = Path(temporary)
-        produce_availability(assembly, staging / "availability")
+        subprocess.run(["make", "-f", "recipes/upstream.mk", "stage",
+                        f"STAGE={staging}"], cwd=Path(__file__).resolve().parent,
+                       check=True)
+        collect_upstream(assembly, staging)
         produce_symbol_headers(assembly, staging / "xnu")
         # MIG preprocesses against the already selected public headers. The
         # pre-MIG tree is a private action input, never a released install.

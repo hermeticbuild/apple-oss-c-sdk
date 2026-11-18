@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
-"""Generate the selected public Mach user headers from pinned XNU .defs files."""
+"""Generate the public Mach user headers from pinned XNU .defs files."""
 
 import argparse
 import re
 import subprocess
 from pathlib import Path
-
-from recipes.c_profile import selected_paths
 
 ROOT = Path(__file__).resolve().parents[2]
 XNU = ROOT / "sources/xnu"
@@ -22,15 +20,9 @@ def names_from_apple_manifests() -> list[str]:
         raise ValueError("XNU macOS mach_vm.defs selection changed")
     user.append("mach_vm")
 
-    if len(user) != 17:
-        raise ValueError(f"unexpected Apple MIG manifest: {len(user)} user")
-    selected = {line.removeprefix("usr/include/mach/").removesuffix(".h")
-                for line in selected_paths()
-                if line.startswith("usr/include/mach/") and line.endswith(".h")}
-    wanted = [name for name in user if name in selected]
-    if len(wanted) != 11:
-        raise ValueError(f"unexpected selected Mach MIG headers: {wanted}")
-    return wanted
+    if len(set(user)) != len(user):
+        raise ValueError("duplicate entries in Apple public MIG list")
+    return user
 
 
 def generate(mig: Path, clang: Path, sysroot: Path, out: Path) -> None:
@@ -58,7 +50,7 @@ def generate(mig: Path, clang: Path, sysroot: Path, out: Path) -> None:
                   if p.read_bytes() != (intel / p.name).read_bytes()]
     if mismatched:
         raise ValueError(f"architecture-specific MIG output: {mismatched}")
-    print(f"generated {len(user_names)} selected user headers per architecture")
+    print(f"generated {len(user_names)} public user headers per architecture")
 
 
 def main() -> None:

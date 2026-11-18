@@ -12,11 +12,9 @@ The composition renames `header-owners.json` to `c-header-owners.json` to make
 its C-only scope explicit; the combined `header-provenance.json` includes the
 additional CoreFoundation and LLVM libunwind headers.
 
-The [174 include roots](fixtures/default-roots.txt) come from
+The [174 include roots](fixtures/c/default_profile.c) come from
 [Zig's macOS C probe](https://codeberg.org/ziglang/zig/src/commit/47ff97b60b1a8215d4d15bb5870ee14b178558b9/tools/macos-headers.c),
-with Objective-C, SIMD, XPC, and `net/ipsec_offload.h` excluded. The shipped
-profile includes the union of dependencies for both targets, including the
-`xlocale` headers reached by the combined fixture.
+with Objective-C, SIMD, XPC, and `net/ipsec_offload.h` excluded. The same fixture supplies the roots for individual and combined probes.
 
 Run these commands from the repository root after setting `LLVM_CLANG` and
 `C_INSTALL` to absolute paths:

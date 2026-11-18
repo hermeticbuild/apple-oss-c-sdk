@@ -15,6 +15,8 @@ XNU_PUBLIC_MAKE_DIRS = (
     ("bsd/machine", "machine", "INSTALL_MI_LIST"),
     ("bsd/arm", "arm", "INSTALL_MD_LIST"),
     ("bsd/i386", "i386", "INSTALL_MD_LIST"),
+    ("bsd/net", "net", "INSTALL_MI_LIST"),
+    ("libkern/libkern", "libkern", "INSTALL_MI_LIST"),
     ("bsd/netinet", "netinet", "INSTALL_MI_LIST"),
     ("bsd/netinet6", "netinet6", "INSTALL_MI_LIST"),
     ("bsd/bsm", "bsm", "INSTALL_MI_LIST"),
@@ -80,6 +82,32 @@ def libsyscall_public_mach_headers() -> list[str]:
     return headers
 
 
+def public_copies():
+    for source_dir, target_dir, list_name in XNU_PUBLIC_MAKE_DIRS:
+        rule = f"{source_dir}/Makefile:{list_name}"
+        for name in xnu_public_make_headers(source_dir, list_name):
+            if (target_dir, name) == ("sys", "cdefs.h"):
+                continue  # The filtered public variant is generated below.
+            yield (f"usr/include/{target_dir}/{name}",
+                   f"sources/xnu/{source_dir}/{name}", rule)
+    for name in libsyscall_public_mach_headers():
+        yield (f"usr/include/mach/{name}", f"sources/xnu/libsyscall/mach/mach/{name}",
+               "xnu/libsyscall/xcodescripts/mach_install_mig.sh:MACH_HDRS")
+
+
+def produce_public(assembly: Assembly) -> None:
+    for path, source, rule in public_copies():
+        data = filter_public(ROOT / source)
+        if not re.sub(rb"/\*.*?\*/|//[^\n]*", b"", data, flags=re.DOTALL).strip():
+            continue  # MakeInc.rule omits files that decomment finds empty.
+        deps = ("sources/xnu/libsyscall/xcodescripts/mach_install_mig.sh"
+                if rule.endswith(":MACH_HDRS") else "sources/xnu/" + rule.split(":")[0])
+        assembly.add("xnu", path, data, f"derived:{source}", rule,
+                     inputs=(source, deps, "sources/xnu/makedefs/MakeInc.def",
+                             "sources/xnu/makedefs/MakeInc.rule"),
+                     transform="macOS public unifdef")
+
+
 def xnu_public_flags() -> list[str]:
     # xnu/makedefs/MakeInc.cmd SUPPORTED_PLATFORMS and MakeInc.def
     # SINCFRAME_UNIFDEF: macOS public installhdrs variant.
@@ -100,23 +128,27 @@ def xnu_public_flags() -> list[str]:
             [f"-U{name}" for name in private] +
             ["-DMODULES_SUPPORTED", "-D_OPEN_SOURCE_", "-D__OPEN_SOURCE__"])
 
+def filter_public(source: Path, extra: tuple[str, ...] = ()) -> bytes:
+    result = subprocess.run(["unifdef", *xnu_public_flags(), *extra, str(source)],
+                            capture_output=True, check=False)
+    if result.returncode not in (0, 1):
+        raise ValueError(f"XNU {source.name} unifdef failed: {result.stderr!r}")
+    return result.stdout
+
+
 def produce_unifdef(assembly: Assembly) -> None:
     xnu = ROOT / "sources/xnu"
     for name, source, extra in (
-        ("sys/cdefs.h", xnu / "bsd/sys/cdefs.h", []),
-        ("device/device_types.h", xnu / "osfmk/device/device_types.h", ["-DIOKIT"]),
+        ("sys/cdefs.h", xnu / "bsd/sys/cdefs.h", ()),
+        ("device/device_types.h", xnu / "osfmk/device/device_types.h", ("-DIOKIT",)),
     ):
-        result = subprocess.run(["unifdef", *xnu_public_flags(), *extra, str(source)],
-                                capture_output=True, check=False)
-        if result.returncode not in (0, 1):
-            raise ValueError(f"XNU {name} unifdef failed: {result.stderr!r}")
         if name == "sys/cdefs.h":
             origin = f"generated:apple via recipes/xnu/headers.py:{name}"
             selection = "recipes/xnu/headers.py"
         else:
             origin = f"generated:{name} via recipes/xnu/headers.py"
             selection = "generated explicit"
-        assembly.add("xnu", f"usr/include/{name}", result.stdout, origin, selection,
+        assembly.add("xnu", f"usr/include/{name}", filter_public(source, extra), origin, selection,
                      inputs=(source.relative_to(ROOT).as_posix(),),
                      transform="macOS public unifdef")
 

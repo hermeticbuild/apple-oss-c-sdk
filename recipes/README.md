@@ -1,31 +1,29 @@
 # Header recipes
 
-`install_c.py` orchestrates producers and writes an empty installation. The
-public path set lives in `recipes/default-headers.txt`; `copies.tsv`
-is the resolved, explicit selection of directly copied Apple OSS files. Its
-columns are `install_path`, `source`, and `selection`. Every source is a path
-inside a pinned submodule. The producer is the source repository name.
-The Libc recipe lists the selected transformed headers in
-`libc/strip-headers.txt`.
+`install_c.py` gives [upstream.mk](upstream.mk) a fresh staging directory.
+Make calls the pinned architecture, CarbonHeaders and AvailabilityVersions
+install targets and the Libc and Libinfo install scripts. Each project has
+its own destination. The merger takes `.h` files from `usr/include` and
+rejects overlapping owners. CarbonHeaders' legacy availability headers
+give way to AvailabilityVersions, and the compatibility recipe adapts
+`TargetConditionals.h` to both targets.
 
-Generated files have code beside their owning source family:
+The XNU adapter reads public machine-independent and machine-dependent lists
+from the pinned XNU Makefiles it supports and applies the macOS public
+`unifdef` flags. It follows the Libsyscall script's public Mach header and
+MIG lists. MIG runs after the initial merge, with the staged headers as the
+sysroot. The resulting 17 public user headers must agree between the two
+Apple machine settings. The XNU adapter implements this subset of Apple's
+install rules without requiring the SDK and internal tools expected by the
+full upstream build.
 
-- `libc/headers.py`: Apple public list, region stripping, feature flags, unifdef.
-- `xnu/headers.py` and `xnu/mig.py`: public lists, macOS unifdef, symbol aliases, and two-target user MIG.
-- `libm/headers.py`: guarded arm64 math and fenv derivations.
-- `availability_versions/headers.py`: Apple's template preprocessor and xros alias.
-- `compat/headers.py`: guarded CarbonHeaders, Libinfo, and dyld derivations.
+`copies.tsv` lists fallback copies from the remaining producers. Each row
+names an installed path, an upstream source path, and the selection evidence.
+The Libm arm64 declarations, AvailabilityVersions xros alias, CarbonHeaders
+target macros, and dyld repairs remain explicit compatibility recipes.
 
-`assembly.py` rejects an unselected path, missing pinned input, duplicate
-owner, or incomplete profile. MIG alone needs the already selected headers as
-its sysroot, so assembly writes a private pre-MIG tree before the final tree.
-That bootstrap tree is discarded. In the final installation, `header-owners.json`
-maps each path to one producer, its direct pinned source inputs, source selection,
-and transformation. `header-provenance.json` preserves the audit's hash schema.
-The two manifests are generated from the same in-memory header records.
-MIG's transitive `.defs` includes, the selected compiler, and the host MIG
-binary are action inputs, but are not enumerated per header in this index.
-
-The 535-path profile, not the broad set of source headers, controls what ships.
-Adding a header requires a source or derivation, an explicit copy selection if
-applicable, the profile path, and a C fixture or consumer proving need.
+The final tree includes two generated indexes. `header-owners.json` records
+the producer, rule, and direct inputs. `header-provenance.json` records each
+header's hash and origin. For native staged files the provenance identifies
+the upstream install rule and output path. Git submodules pin the source
+revisions. Review changes to the generated inventory when updating pins.

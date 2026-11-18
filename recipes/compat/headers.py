@@ -64,13 +64,6 @@ def produce(assembly: Assembly) -> None:
                  "CarbonHeaders derivation",
                  inputs=("sources/CarbonHeaders/TargetConditionals.h",),
                  transform="resolve macOS placeholders and derive arm64 aliases")
-    for name in ("grp.h", "pwd.h"):
-        source = ROOT / "sources/Libinfo/lookup.subproj" / name
-        assembly.add("Libinfo", f"usr/include/{name}", source.read_bytes(),
-                     f"generated:apple via recipes/compat/headers.py:{name}",
-                     "recipes/compat/headers.py",
-                     inputs=(source.relative_to(ROOT).as_posix(),),
-                     transform="copy")
     dyld = ROOT / "sources/dyld/include/mach-o"
     source = (dyld / "dyld.h").read_bytes()
     before = b"#endif\n\n\n/*\n * The following functions allow you to iterate"
