@@ -2,9 +2,9 @@
 
 import unittest
 
-from install_c import (architecture_public_headers, libc_public_headers,
-                       libsyscall_public_mach_headers, public_xcode_selection,
-                       xnu_public_make_headers)
+from recipes.libc.headers import libc_public_headers
+from recipes.public_sources import architecture_public_headers, public_xcode_selection
+from recipes.xnu.headers import libsyscall_public_mach_headers, xnu_public_make_headers
 from pathlib import Path
 
 

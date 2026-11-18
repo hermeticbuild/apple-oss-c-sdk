@@ -26,12 +26,6 @@ def produce(emit: Emit) -> None:
     emit("usr/include/math.h", text.replace(before,
          "#elif defined(__arm__) || defined(__arm64__)\n").encode(),
          "derived:sources/Libm/Source/math.h via install_math", "Libm derivation")
-    emit("usr/include/architecture/arm/math.h",
-         (ROOT / "sources/Libm/Source/ARM/math.h").read_bytes(),
-         "sources/Libm/Source/ARM/math.h", "Libm derivation")
-    emit("usr/include/architecture/i386/math.h",
-         (ROOT / "sources/Libm/Source/Intel/math.h").read_bytes(),
-         "sources/Libm/Source/Intel/math.h", "Libm derivation")
 
     source = ROOT / "sources/Libm/Source/fenv.h"
     text = source.read_text()
@@ -42,9 +36,6 @@ def produce(emit: Emit) -> None:
         raise ValueError("Libm fenv.h architecture switch changed")
     emit("usr/include/fenv.h", text.replace(before, after).encode(),
          "derived:sources/Libm/Source/fenv.h via install_fenv", "Libm derivation")
-    emit("usr/include/architecture/i386/fenv.h",
-         (ROOT / "sources/Libm/Source/Intel/fenv.h").read_bytes(),
-         "sources/Libm/Source/Intel/fenv.h", "Libm derivation")
     emit("usr/include/architecture/arm64/fenv.h",
          (ROOT / "templates/arm64_fenv.h").read_bytes(),
          "templates/arm64_fenv.h", "Libm derivation")

@@ -1,0 +1,1 @@
+"""AvailabilityVersions recipe."""
