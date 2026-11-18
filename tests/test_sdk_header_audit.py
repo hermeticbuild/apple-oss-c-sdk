@@ -146,12 +146,18 @@ class SdkHeaderAuditTest(unittest.TestCase):
             self.assertEqual(entries["tcl.h"]["state"], "excluded")
             self.assertEqual(report["installed_out_of_scope"], ["objc/objc.h"])
             noted = audit(sdk, installation, resource, {"probe.h"}, set(), [],
-                          known, notes={"unseen.h": {
-                              "reason": "public source unresolved",
-                              "evidence": "source manifest checked"}})
+                          known, notes={
+                              "unseen.h": {"reason": "public source unresolved",
+                                           "evidence": "source manifest checked"},
+                              "probe.h": {"reason": "probe source unresolved",
+                                          "evidence": "source manifest checked"}})
             noted_entry = next(entry for entry in noted["entries"]
                                if entry["path"] == "unseen.h")
             self.assertEqual(noted_entry["decision"], "review")
+            probed_note = next(entry for entry in noted["entries"]
+                               if entry["path"] == "probe.h")
+            self.assertEqual(probed_note["decision"], "include")
+            self.assertEqual(probed_note["review_status"], "pending")
             self.assertEqual(noted_entry["review_status"], "pending")
             self.assertEqual(noted_entry["reason"], "public source unresolved")
             installed_note = audit(sdk, installation, resource, {"probe.h"}, set(), [],
@@ -174,8 +180,8 @@ class SdkHeaderAuditTest(unittest.TestCase):
             self.assertEqual(probed_entry["decision"], "include")
             with self.assertRaisesRegex(ValueError, "stale or overridden review notes"):
                 audit(sdk, installation, resource, {"probe.h"}, set(), [],
-                      known, notes={"probe.h": {
-                          "reason": "should be overridden", "evidence": "probe"}})
+                      known, notes={"tcl.h": {
+                          "reason": "excluded symlink", "evidence": "probe"}})
             self.assertEqual([entry["path"] for entry in report["installation_only"]],
                              ["extra.h"])
             reached = audit(sdk, installation, resource, {"probe.h"}, set(),

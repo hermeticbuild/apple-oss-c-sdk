@@ -344,10 +344,16 @@ def audit(sdk: Path, installation: Path, resource: Path,
                               evidence=notes[name]["evidence"],
                               review_status="pending")
         elif closure is not None and name in closure:
+            note = notes.get(name)
+            if note:
+                used_notes.add(name)
             record.update(decision="include",
-                          reason="required by the checked-in C probe SDK closure",
-                          decision_source="probe", review_status="approved",
-                          evidence="inputs/c-probe.c and the version-matched reference closure")
+                          reason=(note["reason"] if note else
+                                  "required by the checked-in C probe SDK closure"),
+                          decision_source="probe",
+                          review_status="pending" if note else "approved",
+                          evidence=(note["evidence"] if note else
+                                    "checked-in C probe and version-matched reference closure"))
         elif record.get("compiler_resource_overlap"):
             record.update(decision="review",
                           reason="compiler header overlaps SDK path; assess include_next and API parity",

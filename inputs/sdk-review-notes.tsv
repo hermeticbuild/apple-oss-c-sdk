@@ -7,9 +7,12 @@ profile.h	macosx26.5	XNU publishes architecture-specific machine/profile.h, but 
 sysdir.h	macosx26.5	Used by CoreFoundation source, but a public Apple OSS header source and install rule remain unlocated.	Pinned swift-corelibs-foundation CFSystemDirectories.c include; SDK 26.5 root path.
 usbuf.h	macosx26.5	No matching pinned Apple OSS header or public installation rule has been identified.	Pinned source-tree basename search; SDK 26.5 root path.
 os/activity.h	macosx26.5	Public user-level logging header source and install rule remain unlocated.	Pinned Apple OSS source-tree basename search; SDK 26.5 os path.
+os/arch/arm64.h	macosx26.5	XNU has this header but its public os/arch CopyFiles phase is empty; the minimal package omits it pending scope and provenance review.	Pinned xnu libsyscall/os/arch/arm64.h and Libsyscall.xcodeproj os/arch CopyFiles phases.
 os/log.h	macosx26.5	XNU provides only a kernel-side os/log.h; public user header source remains unresolved.	Pinned XNU libkern/os/log.h and libkern/os/Makefile public install list.
 os/signpost.h	macosx26.5	Public user-level logging header source and install rule remain unlocated.	Pinned Apple OSS source-tree basename search; SDK 26.5 os path.
 os/trace.h	macosx26.5	XNU provides only a kernel-side os/trace.h; public user header source remains unresolved.	Pinned XNU libkern/os/trace.h and libkern/os/Makefile public install list.
 os/trace_base.h	macosx26.5	Public user-level tracing header source and install rule remain unlocated.	Pinned Apple OSS source-tree basename search; SDK 26.5 os path.
 bsm/audit_session.h	macosx26.5	Absent from XNU and OpenBSM public header installs; first-party source remains unresolved.	Pinned XNU bsd/bsm/Makefile and OpenBSM Xcode usr/include/bsm CopyFiles phase; SDK 26.5 path.
+libDER/DERItem.h	macosx26.5	XNU includes this file under EXTERNAL_HEADERS, but no public usr/include/libDER installation rule has been proven; omitted from the minimal package.	Pinned xnu/EXTERNAL_HEADERS/libDER/DERItem.h and XNU public Makefile lists.
+libDER/libDER_config.h	macosx26.5	XNU includes this file under EXTERNAL_HEADERS, but no public usr/include/libDER installation rule has been proven; omitted from the minimal package.	Pinned xnu/EXTERNAL_HEADERS/libDER/libDER_config.h and XNU public Makefile lists.
 infiniband/verbs.h	macosx26.5	Likely a separate RDMA library API, but its source and scope decision remain unproven.	No matching pinned Apple OSS source or named framework/TBD mapping identified; SDK 26.5 path.
