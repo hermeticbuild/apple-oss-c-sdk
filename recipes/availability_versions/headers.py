@@ -39,4 +39,9 @@ def produce(assembly: Assembly, temporary: Path) -> None:
             data = text.replace(anchor, anchor + aliases).encode()
         assembly.add("AvailabilityVersions", f"usr/include/{target}", data,
                      f"generated:apple via inputs/header-sources.tsv:{target}",
-                     "header-sources.tsv")
+                     "header-sources.tsv",
+                     inputs=(f"sources/AvailabilityVersions/templates/{name}",
+                             "sources/AvailabilityVersions/availability",
+                             "sources/AvailabilityVersions/availability.dsl"),
+                     transform=("preprocess and add xros aliases"
+                                if name == "AvailabilityInternal.h" else "preprocess"))

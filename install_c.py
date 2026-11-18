@@ -9,7 +9,7 @@ from c_profile import selected_paths
 from recipes.assembly import Assembly
 from recipes.availability_versions.headers import produce as produce_availability
 from recipes.compat.headers import produce as produce_compat
-from recipes.copies import produce as produce_copies
+from recipes.copies import produce as produce_copies, validate_legacy_selection
 from recipes.libc.headers import produce as produce_libc
 from recipes.libm.headers import produce as produce_libm
 from recipes.xnu.headers import (produce_mig, produce_symbol_headers,
@@ -22,14 +22,16 @@ def assemble(mig: Path, clang: Path, out: Path) -> None:
     assembly = Assembly(set(selected_paths()))
     produce_copies(assembly)
     produce_libc(assembly)
-    produce_libm(lambda path, data, origin, selection: assembly.add(
-        "Libm", path, data, origin, selection))
+    produce_libm(lambda path, data, origin, selection, inputs, transform:
+                 assembly.add("Libm", path, data, origin, selection,
+                              inputs=inputs, transform=transform))
     produce_compat(assembly)
     produce_unifdef(assembly)
     with tempfile.TemporaryDirectory(prefix="apple-oss-c-recipes-") as temporary:
         staging = Path(temporary)
         produce_availability(assembly, staging / "availability")
         produce_symbol_headers(assembly, staging / "xnu")
+        validate_legacy_selection(assembly)
         # MIG preprocesses against the already selected public headers. The
         # pre-MIG tree is a private action input, never a released install.
         bootstrap = staging / "pre-mig"

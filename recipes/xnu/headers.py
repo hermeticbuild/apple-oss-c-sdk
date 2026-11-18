@@ -5,7 +5,7 @@ import subprocess
 from pathlib import Path
 
 from recipes.assembly import Assembly
-from generate_mig import generate as generate_mig
+from .mig import generate as generate_mig
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -116,7 +116,9 @@ def produce_unifdef(assembly: Assembly) -> None:
         else:
             origin = f"generated:{name} via install_c.py:generated_apple_headers"
             selection = "generated explicit"
-        assembly.add("xnu", f"usr/include/{name}", result.stdout, origin, selection)
+        assembly.add("xnu", f"usr/include/{name}", result.stdout, origin, selection,
+                     inputs=(source.relative_to(ROOT).as_posix(),),
+                     transform="macOS public unifdef")
 
 
 def produce_symbol_headers(assembly: Assembly, temporary: Path) -> None:
@@ -136,7 +138,12 @@ def produce_symbol_headers(assembly: Assembly, temporary: Path) -> None:
                          ("sys/_posix_availability.h", posix)):
         assembly.add("xnu", f"usr/include/{name}", source.read_bytes(),
                      f"generated:apple via inputs/header-sources.tsv:{name}",
-                     "header-sources.tsv")
+                     "header-sources.tsv",
+                     inputs=(("sources/xnu/bsd/sys/make_symbol_aliasing.sh",
+                              "sources/AvailabilityVersions/availability.dsl")
+                             if name == "sys/_symbol_aliasing.h" else
+                             ("sources/xnu/bsd/sys/make_posix_availability.sh",)),
+                     transform="XNU public header generator")
 
 
 def produce_mig(assembly: Assembly, mig: Path, clang: Path,
@@ -146,4 +153,7 @@ def produce_mig(assembly: Assembly, mig: Path, clang: Path,
     for source in sorted((out / "arm64/mach").glob("*.h")):
         assembly.add("xnu", f"usr/include/mach/{source.name}", source.read_bytes(),
                      f"generated:system-mig:{source.name} via generate_mig.py",
-                     "xnu/libsyscall/xcodescripts/mach_install_mig.sh:public")
+                     "xnu/libsyscall/xcodescripts/mach_install_mig.sh:public",
+                     inputs=(f"sources/xnu/libsyscall/mach/{source.stem}.defs",
+                             "sources/xnu/libsyscall/xcodescripts/filter_mig.awk"),
+                     transform="system MIG for arm64 and x86_64, then filter")

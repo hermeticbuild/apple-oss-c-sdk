@@ -57,14 +57,11 @@ is a maintained scope test, not a promise of complete SDK API parity.
 ## SDK coverage audit
 
 [`inputs/c-probe.c`](inputs/c-probe.c) is a wider reference probe.
-`probe_c_closure.py` can compile it against an explicit local Xcode SDK as a
+`audit/probe_c_closure.py` compiles it against an explicit local Xcode SDK as a
 path-only coverage oracle; no SDK header content enters the installer.
-`audit_sdk_c_headers.py` inventories every SDK C header path and its recorded
-include/omit/review decision. The existing
-[`inventories/macosx26.5.json`](inventories/macosx26.5.json),
-[`COVERAGE_GAPS.md`](COVERAGE_GAPS.md), and decision ledgers were made for the
-archived full snapshot. Regenerate the inventory before using it as a release
-gate for this minimal profile.
+`audit/sdk_c_headers.py` inventories every SDK C header path and its recorded
+include/omit/review decision. See [`audit/README.md`](audit/README.md) for the
+current minimal-profile audit command and its pending review status.
 
 ## LLVM composition gate
 
@@ -88,11 +85,13 @@ amendment. See `python3 validate_llvm.py --help` for the explicit input paths.
 The LLVM gate does not imply that SDK Gen's generated framework headers work
 without the temporary Apple OSS CF layer.
 
-On 2026-11-17, the direct installer produced 535 files byte for byte and
-provenance record for provenance record against the previous packaged profile.
-The selected C profile passed 356/356 compiler probes. The restricted SDK
-composition built LLVM 23.1.2 for arm64 and x86_64; both Mach-O binaries ran
-`readelf --version`. No Apple SDK Gen `usr/include` header was copied.
+The installer emits `header-provenance.json` and `header-owners.json`. The
+former records hashes and legacy audit provenance; the latter records the
+single owner, exact pinned inputs, selection rule, and transformation for each
+path. See [`recipes/README.md`](recipes/README.md) for the production graph.
+The 2026-11-18 refactor retained all 535 installed header bytes and all 535
+legacy provenance records byte for byte against the 2026-11-17 baseline. The
+selected C profile passed 356/356 compiler probes.
 
 This is a local qualification prototype. The source licenses, generated
 declarations, SDK Gen TBD provenance, and redistribution rights need release

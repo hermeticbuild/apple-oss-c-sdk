@@ -5,6 +5,8 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
+ROOT = Path(__file__).resolve().parents[1]
+
 
 @dataclass(frozen=True)
 class Header:
@@ -12,6 +14,8 @@ class Header:
     owner: str
     origin: str
     selection: str
+    inputs: tuple[str, ...]
+    transform: str
 
 
 class Assembly:
@@ -20,13 +24,26 @@ class Assembly:
         self.files: dict[str, Header] = {}
 
     def add(self, owner: str, path: str, data: bytes, origin: str,
-            selection: str) -> None:
+            selection: str, *, inputs: tuple[str, ...] | None = None,
+            transform: str = "copy") -> None:
         if path not in self.selected:
             raise ValueError(f"header outside default profile: {path}")
         previous = self.files.get(path)
         if previous is not None:
             raise ValueError(f"multiple owners for {path}: {previous.owner}, {owner}")
-        self.files[path] = Header(data, owner, origin, selection)
+        if inputs is None:
+            if not origin.startswith("sources/"):
+                raise ValueError(f"generated header needs explicit inputs: {path}")
+            inputs = (origin,)
+        if not inputs or any(not item for item in inputs):
+            raise ValueError(f"header needs source inputs: {path}")
+        for item in inputs:
+            parts = Path(item).parts
+            if not parts or parts[0] not in {"sources", "templates"} or ".." in parts:
+                raise ValueError(f"input outside pinned recipe sources: {path}: {item}")
+            if not (ROOT / item).is_file():
+                raise ValueError(f"recipe input does not exist: {path}: {item}")
+        self.files[path] = Header(data, owner, origin, selection, inputs, transform)
 
     def write(self, root: Path, *, complete: bool) -> None:
         if complete and set(self.files) != self.selected:
@@ -53,5 +70,7 @@ class Assembly:
                     "owner": header.owner,
                     "origin": header.origin,
                     "selection": header.selection,
+                    "inputs": list(header.inputs),
+                    "transform": header.transform,
                 } for path, header in sorted(self.files.items())},
             }, indent=2, sort_keys=True) + "\n")

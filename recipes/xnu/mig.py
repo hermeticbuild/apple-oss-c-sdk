@@ -1,0 +1,78 @@
+#!/usr/bin/env python3
+"""Generate the selected public Mach user headers from pinned XNU .defs files."""
+
+import argparse
+import re
+import subprocess
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+XNU = ROOT / "sources/xnu"
+PROFILE = ROOT / "inputs/profiles/default-headers.txt"
+
+
+def names_from_apple_manifests() -> list[str]:
+    libsyscall = (XNU / "libsyscall/xcodescripts/mach_install_mig.sh").read_text()
+    user_block = re.search(r'^MIGS="(.*?)"', libsyscall, re.M | re.S)
+    if user_block is None:
+        raise ValueError("XNU Libsyscall MIGS list changed")
+    user = re.findall(r"([A-Za-z0-9_]+)\.defs", user_block.group(1))
+    if 'MIGS="$MIGS mach_vm.defs"' not in libsyscall:
+        raise ValueError("XNU macOS mach_vm.defs selection changed")
+    user.append("mach_vm")
+
+    if len(user) != 17:
+        raise ValueError(f"unexpected Apple MIG manifest: {len(user)} user")
+    selected = {line.removeprefix("usr/include/mach/").removesuffix(".h")
+                for line in PROFILE.read_text().splitlines()
+                if line.startswith("usr/include/mach/") and line.endswith(".h")}
+    wanted = [name for name in user if name in selected]
+    if len(wanted) != 11:
+        raise ValueError(f"unexpected selected Mach MIG headers: {wanted}")
+    return wanted
+
+
+def generate(mig: Path, clang: Path, sysroot: Path, out: Path) -> None:
+    user_names = names_from_apple_manifests()
+    for arch, mig_arch in (("arm64", "armv7"), ("x86_64", "i386")):
+        destination = out / arch / "mach"
+        destination.mkdir(parents=True)
+        # mig(1) documents -cc as the way to select its C preprocessor.
+        common = [str(mig), "-cc", str(clang), "-novouchers", "-arch", mig_arch,
+                  "-isysroot", str(sysroot), "-I" + str(XNU / "osfmk")]
+        for name in user_names:
+            header = destination / f"{name}.h"
+            command = common + ["-DLIBSYSCALL_INTERFACE", "-user", "/dev/null",
+                                "-server", "/dev/null", "-header", str(header),
+                                str(XNU / "libsyscall/mach" / f"{name}.defs")]
+            subprocess.run(command, check=True)
+            filtered = subprocess.check_output([
+                "awk", "-f", str(XNU / "libsyscall/xcodescripts/filter_mig.awk"),
+                str(XNU / "libsyscall/mach/add_attributes_to_mig.txt"), str(header)])
+            header.write_bytes(filtered)
+
+    arm = out / "arm64/mach"
+    intel = out / "x86_64/mach"
+    mismatched = [p.name for p in arm.glob("*.h")
+                  if p.read_bytes() != (intel / p.name).read_bytes()]
+    if mismatched:
+        raise ValueError(f"architecture-specific MIG output: {mismatched}")
+    print(f"generated {len(user_names)} selected user headers per architecture")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--mig", default=Path("/usr/bin/mig"), type=Path,
+                        help="macOS system mig (default: /usr/bin/mig)")
+    parser.add_argument("--clang", required=True, type=Path,
+                        help="clang from the pinned minimal LLVM prebuilt")
+    parser.add_argument("--sysroot", required=True, type=Path)
+    parser.add_argument("--out", required=True, type=Path)
+    args = parser.parse_args()
+    if args.out.exists():
+        parser.error("output already exists")
+    generate(args.mig.absolute(), args.clang.absolute(), args.sysroot.resolve(), args.out.absolute())
+
+
+if __name__ == "__main__":
+    main()

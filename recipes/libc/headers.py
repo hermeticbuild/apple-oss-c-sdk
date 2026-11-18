@@ -95,9 +95,16 @@ def produce(assembly: Assembly) -> None:
             data = libc_public_header(ROOT / "sources/Libc/include" / relative, flags)
             assembly.add("Libc", f"usr/include/{relative}", data,
                          f"generated:libc via inputs/header-sources.tsv:{relative}",
-                         "Libc/xcodescripts/headers.sh:public")
+                         "Libc/xcodescripts/headers.sh:public",
+                         inputs=(f"sources/Libc/include/{relative}",
+                                 "sources/Libc/xcodescripts/headers.sh",
+                                 "sources/Libc/xcodescripts/generate_features.pl"),
+                         transform="strip Libc regions and unifdef")
     relative = "utmpx.h"
     data = libc_public_header(ROOT / "sources/Libc/include/NetBSD/utmpx.h", flags)
     assembly.add("Libc", f"usr/include/{relative}", data,
                  "generated:utmpx.h via install_c.py:generated_apple_headers",
-                 "generated explicit")
+                 "generated explicit",
+                 inputs=("sources/Libc/include/NetBSD/utmpx.h",
+                         "sources/Libc/xcodescripts/generate_features.pl"),
+                 transform="strip Libc regions and unifdef")
