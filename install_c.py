@@ -19,6 +19,7 @@ from pathlib import Path
 
 from generate_mig import generate as generate_mig
 from c_profile import selected_paths
+from recipes.libm.headers import produce as produce_libm
 
 ROOT = Path(__file__).resolve().parent
 SELECTED = set(selected_paths())
@@ -391,12 +392,6 @@ def generated_apple_headers(temporary: Path, libc_flags: list[str]) -> dict[str,
     result["utmpx.h"] = libc_public_header(
         ROOT / "sources/Libc/include/NetBSD/utmpx.h", libc_flags)
 
-    complex_source = (ROOT / "sources/Libm/Source/complex.h").read_bytes()
-    old = b"#elif defined(__arm__)\n#define __LIBMLDBL_COMPAT"
-    new = b"#elif defined(__arm__) || defined(__arm64__) || defined(__aarch64__)\n#define __LIBMLDBL_COMPAT"
-    if complex_source.count(old) != 1:
-        raise ValueError("Libm complex.h architecture branch changed")
-    result["complex.h"] = complex_source.replace(old, new)
     result["grp.h"] = (ROOT / "sources/Libinfo/lookup.subproj/grp.h").read_bytes()
     result["pwd.h"] = (ROOT / "sources/Libinfo/lookup.subproj/pwd.h").read_bytes()
     dyld_source = (ROOT / "sources/dyld/include/mach-o/dyld.h").read_bytes()
@@ -466,39 +461,6 @@ def target_conditionals() -> bytes:
     return source.replace(final, suffix + final).encode()
 
 
-def install_math(out: Path) -> None:
-    source = ROOT / "sources/Libm/Source/math.h"
-    text = source.read_text()
-    before = "#elif defined(__arm__)\n"
-    if text.count(before) != 1:
-        raise ValueError("Libm math.h architecture switch changed")
-    text = text.replace(before, "#elif defined(__arm__) || defined(__arm64__)\n")
-    target = out / "usr/include/math.h"
-    install_bytes(text.encode(), target, "derived:sources/Libm/Source/math.h via install_math",
-                  "Libm derivation")
-    install(ROOT / "sources/Libm/Source/ARM/math.h",
-            out / "usr/include/architecture/arm/math.h", selection="Libm derivation")
-    install(ROOT / "sources/Libm/Source/Intel/math.h",
-            out / "usr/include/architecture/i386/math.h", selection="Libm derivation")
-
-
-def install_fenv(out: Path) -> None:
-    source = ROOT / "sources/Libm/Source/fenv.h"
-    text = source.read_text()
-    before = "#elif defined(__arm__)\n#include \"architecture/arm/fenv.h\"\n"
-    after = ("#elif defined(__arm64__)\n#include \"architecture/arm64/fenv.h\"\n"
-             "#elif defined(__arm__)\n#include \"architecture/arm/fenv.h\"\n")
-    if text.count(before) != 1:
-        raise ValueError("Libm fenv.h architecture switch changed")
-    target = out / "usr/include/fenv.h"
-    install_bytes(text.replace(before, after).encode(), target,
-                  "derived:sources/Libm/Source/fenv.h via install_fenv", "Libm derivation")
-    install(ROOT / "sources/Libm/Source/Intel/fenv.h",
-            out / "usr/include/architecture/i386/fenv.h", selection="Libm derivation")
-    install(ROOT / "templates/arm64_fenv.h",
-            out / "usr/include/architecture/arm64/fenv.h", selection="Libm derivation")
-
-
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", type=Path, required=True)
@@ -523,6 +485,10 @@ def main() -> None:
                 relative = Path(row["install_path"])
                 libc_source = ROOT / "sources/Libc/include" / relative
                 reference = row["source"]
+                if relative.as_posix() == "complex.h":
+                    if reference != "generated:apple":
+                        raise ValueError("Libm complex.h recipe source changed")
+                    continue
                 if reference.startswith("generated:"):
                     if reference == "generated:libc":
                         if relative.as_posix() not in libc_public:
@@ -540,8 +506,8 @@ def main() -> None:
                 install(source, destination_path(out, relative),
                         selection="header-sources.tsv")
 
-    install_math(out)
-    install_fenv(out)
+    produce_libm(lambda relative, data, origin, selection: install_bytes(
+        data, out / relative, origin, selection))
     for name in ("device/device_types.h", "mach-o/dyld_images.h", "utmpx.h"):
         install_bytes(generated[name], out / "usr/include" / name,
                       f"generated:{name} via install_c.py:generated_apple_headers",
