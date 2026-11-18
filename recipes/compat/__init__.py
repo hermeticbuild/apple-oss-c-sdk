@@ -1,1 +1,0 @@
-"""Guarded Apple OSS derivations."""

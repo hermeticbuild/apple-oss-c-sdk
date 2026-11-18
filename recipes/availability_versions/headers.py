@@ -1,5 +1,6 @@
 """Compatibility adjustment to the Apple AvailabilityVersions output."""
 
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -23,3 +24,8 @@ def add_xros_alias(data: bytes) -> bytes:
     if text.count(anchor) != 1:
         raise ValueError("AvailabilityInternal.h visionos macros changed")
     return text.replace(anchor, anchor + aliases).encode()
+
+
+if __name__ == "__main__":
+    output = Path(sys.argv[1])
+    output.write_bytes(add_xros_alias(output.read_bytes()))

@@ -14,9 +14,10 @@ probe. The installer does not publish `unwind.h`, `libunwind.h`, or
 ## Generate the C installation
 
 Run from the repository root on macOS. The installer uses Make, CMake, Ninja,
-Python 3, Perl, `ed`, `unifdef`, `awk`, system MIG, and Clang. CMake and
-Ninja default to tools on `PATH` and can be set with `CMAKE` and `NINJA`. Supply the pinned LLVM 23.1.2 minimal
-prebuilt Clang. The resolver command below uses hermetic-llvm and Bazel.
+Python 3, Perl, system MIG, and standard command line tools such as `ed`,
+`unifdef`, `awk`, `realpath`, and `shasum`. CMake and Ninja default to tools on
+`PATH` and can be set with `CMAKE` and `NINJA`. Supply the pinned LLVM 23.1.2
+minimal prebuilt Clang. The resolver command below uses hermetic-llvm and Bazel.
 
 ```sh
 LLVM_REPO=/absolute/path/to/hermetic-llvm
@@ -27,7 +28,8 @@ make install CLANG="$LLVM_CLANG" OUT=/tmp/apple-oss-c-headers
 ```
 
 The output directory must be new. The installer stages each upstream install
-separately, merges public headers, and compares MIG output across both targets. It emits `header-provenance.json` with source selections and hashes and
+separately, merges public headers, and compares MIG output across both targets.
+It emits `header-provenance.json` with source selections and hashes and
 `header-owners.json` with each header's producer, inputs, and transformation.
 See [the recipes](recipes/README.md) for the production steps.
 

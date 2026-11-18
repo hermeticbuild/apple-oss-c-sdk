@@ -1,8 +1,7 @@
-"""Guarded derivations for older Apple OSS C headers."""
+"""Adapt the pinned CarbonHeaders template to both macOS targets."""
 
+import sys
 from pathlib import Path
-
-from recipes.assembly import Assembly
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -57,32 +56,5 @@ def target_conditionals() -> bytes:
     return source.replace(final, suffix + final).encode()
 
 
-def produce(assembly: Assembly) -> None:
-    assembly.add("CarbonHeaders", "usr/include/TargetConditionals.h",
-                 target_conditionals(),
-                 "derived:sources/CarbonHeaders/TargetConditionals.h via recipes/compat/headers.py",
-                 "CarbonHeaders derivation",
-                 inputs=("sources/CarbonHeaders/TargetConditionals.h",),
-                 transform="resolve macOS placeholders and derive arm64 aliases")
-    dyld = ROOT / "sources/dyld/include/mach-o"
-    source = (dyld / "dyld.h").read_bytes()
-    before = b"#endif\n\n\n/*\n * The following functions allow you to iterate"
-    after = (b"#endif\n\n#ifndef DYLD_EXCLAVEKIT_UNAVAILABLE\n"
-             b"#define DYLD_EXCLAVEKIT_UNAVAILABLE\n#endif\n\n\n"
-             b"/*\n * The following functions allow you to iterate")
-    if source.count(before) != 1:
-        raise ValueError("dyld.h availability section changed")
-    assembly.add("dyld", "usr/include/mach-o/dyld.h", source.replace(before, after),
-                 "generated:apple via recipes/compat/headers.py:mach-o/dyld.h",
-                 "recipes/compat/headers.py", inputs=("sources/dyld/include/mach-o/dyld.h",),
-                 transform="guard missing ExclaveKit availability macro")
-    images = (dyld / "dyld_images.h").read_bytes()
-    anchor = b"#define _DYLD_IMAGES_\n"
-    if images.count(anchor) != 1:
-        raise ValueError("dyld_images.h guard changed")
-    assembly.add("dyld", "usr/include/mach-o/dyld_images.h",
-                 images.replace(anchor, anchor + b"#include <stdint.h>\n#include <mach/mach.h>\n"),
-                 "generated:mach-o/dyld_images.h via recipes/compat/headers.py",
-                 "generated explicit",
-                 inputs=("sources/dyld/include/mach-o/dyld_images.h",),
-                 transform="add public dependency includes")
+if __name__ == "__main__":
+    Path(sys.argv[1]).write_bytes(target_conditionals())

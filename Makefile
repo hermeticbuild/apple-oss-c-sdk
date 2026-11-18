@@ -13,8 +13,7 @@ install:
 		$(MAKE) build-install STAGE="$$stage" CLANG="$(CLANG)" MIG="$(MIG)" OUT="$(OUT)"
 
 ifneq ($(strip $(STAGE)),)
-# Producer recipes install into separate roots. A receipt identifies each
-# root's recipe to the common assembler.
+# Producer recipes seal their own staging directories before the merge.
 define copy-headers
 mkdir -p "$(STAGE)/$(1)/dst/usr/include/$(2)"
 install -m 644 $(3) "$(STAGE)/$(1)/dst/usr/include/$(2)/"
@@ -23,20 +22,24 @@ install -m 644 $(3) "$(STAGE)/$(1)/dst/usr/include/$(2)/"
 endef
 
 define record-stage
-printf '%s\n' "$(2)" > "$(STAGE)/$(1)/rule"
+/bin/sh recipes/stage.sh "$(STAGE)/$(1)" "$(1)" "$(2)" $(3)
 endef
 
-include recipes/upstream.mk
-include recipes/xnu/Makefile recipes/copyfile/Makefile recipes/zlib/Makefile recipes/libiconv/Makefile
-include recipes/hfs/Makefile recipes/CommonCrypto/Makefile recipes/libmalloc/Makefile recipes/libm/Makefile
-include recipes/CarbonHeaders/Makefile recipes/libunwind/Makefile recipes/libplatform/Makefile
-include recipes/libpthread/Makefile recipes/libdispatch/Makefile recipes/cctools/Makefile recipes/dyld/Makefile
+define header-override
+@{ printf '%s\t%s\t%s\t%s\t%s' "$(2)" "$(1)" "$(3)" "$(4)" "$(5)"; \
+	for input in $(6); do printf '\t%s' "$$input"; done; printf '\n'; } \
+	>> "$(STAGE)/$(1)/overrides"
+endef
 
-.PHONY: build-install pre-mig
+.PHONY: stage build-install pre-mig
+stage:
+
+include $(wildcard recipes/*/Makefile)
+
 pre-mig: stage
-	"$(PYTHON)" -m recipes.build pre-mig "$(STAGE)" "$(STAGE)/pre-mig"
+	/bin/sh recipes/merge.sh "$(STAGE)/pre-mig" "$(STAGE)"/*/records
 
 build-install: mig-arm64 mig-x86_64
-	diff -rq "$(STAGE)/mig-arm64/mach" "$(STAGE)/mig-x86_64/mach"
-	"$(PYTHON)" -m recipes.build assemble "$(STAGE)" "$(OUT)"
+	diff -rq "$(STAGE)/mig-arm64/dst/usr/include/mach" "$(STAGE)/mig-x86_64/dst/usr/include/mach"
+	/bin/sh recipes/merge.sh "$(OUT)" "$(STAGE)"/*/records
 endif

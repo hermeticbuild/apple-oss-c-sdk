@@ -2,9 +2,8 @@
 
 import re
 import subprocess
+import sys
 from pathlib import Path
-
-from recipes.assembly import Assembly
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -109,14 +108,14 @@ def public_copies():
                "libsyscall/Libsyscall.xcodeproj/project.pbxproj:macosx")
 
 
-def produce_public(assembly: Assembly) -> None:
+def produce_public(emit) -> None:
     for path, source, rule in public_copies():
         data = filter_public(ROOT / source)
         if not re.sub(rb"/\*.*?\*/|//[^\n]*", b"", data, flags=re.DOTALL).strip():
             continue  # MakeInc.rule omits files that decomment finds empty.
         deps = ("sources/xnu/libsyscall/xcodescripts/mach_install_mig.sh"
                 if rule.endswith(":MACH_HDRS") else "sources/xnu/" + rule.split(":")[0])
-        assembly.add("xnu", path, data, f"derived:{source}", rule,
+        emit("xnu", path, data, f"derived:{source}", rule,
                      inputs=(source, deps, "sources/xnu/makedefs/MakeInc.def",
                              "sources/xnu/makedefs/MakeInc.rule"),
                      transform="macOS public unifdef")
@@ -150,7 +149,7 @@ def filter_public(source: Path, extra: tuple[str, ...] = ()) -> bytes:
     return result.stdout
 
 
-def produce_unifdef(assembly: Assembly) -> None:
+def produce_unifdef(emit) -> None:
     xnu = ROOT / "sources/xnu"
     for name, source, extra in (
         ("sys/cdefs.h", xnu / "bsd/sys/cdefs.h", ()),
@@ -162,12 +161,12 @@ def produce_unifdef(assembly: Assembly) -> None:
         else:
             origin = f"generated:{name} via recipes/xnu/headers.py"
             selection = "generated explicit"
-        assembly.add("xnu", f"usr/include/{name}", filter_public(source, extra), origin, selection,
+        emit("xnu", f"usr/include/{name}", filter_public(source, extra), origin, selection,
                      inputs=(source.relative_to(ROOT).as_posix(),),
                      transform="macOS public unifdef")
 
 
-def produce_symbol_headers(assembly: Assembly, temporary: Path) -> None:
+def produce_symbol_headers(emit, temporary: Path) -> None:
     xnu = ROOT / "sources/xnu"
     availability = ROOT / "sources/AvailabilityVersions"
     tool = temporary / "sdk/usr/local/libexec"
@@ -182,7 +181,7 @@ def produce_symbol_headers(assembly: Assembly, temporary: Path) -> None:
                     str(posix)], check=True)
     for name, source in (("sys/_symbol_aliasing.h", symbol),
                          ("sys/_posix_availability.h", posix)):
-        assembly.add("xnu", f"usr/include/{name}", source.read_bytes(),
+        emit("xnu", f"usr/include/{name}", source.read_bytes(),
                      f"generated:apple via recipes/xnu/headers.py:{name}",
                      "recipes/xnu/headers.py",
                      inputs=(("sources/xnu/bsd/sys/make_symbol_aliasing.sh",
@@ -193,14 +192,17 @@ def produce_symbol_headers(assembly: Assembly, temporary: Path) -> None:
                      transform="XNU public header generator")
 
 
-def collect_mig(assembly: Assembly, out: Path) -> None:
-    for source in sorted((out / "mach").glob("*.h")):
-        assembly.add("xnu", f"usr/include/mach/{source.name}", source.read_bytes(),
-                     f"generated:system-mig:{source.name} via recipes/xnu/mig.sh",
-                     "xnu/libsyscall/xcodescripts/mach_install_mig.sh:public",
-                     inputs=("recipes/xnu/mig.sh",
-                             f"sources/xnu/libsyscall/mach/{source.stem}.defs",
-                             "sources/xnu/libsyscall/xcodescripts/filter_mig.awk",
-                             "sources/xnu/libsyscall/mach/add_attributes_to_mig.txt",
-                             "sources/xnu/libsyscall/xcodescripts/mach_install_mig.sh"),
-                     transform="system MIG for arm64 and x86_64, then filter")
+
+if __name__ == "__main__":
+    stage = Path(sys.argv[1])
+
+    def emit(owner, path, data, origin, selection, *, inputs, transform):
+        destination = stage / "dst" / path
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        with destination.open("xb") as output:
+            output.write(data)
+        print(path, owner, origin, selection, transform, *inputs, sep="\t")
+
+    produce_public(emit)
+    produce_unifdef(emit)
+    produce_symbol_headers(emit, stage)

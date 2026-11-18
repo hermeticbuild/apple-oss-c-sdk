@@ -1,5 +1,6 @@
 """Libm headers and guarded macOS arm64 derivations."""
 
+import sys
 from pathlib import Path
 from typing import Callable
 
@@ -43,3 +44,15 @@ def produce(emit: Emit) -> None:
          (ROOT / "recipes/libm/arm64_fenv.h").read_bytes(),
          "recipes/libm/arm64_fenv.h", "Libm derivation",
          ("recipes/libm/arm64_fenv.h",), "local ABI declaration")
+
+
+if __name__ == "__main__":
+    stage = Path(sys.argv[1])
+
+    def emit(path, data, origin, selection, inputs, transform):
+        output = stage / "dst" / path
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_bytes(data)
+        print(path, "Libm", origin, selection, transform, *inputs, sep="\t")
+
+    produce(emit)
