@@ -6,8 +6,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tools.audit.sdk_c_headers import (audit, closure_paths, installed_provenance,
-                                 path_digest, public_install_provenance)
+from tools.sdk_review.audit_sdk_headers import (
+    audit, closure_paths, installed_provenance, path_digest, public_install_provenance,
+)
 
 
 class SdkHeaderAuditTest(unittest.TestCase):

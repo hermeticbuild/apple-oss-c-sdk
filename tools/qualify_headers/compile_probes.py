@@ -9,16 +9,15 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 
 
-COMBINED = HERE / "fixtures/c/default_profile.c"
-FIXTURES = (HERE / "fixtures/c/fenv_abi.c",
-            HERE / "fixtures/c/stdatomic_init.c",
-            HERE / "fixtures/c/target_conditionals.c")
+COMBINED = HERE / "fixtures/default_profile.c"
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--clang", required=True, type=Path)
     parser.add_argument("--sysroot", required=True, type=Path)
+    parser.add_argument("--fixture", action="append", default=[], type=Path,
+                        help="additional C translation unit to compile on both targets")
     args = parser.parse_args()
     sysroot = args.sysroot.resolve()
     roots = re.findall(r"^#include <([^>]+)>", COMBINED.read_text(), re.MULTILINE)
@@ -33,25 +32,20 @@ def main() -> int:
                 "-isystem", resource + "/include",
                 "-isystem", str(sysroot / "usr/include"),
                 "-std=c11", "-fsyntax-only", "-x", "c"]
-        for name in roots + ["__combined__"] + [str(path) for path in FIXTURES]:
-            command = base.copy()
-            if name == "__combined__":
-                command.append(str(COMBINED))
-                source = None
-            elif name.startswith(str(HERE / "fixtures/c/")):
-                command.append(name)
-                source = None
-            else:
-                if name == "ucontext.h":
-                    command.append("-D_XOPEN_SOURCE=700")
-                command.append("-")
-                source = f"#include <{name}>\n"
-            result = subprocess.run(command, input=source, text=True,
-                                    capture_output=True)
+        for name in roots:
+            flags = ["-D_XOPEN_SOURCE=700"] if name == "ucontext.h" else []
+            result = subprocess.run([*base, *flags, "-"],
+                                    input=f"#include <{name}>\n",
+                                    text=True, capture_output=True)
             if result.returncode:
                 failures.append((arch, name, result.stderr.splitlines()[-3:]))
-    total = (len(roots) + 1 + len(FIXTURES)) * 2
-    print(f"{total - len(failures)}/{total} default C profile probes passed")
+        for fixture in (COMBINED, *args.fixture):
+            result = subprocess.run([*base, str(fixture.resolve())],
+                                    text=True, capture_output=True)
+            if result.returncode:
+                failures.append((arch, fixture, result.stderr.splitlines()[-3:]))
+    total = (len(roots) + 1 + len(args.fixture)) * 2
+    print(f"{total - len(failures)}/{total} C compilation checks passed")
     for arch, name, lines in failures:
         print(f"FAIL {arch} {name}: {'; '.join(lines)}")
     return bool(failures)

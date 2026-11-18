@@ -16,7 +16,7 @@ from pathlib import Path
 
 from tools.header_manifest import read_header_manifest
 
-from .probe_c_closure import current_probe_path, digest_tree
+from tools.qualify_headers.trace_includes import current_probe_path, digest_tree
 
 ROOT = Path(__file__).resolve().parents[2]
 

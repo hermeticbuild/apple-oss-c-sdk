@@ -2,8 +2,8 @@
 """Compose standalone Apple OSS C headers with selected SDK Gen link assets.
 
 Only SDKSettings metadata and .tbd files cross from the reference SDK by
-default. Other framework headers must be named explicitly. This script never
-copies reference usr/include headers.
+default. Other framework headers must be named explicitly. Reference
+usr/include headers are used only in overlay mode.
 """
 
 import argparse
@@ -13,9 +13,6 @@ import shutil
 from pathlib import Path
 
 from tools.header_manifest import TSV_NAME, read_header_manifest
-
-HERE = Path(__file__).resolve().parent
-
 
 def copy_file(source: Path, destination: Path, log: list[tuple[str, str, str]],
               provenance: str) -> None:
@@ -31,8 +28,6 @@ def main() -> None:
     parser.add_argument("--reference-sdk", required=True, type=Path)
     parser.add_argument("--libcxx-headers", required=True, type=Path)
     parser.add_argument("--libcxx-archive", required=True, type=Path)
-    parser.add_argument("--libunwind-headers", required=True, type=Path,
-                        help="pinned LLVM source libunwind/include directory")
     parser.add_argument("--corefoundation-tbd-override", type=Path,
                         help="optional external CoreFoundation link-stub amendment")
     parser.add_argument("--corefoundation-c-root", type=Path,
@@ -49,17 +44,11 @@ def main() -> None:
     out = args.out.absolute()
     if out.exists():
         parser.error("output already exists")
-    for path in (c_root, base, args.libcxx_headers, args.libunwind_headers):
+    for path in (c_root, base, args.libcxx_headers):
         if not path.is_dir():
             parser.error(f"directory not found: {path}")
     if not args.libcxx_archive.is_file():
         parser.error("libc++ archive not found")
-    unwind_lock = json.loads((HERE / "data/llvm-libunwind-headers.json").read_text())
-    for name, expected in unwind_lock["sha256"].items():
-        source = args.libunwind_headers / name
-        if not source.is_file() or hashlib.sha256(source.read_bytes()).hexdigest() != expected:
-            parser.error(f"LLVM libunwind header differs from pinned source: {name}")
-
     if args.overlay_reference:
         # Exclude the reference's C++ headers so only the supplied LLVM libc++
         # headers can satisfy C++ includes in the secondary composition.
@@ -73,7 +62,7 @@ def main() -> None:
     else:
         shutil.copytree(c_root, out, symlinks=True)
     # The owner index covers the standalone C installation only. The composed
-    # provenance below also covers CoreFoundation and LLVM runtime headers.
+    # provenance below also covers CoreFoundation headers.
     c_manifest = out / TSV_NAME
     if c_manifest.is_file():
         c_manifest.rename(out / "c-header-manifest.tsv")
@@ -139,10 +128,6 @@ def main() -> None:
                   out / "System/Library/Frameworks/CoreFoundation.framework/CoreFoundation.tbd",
                   log, "external-tbd-amendment")
 
-    # Keep unwind headers as an explicit LLVM runtime layer. The Apple C tree
-    # remains independently reproducible, while the composed SDK uses one
-    # coherent libunwind header set from the LLVM source already fetched by
-    # hermetic-llvm.
     c_provenance = out / "header-provenance.json"
     c_files, _ = read_header_manifest(c_root)
     provenance = {"schema": 2, "files": c_files}
@@ -153,15 +138,6 @@ def main() -> None:
                 if not copied.is_file() or hashlib.sha256(copied.read_bytes()).hexdigest() != record["sha256"]:
                     parser.error(f"CoreFoundation differs from provenance: {relative}")
                 provenance["files"][relative] = record
-    for name, expected in unwind_lock["sha256"].items():
-        source = args.libunwind_headers / name
-        relative = f"usr/include/{name}"
-        copy_file(source, out / relative, log, "llvm-libunwind")
-        provenance["files"][relative] = {
-            "origin": f"llvm-libunwind:llvmorg-{unwind_lock['llvm_version']}/libunwind/include/{name}",
-            "selection": "tools/qualification/data/llvm-libunwind-headers.json",
-            "sha256": expected,
-        }
     c_provenance.write_text(json.dumps(provenance, indent=2, sort_keys=True) + "\n")
     shutil.copytree(args.libcxx_headers, out / "usr/include/c++/v1")
     copy_file(args.libcxx_archive,

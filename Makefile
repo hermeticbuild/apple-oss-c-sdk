@@ -2,7 +2,7 @@
 PYTHON ?= python3
 MIG ?= /usr/bin/mig
 
-.PHONY: install
+.PHONY: install test
 install:
 	@set -eu; \
 		test -x "$(CLANG)" || { echo "Set CLANG to the pinned LLVM Clang executable." >&2; exit 1; }; \
@@ -11,6 +11,16 @@ install:
 		stage=$$(mktemp -d "$${TMPDIR:-/tmp}/apple-oss-c-recipes.XXXXXX"); \
 		trap 'rm -rf -- "$$stage"' EXIT; \
 		$(MAKE) build-install STAGE="$$stage" CLANG="$(CLANG)" MIG="$(MIG)" OUT="$(OUT)"
+
+test:
+	@test -x "$(CLANG)" || { echo "Set CLANG to the pinned LLVM Clang executable." >&2; exit 1; }
+	@test -n "$(OUT)" && test -f "$(OUT)/header-manifest.tsv" || { echo "Set OUT to the tree produced by make install." >&2; exit 1; }
+	$(PYTHON) -m unittest discover -s tests/recipes
+	$(PYTHON) -m tools.qualify_headers.compile_probes --clang "$(CLANG)" --sysroot "$(OUT)" \
+		--fixture tests/installed_headers/fenv_abi.c \
+		--fixture tests/installed_headers/stdatomic_init.c \
+		--fixture tests/installed_headers/target_conditionals.c
+	$(PYTHON) tests/installed_headers/check_fenv_runtime.py
 
 ifneq ($(strip $(STAGE)),)
 # Each copy writes its full receipt as it stages the file.

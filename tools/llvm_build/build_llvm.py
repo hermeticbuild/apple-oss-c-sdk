@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compose an SDK and build hermetic-llvm for both macOS architectures."""
+"""Compose a test SDK and build LLVM for both macOS architectures."""
 
 import argparse
 import hashlib
@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-TEMPLATE = HERE / "fixtures/llvm_consumer/MODULE.bazel.in"
+TEMPLATE = HERE / "fixtures/MODULE.bazel.in"
 
 
 def archive_sdk(sdk: Path, archive: Path) -> str:
@@ -28,7 +28,6 @@ def archive_sdk(sdk: Path, archive: Path) -> str:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ("c-root", "reference-sdk", "libcxx-headers", "libcxx-archive",
-                 "libunwind-headers",
                  "corefoundation-tbd-override", "llvm-repo", "work"):
         parser.add_argument("--" + name, type=Path, required=True)
     parser.add_argument("--mode", choices=("restricted", "overlay"), required=True)
@@ -37,7 +36,6 @@ def main() -> None:
     parser.add_argument("--bazelrc", type=Path)
     args = parser.parse_args()
     paths = [args.c_root, args.reference_sdk, args.libcxx_headers,
-             args.libunwind_headers,
              args.libcxx_archive, args.corefoundation_tbd_override,
              args.llvm_repo]
     if any(not path.exists() for path in paths):
@@ -49,12 +47,11 @@ def main() -> None:
         parser.error("work directory already exists")
     work.mkdir(parents=True)
     sdk = work / "MacOSX.sdk"
-    command = [sys.executable, "-m", "tools.qualification.compose_sdk",
+    command = [sys.executable, "-m", "tools.sdk_composition.compose_sdk",
                "--c-root", str(args.c_root.absolute()),
                "--reference-sdk", str(args.reference_sdk.absolute()),
                "--libcxx-headers", str(args.libcxx_headers.absolute()),
                "--libcxx-archive", str(args.libcxx_archive.absolute()),
-               "--libunwind-headers", str(args.libunwind_headers.absolute()),
                "--corefoundation-tbd-override",
                str(args.corefoundation_tbd_override.absolute()),
                "--out", str(sdk)]
