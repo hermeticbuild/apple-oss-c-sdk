@@ -54,7 +54,7 @@ See the [implementation journal](progress.md) for the latest qualified milestone
 
 ## Review a freshly installed header set
 
-Start with a version-locked installation and the reference SDK with the same name and build. Run from the repository root with a fresh report directory.
+Start with a version-locked installation and the reference SDK with the same name and build. Run from the repository root with a fresh report directory. The tools use Python 3.10+ syntax. Set `PYTHON` on the Make command line if `python3` selects an older interpreter.
 
 ```sh
 WORK=$(mktemp -d)
@@ -65,6 +65,8 @@ make -f tools/sdk_review/libsystem-headers.mk -j3 header-backlog \
 This runs the standalone census, shipping and discovery include traces, SDK path audit, and [paired semantic probes](../sdk_review/c_interface_review.md). Read `header-backlog.json` for path decisions, failed contexts, matched approvals and semantic differences. The two `discovery-*.json` files also preserve diagnostics for optional roots outside the shipping profile. A completed backlog with open findings deliberately fails the Make target. The underlying `tools.sdk_review.header_backlog` command exits 1 for findings and 2 for invalid inputs. A stale or missing input remains an explicit issue.
 
 The [eventlink decision](../sdk_review/data/macosx26.5/standalone-context-approvals.json) applies to two specific standalone include contexts. Reproduce it with the reference SDK attached. Review the header's linker exports independently.
+
+To run the [C11 complex constructor fixture](../../tests/installed_headers/complex_abi.c), use the same Make invocation with `complex-runtime` as the target. Compilation uses only the generated headers and Clang resource headers. The linker reads the reference libSystem stub. Running both executables on an Apple Silicon Mac requires Rosetta for the Intel executable. These tests exercise the host runtime on the installed OS build.
 
 ## Compose an integration sysroot
 
