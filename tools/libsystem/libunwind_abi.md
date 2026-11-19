@@ -92,14 +92,16 @@ target. Set `RUSTC` to that compiler, `RUST_SYSROOT` to the directory
 containing `lib/rustlib/$TRIPLE`, `LLVM` to the pinned LLVM tool directory
 containing `bin/clang`, and `SDK` to the composed sysroot. From the repository
 root, run this once with `TRIPLE=aarch64-apple-darwin` and once with
-`TRIPLE=x86_64-apple-darwin`. Use a distinct output path for each run.
+`TRIPLE=x86_64-apple-darwin`. Set `MINIMUM` to the selected deployment version and `OUTPUT` to an
+absolute path with the same filename in separate candidate and reference
+directories. The comparison used `rust_panic` as that filename.
 
 ```sh
-SDKROOT="$SDK" MACOSX_DEPLOYMENT_TARGET=14.0 "$RUSTC" \
-  --sysroot "$RUST_SYSROOT" --target "$TRIPLE" -Cpanic=unwind \
+SDKROOT="$SDK" MACOSX_DEPLOYMENT_TARGET="$MINIMUM" "$RUSTC" \
+  --sysroot "$RUST_SYSROOT" --target "$TRIPLE" -Cpanic=unwind -Ccodegen-units=1 \
   -Clinker="$LLVM/bin/clang" -Clink-arg=-fuse-ld=lld \
   -Clink-arg=-isysroot -Clink-arg="$SDK" -Clink-arg=-Wl,-dead_strip \
-  tools/libsystem/fixtures/rust_panic.rs -o "$OUTPUT"
+  "--emit=obj=$OUTPUT.o,link=$OUTPUT" tools/libsystem/fixtures/rust_panic.rs
 "$OUTPUT"
 "$LLVM/bin/llvm-nm" -um "$OUTPUT" | grep '__Unwind_'
 "$LLVM/bin/llvm-objdump" --macho --dylibs-used "$OUTPUT"
@@ -108,7 +110,16 @@ SDKROOT="$SDK" MACOSX_DEPLOYMENT_TARGET=14.0 "$RUSTC" \
 The executable must catch the panic and exit successfully. Check that
 `__Unwind_GetTextRelBase` and `__Unwind_GetDataRelBase` both bind through
 libSystem. Repeat with the reference SDK as a differential control. Running
-the Intel executable on Apple Silicon requires Rosetta.
+the Intel executable on Apple Silicon requires Rosetta. Compare both the
+emitted object and the linked executable with `cmp`. Preserve the same
+output filename on each side when comparing bytes. In the 26.5 run the
+pairs agreed on imports, load commands and deployment metadata with
+different filenames, but full binary equality required the same filename.
+
+The candidate containing XNU's noncancelable close alias produced identical
+Rust objects and executables to Xcode SDK 26.5 at deployment minima 11.0,
+12.0, 13.0, 14.0, 15.0, 26.0 and 26.5 on arm64 and x86_64. All 28
+executables successfully caught a panic on macOS 26.5.2 (25F84).
 
 Nine reference exports remain open per target.
 

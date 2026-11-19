@@ -674,3 +674,16 @@ uses the pinned official LLVM 23.1.2 bundle. The TableGen result establishes
 one executed bootstrap tool. Stage 1 Clang and Stage 2 have their own
 build, identity and execution checks. Evidence is in `close-native-tablegen`
 under the consumer qualification directory.
+
+With Rust 1.96.1 and the candidate containing the noncancelable close alias,
+the checked-in panic fixture produced byte-identical objects and macOS
+executables to the Xcode 26.5 control across 14 configurations. These cover
+arm64 and x86_64 at minima 11.0, 12.0, 13.0, 14.0, 15.0, 26.0 and
+26.5. Each pair used the same output filename in separate directories.
+All 28 binaries caught a panic on host build 25F84. Per-configuration
+inspections also matched the 70 undefined-symbol rows, dylib loads and
+`LC_BUILD_VERSION` fields. The Intel links used `_close$NOCANCEL` and
+both architectures bound the two unwind compatibility names through
+libSystem. The [reproduction](libunwind_abi.md#reproduce-the-rust-consumer)
+records the compiler flags. Reports are under
+`/tmp/libsystem-fortify-qual.1isE94/close-rust-deployments.UmXTtp`.
