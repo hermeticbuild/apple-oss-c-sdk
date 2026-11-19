@@ -15,6 +15,10 @@ from tools.header_manifest import COLUMNS
 PARENT = "/usr/lib/libSystem.B.dylib"
 CHILD = "/usr/lib/system/libsystem_fixture.dylib"
 FRAMEWORK = "System/Library/Frameworks/Example.framework"
+OBJC_HEADERS = {
+    "NSObjCRuntime.h", "NSObject.h", "message.h", "objc-api.h", "objc-auto.h",
+    "objc-exception.h", "objc-sync.h", "objc.h", "runtime.h",
+}
 
 
 def write(path, content):
@@ -69,6 +73,57 @@ class ComposeTests(unittest.TestCase):
             "--sdk-gen", self.gen, "--out", self.out, *extra,
         ], text=True, capture_output=True)
 
+    @unittest.skipUnless(os.getenv("LIBSYSTEM_TEST_OBJC4"), "requires the pinned Apple objc4 sources")
+    def test_objc4_headers_and_external_stubs_have_separate_provenance(self):
+        source = Path(os.environ["LIBSYSTEM_TEST_OBJC4"])
+        target = self.work / "libobjc.A.tbd"
+        write(target, tbd("/usr/lib/libobjc.A.dylib"))
+        alias = self.work / "libobjc.tbd"
+        alias.symlink_to(target.name)
+
+        result = self.compose("--objc4-source", source,
+                              "--external-stub", f"usr/lib/libobjc.tbd={alias}",
+                              "--external-stub", f"usr/lib/libobjc.A.tbd={target}")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        objc = self.out / "usr/include/objc"
+        self.assertEqual({p.name for p in objc.iterdir()}, OBJC_HEADERS)
+        self.assertEqual((self.out / "header-manifest.tsv").read_bytes(),
+                         (self.c / "header-manifest.tsv").read_bytes())
+        manifest = json.loads((self.out / "composition.json").read_text())
+        self.assertEqual(manifest["objc4_revision"], "ebfe77e64331034c867285a95d3ac205203291d5")
+        receipts = {}
+        for name in OBJC_HEADERS:
+            upstream = (source / "runtime" / name).read_bytes()
+            self.assertEqual((objc / name).read_bytes(), upstream)
+            receipts[f"usr/include/objc/{name}"] = {
+                "layer": "objc4-public-headers",
+                "source": f"runtime/{name}",
+                "sha256": hashlib.sha256(upstream).hexdigest(),
+            }
+        self.assertEqual({path: receipt for path, receipt in manifest["files"].items()
+                          if path.startswith("usr/include/objc/")}, receipts)
+        self.assertEqual(manifest["files"]["usr/lib/libobjc.tbd"]["layer"], "external-stub")
+        self.assertEqual((self.out / "usr/lib/libobjc.tbd").readlink(), Path("libobjc.A.tbd"))
+        self.assertEqual(manifest["providers"]["/usr/lib/libobjc.A.dylib"], ["usr/lib/libobjc.A.tbd"])
+
+    def test_objc4_header_with_wrong_contents_cannot_be_published(self):
+        source = self.work / "objc4"
+        for name in OBJC_HEADERS:
+            write(source / "runtime" / name, "unexpected header bytes\n")
+
+        result = self.compose("--objc4-source", source)
+        self.assertIn("SDK file differs from its input manifest: usr/include/objc/NSObjCRuntime.h", result.stderr)
+        self.assertFalse(self.out.exists())
+
+    def test_objc4_public_header_must_be_a_regular_source_file(self):
+        source = self.work / "objc4"
+        write(source / "runtime" / "other.h", "header bytes\n")
+        (source / "runtime" / "NSObjCRuntime.h").symlink_to("other.h")
+
+        result = self.compose("--objc4-source", source)
+        self.assertIn("objc4 public header must be a regular file", result.stderr)
+        self.assertFalse(self.out.exists())
+
     def test_prepared_framework_and_versioned_package(self):
         header = self.framework / "Headers/Example.h"
         write(header, "typedef int example;\n")
@@ -114,10 +169,12 @@ class ComposeTests(unittest.TestCase):
                          (self.c / "usr/include/fixture.h").read_bytes())
         self.assertFalse((self.out / "uninstalled-scratch.txt").exists())
         self.assertFalse((self.out / "usr/include/c++").exists())
+        self.assertFalse((self.out / "usr/include/objc").exists())
         self.assertFalse((self.out / "System/Library/Frameworks/Unselected.framework").exists())
 
         manifest = json.loads((self.out / "composition.json").read_text())
         self.assertEqual(manifest["libsystem_manifest_sha256"], self.manifest_sha256)
+        self.assertNotIn("objc4_revision", manifest)
         self.assertEqual(manifest["providers"], {
             PARENT: ["usr/lib/libSystem.B.tbd"], CHILD: ["usr/lib/libSystem.B.tbd"],
             example: [f"{FRAMEWORK}/Versions/A/Example.tbd"],
