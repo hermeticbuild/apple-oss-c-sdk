@@ -1,6 +1,17 @@
 {
   "sdk": "macosx26.5",
   "public_count": 32,
+  "relative_base_compatibility": {
+    "source_api": "unavailable on Darwin",
+    "runtime_behavior": "abort",
+    "reference_sdk_build": "25F70",
+    "paired_link_minima": ["11.0", "14.0", "26.5"],
+    "runtime_build": "25F84",
+    "runtime_images": {
+      "arm64e": "FC8F0C4E-6FB0-3E27-ABEF-B0FA720CD5E4",
+      "x86_64": "694AECEA-E97F-3DEA-B1FE-406E42893B86"
+    }
+  },
   "source": {
     "repository": "https://github.com/apple-oss-distributions/libunwind",
     "tag": "libunwind-201",

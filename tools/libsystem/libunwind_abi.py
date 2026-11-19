@@ -1,4 +1,4 @@
-"""Derive the supported public Darwin libunwind linker interface."""
+"""Derive the Darwin libunwind linker interface and verified compatibility exports."""
 
 import json
 from pathlib import Path
@@ -13,6 +13,8 @@ HERE = Path(__file__).resolve().parent
 RECORD = HERE / "data/macosx26.5/libunwind-abi.json"
 PUBLIC = HERE / "fixtures/libunwind_public.c"
 CLEANUP = HERE / "fixtures/libunwind_cleanup.cpp"
+RELATIVE_BASES = HERE / "fixtures/libunwind_relative_bases.S"
+RELATIVE_BASE_SYMBOLS = {"__Unwind_GetDataRelBase", "__Unwind_GetTextRelBase"}
 PROVIDER = "/usr/lib/system/libunwind.dylib"
 RESUME = "__Unwind_Resume"
 LOCAL_ADDRESS_SPACE = "_unw_local_addr_space"
@@ -59,9 +61,14 @@ def derive(source, llvm, c_install, minimum, work, expected_count):
         includes = ["-I", source / "include", "-isystem", resource, "-isystem", c_install / "usr/include"]
         public = work / f"{arch}-public.o"
         cleanup = work / f"{arch}-cleanup.o"
+        relative_bases = work / f"{arch}-relative-bases.o"
         run(clang, [*base, *includes, "-std=c11", "-c", PUBLIC, "-o", public], work)
         run(clang, [*base, "-std=c++17", "-fexceptions", "-c", CLEANUP, "-o", cleanup], work)
+        run(clang, [*base, "-c", RELATIVE_BASES, "-o", relative_bases], work)
         symbols = set(run(nm, ["-uj", public], work).splitlines())
+        compatibility = set(run(nm, ["-uj", relative_bases], work).splitlines())
+        if compatibility != RELATIVE_BASE_SYMBOLS or symbols & compatibility:
+            raise ValueError(f"{arch}: unexpected libunwind compatibility references")
         imports = sorted(set(run(nm, ["-uj", cleanup], work).splitlines()))
         if len(symbols) != expected_count or not {RESUME, LOCAL_ADDRESS_SPACE} <= symbols or RESUME not in imports:
             raise ValueError(f"{arch}: changed public libunwind or compiler cleanup surface")
@@ -71,14 +78,15 @@ def derive(source, llvm, c_install, minimum, work, expected_count):
             run(clang, [*base, *includes, *flags, "-U__STRICT_ANSI__", "-DNDEBUG",
                         "-fno-exceptions", "-funwind-tables", "-c", source / "src" / name, "-o", obj], work)
             objects.append(obj)
-        owned = definitions(nm, objects, symbols, work)
+        owned = definitions(nm, objects, symbols | compatibility, work)
         # The public libunwind.h fixture names one object. Its other imports
-        # and all supported unwind.h entries are functions.
-        public_kinds = {name: "data.global" if name == LOCAL_ADDRESS_SPACE else "text.global"
-                        for name in symbols}
-        if {name: definition[0] for name, definition in owned.items()} != public_kinds:
-            raise ValueError(f"{arch}: libunwind definition kinds differ from the public interface")
-        result[arch] = {name: (kind, owned[name][1]) for name, kind in public_kinds.items()}, imports
+        # and all supported unwind.h entries are functions. The separately
+        # selected compatibility symbols are functions as well.
+        kinds = {name: "data.global" if name == LOCAL_ADDRESS_SPACE else "text.global"
+                 for name in symbols | compatibility}
+        if {name: definition[0] for name, definition in owned.items()} != kinds:
+            raise ValueError(f"{arch}: libunwind definition kinds differ from the selected interface")
+        result[arch] = {name: (kind, owned[name][1]) for name, kind in kinds.items()}, imports
     return result
 
 
@@ -108,11 +116,12 @@ def install(sdk, source, llvm, c_install, minimum, work, images, inventories):
                     existing is not None and (owner != PROVIDER or existing != kind)
                 ):
                     raise ValueError(f"{arch}: conflicting libunwind definition for {symbol} in {owner}")
-        receipt[arch] = {"compiler_cleanup_imports": imports, "exports": {}}
+        receipt[arch] = {"compiler_cleanup_imports": imports, "exports": {}, "compatibility_exports": {}}
         for symbol, (kind, obj) in sorted(exports.items()):
             slices[arch]["exports"][symbol] = kind
             rel = "libunwind/src/" + obj.removeprefix(f"{arch}-")
             inventories[arch].append({"symbol": symbol, "kind": KINDS[kind], "header": f"libunwind/{rel}"})
-            receipt[arch]["exports"][symbol] = {"kind": kind, "source": rel}
+            scope = "compatibility_exports" if symbol in RELATIVE_BASE_SYMBOLS else "exports"
+            receipt[arch][scope][symbol] = {"kind": kind, "source": rel}
     return {**evidence, "minimum": minimum, "provider": PROVIDER, "slices": receipt,
-            "client_sha256": {path.name: digest(path) for path in (PUBLIC, CLEANUP)}}
+            "client_sha256": {path.name: digest(path) for path in (PUBLIC, CLEANUP, RELATIVE_BASES)}}

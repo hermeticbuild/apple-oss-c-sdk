@@ -50,12 +50,11 @@ the link stub.
 The macOS 26.5 SDK (25F70) and host caches (26.5.2, 25F84) each expose
 43 names from libunwind on both architecture slices. The baseline
 provided zero and failed to resolve all 32 public fixture references.
-The updated stub adds 31 strong functions and one strong data symbol
+The public fixture selects 31 strong functions and one strong data symbol
 (`_unw_local_addr_space`) per target. All 32 were found in
 `/usr/lib/system/libunwind.dylib` in the arm64e image
 `FC8F0C4E-6FB0-3E27-ABEF-B0FA720CD5E4` and Rosetta x86_64 image
-`694AECEA-E97F-3DEA-B1FE-406E42893B86`. The updated stub has zero extra
-names in the component.
+`694AECEA-E97F-3DEA-B1FE-406E42893B86`. The SDK and both caches agree on all names selected by the fixture.
 
 With pinned LLD 23.1.2 at deployment minima 11.0 and 26.5, the
 candidate and reference links agreed on strict imports, dependencies, and
@@ -64,19 +63,32 @@ arm64 and Rosetta x86_64 against each stub, using a separate libc++ stub.
 The negative controls `___unw_getcontext` and `___register_frame_info`
 were undefined against both candidate and reference.
 
-Eleven reference-only exports remain open per target. The two public
-header declarations `__Unwind_GetDataRelBase` and
-`__Unwind_GetTextRelBase` are marked unavailable on macOS and their
-pinned implementations abort. The other nine are outside the supported
-public declarations.
+## Relative-base binary compatibility
+
+Rust's panic personality keeps relocations for both
+`__Unwind_GetDataRelBase` and `__Unwind_GetTextRelBase`. It calls the
+corresponding closures only when decoding data-relative or text-relative DWARF
+addresses. Darwin does not support those encodings. Apple's installed
+`unwind.h` marks both functions unavailable and the implementations abort if
+called. The separate [compatibility fixture](fixtures/libunwind_relative_bases.S)
+emits address relocations, and the recipe verifies their strong text
+definitions in the pinned Apple source. The build receipt lists these two in
+`compatibility_exports` alongside the 32 supported exports.
+[Rust 1.96.1 personality](https://github.com/rust-lang/rust/blob/31fca3adb283cc9dfd56b49cdee9a96eb9c96ffd/library/std/src/sys/personality/gcc.rs) ·
+[Rust pointer-encoding dispatch](https://github.com/rust-lang/rust/blob/31fca3adb283cc9dfd56b49cdee9a96eb9c96ffd/library/std/src/sys/personality/dwarf/eh.rs) ·
+[Apple header and source](https://github.com/apple-oss-distributions/libunwind/blob/f709eccad023ec32db53d40146d07805cf3e4ee0/libunwind/include/unwind.h#L349-L355) ·
+[Apple compatibility definitions](https://github.com/apple-oss-distributions/libunwind/blob/f709eccad023ec32db53d40146d07805cf3e4ee0/libunwind/src/UnwindLevel1-gcc-ext.c#L67-L84)
+
+Strict links at deployment minima 11.0, 14.0, and 26.5 confirm that both
+names bind via libSystem on arm64 and x86_64 with the generated stub and
+SDK 26.5. The baseline lacked both exports. Disassembly of both 25F84
+runtime images confirms that both functions end in a call to `abort`.
+The probes link the relocations without calling either function.
+
+Nine reference exports remain open per target.
 
 - `__ZN9libunwind25findDynamicUnwindSectionsEPvP27unw_dynamic_unwind_sections`
 - `___unw_add_dynamic_eh_frame_section` and `___unw_remove_dynamic_eh_frame_section`
 - `___unw_add_dynamic_fde` and `___unw_remove_dynamic_fde`
 - `___unw_add_find_dynamic_unwind_sections` and `___unw_remove_find_dynamic_unwind_sections`
 - `_unw_iterate_dwarf_unwind_cache` and `_unw_resume_with_frames_walked`
-
-Strict links referencing these eleven names failed against the candidate
-and succeeded against the reference.
-[macOS header availability](https://github.com/apple-oss-distributions/libunwind/blob/f709eccad023ec32db53d40146d07805cf3e4ee0/libunwind/include/unwind.h#L349-L374) ·
-[Darwin compatibility stubs](https://github.com/apple-oss-distributions/libunwind/blob/f709eccad023ec32db53d40146d07805cf3e4ee0/libunwind/src/UnwindLevel1-gcc-ext.c#L67-L84)
