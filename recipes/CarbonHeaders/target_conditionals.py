@@ -32,8 +32,6 @@ def target_conditionals() -> bytes:
     if source.count(arm) != 1:
         raise ValueError("CarbonHeaders ARM branch changed")
     source = source.replace(arm, arm64 + arm)
-    source = source.replace("#define TARGET_OS_UNIX              0",
-                            "#define TARGET_OS_UNIX              1")
     suffix = ("\n/* macOS aliases added after the CarbonHeaders release. */\n"
               "#define TARGET_OS_OSX 1\n"
               "#define TARGET_OS_IOS 0\n"

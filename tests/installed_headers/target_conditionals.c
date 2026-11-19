@@ -1,6 +1,6 @@
 #include <TargetConditionals.h>
 
-#if !TARGET_OS_MAC || TARGET_OS_LINUX
+#if !TARGET_OS_MAC || TARGET_OS_LINUX || TARGET_OS_UNIX
 #error wrong macOS target flags
 #endif
 
