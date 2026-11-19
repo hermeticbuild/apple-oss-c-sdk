@@ -1,0 +1,4 @@
+50699dd3758b8e770a20e98626855677a932ddbc59160e66c1cbfeb87d5f758f  dyld/libdyld/threadLocalHelpers.s
+058bd63fd959c60242ee710f0e1a9d711de5ab4b90470153729e4c4b0c8b9e8a  xnu/osfmk/machine/cpu_capabilities.h
+8936b19289b96b6249719fa641c29d31a2050cd7db39e4dc0e8b741b14f2975d  xnu/osfmk/arm/cpu_capabilities.h
+d2684c2d160db02a8347f02dd6ac0bfba8b8220292a1c474a7468523cdd4099c  xnu/osfmk/i386/cpu_capabilities.h
