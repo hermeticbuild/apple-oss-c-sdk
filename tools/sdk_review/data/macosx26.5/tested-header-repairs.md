@@ -36,14 +36,38 @@ Local replay and checks are in `/tmp/macos26-header-fixes.wIiAWC/`.
 | Modern `os/log.h` | Preserve XNU's object/type representation. Use Clang's OS log builtins to encode the format arguments, guard evaluation with the enabled predicate, and send the packed buffer through the userspace log sink. Link nine entries in the `libsystem_trace` child. Candidate/reference effective imports and format-string sections matched. Emission, disabled arguments, debug-on, privacy, sensitive formatting and diagnostics worked on both CPUs. | The current produced stub fails the nine imports. This prototype used a separate scratch stub. Obtain independent declaration evidence for the debug sink and disabled backing object, and qualify the deployment contract before release. The Swift call site establishes the generic packed sink. [Swift call site](https://github.com/swiftlang/swift/blob/swift-5.0-RELEASE/stdlib/public/SDK/os/os.m#L104) · [Swift API notes](https://github.com/swiftlang/swift/blob/swift-5.0-RELEASE/apinotes/os.apinotes) |
 | Historical `os/trace.h` | Adapt the compiler encoding into the scalar value/size/count trailer documented in the pinned XNU header. The reference and prototype linked at 11/14/26.5 with three additional trace exports. Seven legacy trace events matched per CPU in the debug-enabled run. | Unmodified XNU calls two helpers absent from the current runtime. XPC payloads and standalone trace-base compatibility remain open. Preserve the experiment separately from the modern log path. [XNU trace interfaces](https://github.com/apple-oss-distributions/xnu/blob/ac9718fb1af618d5ce8678d0dc6e8a58f252216f/libkern/os/trace.h) |
 | arm64 denormals environment | The prototype declares a const `fenv_t` named `_FE_DFL_DISABLE_DENORMS_ENV`, exposes its address as the macro and binds the data export in libsystem_m on arm64. It toggled hardware FZ, flushed input and output subnormals, and restored the prior environment. Intel kept its SSE interface. | **User decision: qualification only.** We have a macOS arm64 consumer, an Apple Libm engineer's account of the arm64 iOS spelling and the current macOS provider. Seek stronger macOS provenance before shipping either the declaration or the export. The [standalone qualification client](../../fixtures/c_codegen/fenv_denorms_environment.c) enables the proposed declaration only with `-DREVIEW_DERIVED_FENV`. Compile without it against the SDK control. [Client](https://github.com/breakfastquay/rubberband/blob/v1.9.2/src/system/sysutils.cpp#L185-L190) · [Engineer's account](https://stackoverflow.com/a/19904907) |
-| Thirteen half-precision math imports | Map independently observed deployed names to the typed LLVM libc interfaces, emit the tested declarations and the matching libsystem_m bindings in scratch. Client objects and imports matched on both CPUs at 14/15/26.5, weak at 14 and strong at 15 and 26.5. | Bindings and signatures have independent evidence. The exact 15.0 introduction is established only by SDK comparison so far. Seek a separately sourced availability record or suitably versioned runtime evidence. On Rosetta, the deployed `__rintf16(1.25)` returns 1.25 with either header in all four rounding modes. Native Intel remains unverified. [LLVM libc signatures](https://github.com/llvm/llvm-project/blob/85ac560262434c9ccfc0c183ec22d4138ed647fb/libc/include/math.yaml) |
-| `Block.h` | Use the pinned libclosure public Headers phase. Its output matches the SDK byte for byte, exposes Apple's bounds annotations, and the escaping block client linked to our existing libSystem and ran on both CPUs. | Keep the current libdispatch header in the distribution until the applicable notice for libclosure's `@APPLE_LLVM_LICENSE_HEADER@` is established. [Apple file](https://github.com/apple-oss-distributions/libclosure/blob/3668b0837f47be3cc1c404fb5e360f4ff178ca13/Block.h) |
+| Thirteen half-precision math imports | Install the LLVM-derived declarations and scan the resulting `math.h` to emit the 13 libsystem_m entries for both targets. The Apple Silicon, Rosetta and native Intel runtime images each show 0/13 in 14.7 and 13/13 strong in the initial 15.0 release. | SDK-identical client objects and results at 11.0/14.7/15.0/26.5. Runs used 26.5.2. On Rosetta the deployed `__rintf16(1.25)` returns 1.25 with either header. Historical and native Intel numerical behavior remain untested. [Inputs, image UUIDs and reproduction](../../../../recipes/libm/half_math.md) |
+| `Block.h` | Installed follow-up in `2eb6abe`. Keep the licensed libdispatch input and derive pointer bounds for raw copy/release and the typed wrappers. The libclosure header still has an unresolved license placeholder. | Apple Clang accepts a single-pointer copy and diagnoses an unsafe raw release. Escaping-block objects matched the SDK at minima 11.0 and 26.5 on both CPUs, linked against the generated libSystem, and ran on 26.5.2 (Intel via Rosetta). [Derived recipe and regression](../../../../recipes/libdispatch/block-bounds.md) |
 
 The worker receipts include replay scripts and scratch artifacts in
 `/tmp/apple-oslog-source-proof.pCD6Ou/README.md`,
 `/tmp/libm-remaining.mMttMr/README.md` and
 `/tmp/carbon-blocks-solutions.jbtbZe/HOWTO.md`.
 Scratch stubs and the reference SDK are outside the producer inputs.
+
+### Modern logging follow-up
+
+**Decision.** Keep modern logging in qualification. Preserve dedicated
+error and fault calls as the release target. Seek independent evidence
+for their six-argument prototypes and the supported deployment range.
+The first-party Swift API notes name both functions. The published Swift
+logging implementation sends debug messages through the generic packed
+sink. [API notes](https://github.com/swiftlang/swift/blob/272c466e47507c4c6359f30ab8c9ceea5e7c216d/apinotes/os.apinotes#L31-L40) · [Swift debug implementation](https://github.com/swiftlang/swift/blob/d154f45f01cf339b4a01ac5dacc3fd3b1bb100fb/stdlib/private/OSLog/OSLog.swift#L56-L67)
+
+The five-entry variant uses the generic sink for debug and preserves
+the error/fault calls. Both CPUs, three deployment minima and two runtime
+logging configurations gave 12 matching results for severity, message,
+privacy redaction and disabled argument evaluation. All executions used
+macOS 26.5.2. A separate Swift client verified that the public disabled
+singleton's address equals the data export in libsystem_trace on native
+arm64 and Rosetta x86_64. A null handle loses that identity. The dedicated
+call signatures are inferred from the generic signature and successful
+runtime calls. The legacy trace and XPC interfaces have separate gaps.
+Reproduction and import receipts: `/tmp/apple-oslog-release.nRpp2o/README.md`.
+The five candidate linker names were also present in the native arm64e,
+Rosetta x86_64 and native Intel x86_64h runtime images in both 14.7 and
+15.0. These observations establish presence and leave the prototype decision
+in place. Receipts are in `/tmp/half-release.EuT2mo/logging-results.md`.
 
 ## Other differences
 

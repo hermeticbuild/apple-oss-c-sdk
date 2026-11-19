@@ -906,3 +906,40 @@ The arm64 denormals object is explicitly qualification-only. All 48
 ranked paths have an installed repair, concrete prototype or scoped
 retention result. See the [implementation and experiment receipts](../sdk_review/data/macosx26.5/tested-header-repairs.md).
 Full consumer requalification remains pending.
+
+**Blocks bounds repair.** Decision and implementation in `2eb6abe`. The
+26.5 recipe derives bounds qualifiers from the existing libdispatch header
+and Clang pointer semantics. Against the previous installation, only
+`usr/include/Block.h` changed. Manifest SHA-256
+`665fd5c1cce4f7bd787a0bd64fcf0156aed9a7204c4d686259a4af45b904ffeb`.
+All 364 C checks, 12 recipe tests and the host fenv test passed. At minima
+11.0 and 26.5, the Apple Clang bounds fixture matched SDK diagnostics on
+both CPUs. Four escaping-block clients yielded identical objects to the SDK
+control and ran against the generated libSystem on macOS 26.5.2.
+Receipts are in `/tmp/macos-header-agreements.u6wLpR` and
+`/tmp/block-bounds.qDjNgm`.
+
+**Binary16 math and logging decisions.** Initial Sequoia 15.0 (24A335)
+exports all 13 reviewed functions in libsystem_m on arm64e, Rosetta x86_64
+and Intel x86_64h. Sonoma 14.7 (23H124) exports zero in all three images.
+The 26.5 C and libSystem recipes now emit these interfaces (`ffa09ab`).
+The installed math declarations derive their signatures from LLVM libc.
+The ordinary math.h scan checks their Mach-O names, function types and
+weak/strong imports before binding them to the verified provider. The stub
+gained 13 strong definitions per target, all in libsystem_m. See the
+[source, image evidence, deployment and runtime checks](../../recipes/libm/half_math.md).
+The resulting C manifest SHA-256 is
+`fb3e9f7588c77994f6a10f9079f3ed2af7d320f8a219844c1b877d1635610ea4`
+and the generated libSystem.B.tbd SHA-256 is
+`3fff48416802cd596e786cd4e9a4bc68616b1756d3c2e973215fef4f37e9d6fc`.
+Qualification passed 366 C compilation checks, 12 recipe tests, the host
+fenv test, and object/link/runtime differentials at four deployment minima
+on both targets. The Intel conversion-helper difference for standalone links
+is recorded separately. The full consumer suites retain their previous
+qualification receipts and need a rerun for these artifact digests.
+
+Modern logging stays in qualification by decision. The release target
+preserves specialized error/fault calls. The historical images verify five
+logging names. Independent source prototypes for the two dedicated sinks
+are still missing. The arm64 denormals object remains qualification only.
+[Logging and header decisions](../sdk_review/data/macosx26.5/tested-header-repairs.md)
