@@ -43,7 +43,8 @@ def produce(emit: Emit) -> None:
     if text.count(before) != 1:
         raise ValueError("Libm math.h architecture switch changed")
     anchor = "#endif /* __MATH_H__ */"
-    if text.count(anchor) != 1 or any(name in text for name in ("__sinpi", "__exp10", "__sincos")):
+    supplements = ("__sinpi", "__cospi", "__tanpi", "__exp10", "__sincos")
+    if text.count(anchor) != 1 or any(name in text for name in supplements):
         raise ValueError("Libm math.h declaration insertion point changed")
     declarations = (
         "#if defined(__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__) && \\\n"
@@ -57,6 +58,10 @@ def produce(emit: Emit) -> None:
         "extern float __exp10f(float) __API_AVAILABLE(macos(10.9));\n"
         "extern double __sinpi(double) __API_AVAILABLE(macos(10.9));\n"
         "extern float __sinpif(float) __API_AVAILABLE(macos(10.9));\n"
+        "extern double __cospi(double) __API_AVAILABLE(macos(10.9));\n"
+        "extern float __cospif(float) __API_AVAILABLE(macos(10.9));\n"
+        "extern double __tanpi(double) __API_AVAILABLE(macos(10.9));\n"
+        "extern float __tanpif(float) __API_AVAILABLE(macos(10.9));\n"
         "#ifdef __cplusplus\n"
         "}\n"
         "#endif\n"
@@ -68,8 +73,9 @@ def produce(emit: Emit) -> None:
     emit("usr/include/math.h", math_header.encode(),
          "derived:sources/Libm/Source/math.h via recipes/libm/headers.py", "Libm derivation",
          ("sources/Libm/Source/math.h", "recipes/libm/headers.py",
-          "recipes/libm/exp10.md", "recipes/libm/sinpi.md", "recipes/libm/paired_trig.h",
-          "recipes/libm/paired_trig.md", "sources/xnu/bsd/sys/cdefs.h"),
+          "recipes/libm/exp10.md", "recipes/libm/sinpi.md", "recipes/libm/scalar_pi.md",
+          "recipes/libm/paired_trig.h", "recipes/libm/paired_trig.md",
+          "sources/xnu/bsd/sys/cdefs.h"),
          "guarded arm64 branch and macOS scalar math extensions")
 
     source = ROOT / "sources/Libm/Source/fenv.h"
