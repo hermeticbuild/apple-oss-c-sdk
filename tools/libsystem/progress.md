@@ -520,3 +520,14 @@ earlier package. All 46 producer tests passed. The new TBD SHA-256 is
 `68d32af65624ce050a2cddba300010b1bebdfe6d36eb5d9e3d3416842144f6f0`.
 Inputs, packages, test log and paired-link reports are under
 `/tmp/xnu-close-qual.7LUZ35`.
+
+The composed SDK with that package and the qualified iconv layer has archive
+SHA-256 `c0a98a31e6de870f5aa56b928469c09ce2c61e4bb9840fee499c51c6083e5494`.
+The checked-in Rust 1.96.1 panic fixture linked and ran on native arm64
+and Rosetta x86_64 at deployment minima 11.0, 14.0 and 26.5 on the
+26.5.2 host. All six binaries bind both relative-base unwind symbols
+through libSystem. The three Intel binaries also bind the non-cancelable
+close there. Inspect their Mach-O imports, dependencies, and run logs in
+`/tmp/libsystem-fortify-qual.1isE94/close-rust-panic`.
+The preceding archive starting with `463a57dd` passed 36 applicable
+hermetic-llvm e2e tests on each architecture, with 45 skipped per run.
