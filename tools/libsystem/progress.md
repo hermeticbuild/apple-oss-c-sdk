@@ -338,3 +338,26 @@ The maintainer approved the full verified list with SPI headers outside
 the C package. Local qualification receipts are
 `/tmp/libsystem-unwind-qual.bEMk41/summary.json` and
 `/tmp/commoncrypto-abi.w7cVeA/link-qualification.json`.
+
+### TSan locks and the XPC decision
+
+The four TSan interposers now have strong text bindings through libSystem
+on both macOS clients at minima 11.0 and 26.5. The source recipe checks
+Apple's provider and LLVM's interceptor declarations. Private lock headers
+serve as producer evidence. Commits f9aeb5e and b8865d9 integrate
+`cerisier/libsystem-tsan-locks` (dee5fd3, `/tmp/libsystem-tsan-locks`).
+The paired positive and negative link receipts are under
+`/tmp/libsystem-tsan-lock-audit.bNdPCt`.
+
+The combined candidate's SHA-256 is
+`57585ec01d88d01b964e3a8557f8dca0ebc9633cf7fc0e0bc97d4fc6acde9a75`.
+Its effective link coverage increased by 236 names per architecture
+relative to the NetName build. It supplies 3,081 of 8,960 on arm64 and
+3,107 of 9,500 on x86_64, with zero extras at both deployment endpoints.
+The installed-header comparison still has 23 and 22 missing names.
+`locks-qualified-coverage.json` contains their individual spellings.
+
+The maintainer left libxpc open. The local public-documentation census
+identified 147 macOS C functions, 146 absent from both candidates. It is
+an investigation record (`/tmp/xpc-docs-audit.Ugcp2q/results.json`).
+The XPC provider and standalone public headers remain open for review.
