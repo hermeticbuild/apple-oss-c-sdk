@@ -13,7 +13,13 @@ stage: stage-libdispatch
 stage-libdispatch:
 	$(call copy-headers,libdispatch,dispatch,$(addprefix sources/libdispatch/dispatch/,$(dispatch_headers)))
 	@# BlocksRuntime's CMake install is non-Darwin. Retain the explicit compatibility copy.
+ifeq ($(SDK),macosx26.5)
+	patch -s -F 0 -o "$(dispatch_root)/usr/include/Block.h" \
+		"$(SOURCE_ROOT)/libdispatch/src/BlocksRuntime/Block.h" < recipes/libdispatch/block-bounds.patch
+	$(call header-record,libdispatch,usr/include/Block.h,derived:sources/libdispatch/src/BlocksRuntime/Block.h,recipes/libdispatch/Makefile,annotate block copy and release for Clang bounds checking,sources/libdispatch/src/BlocksRuntime/Block.h recipes/libdispatch/Makefile recipes/libdispatch/block-bounds.patch recipes/libdispatch/block-bounds.md)
+else
 	$(call copy-headers,libdispatch,.,sources/libdispatch/src/BlocksRuntime/Block.h)
+endif
 	@set -- $(addprefix $(CURDIR)/sources/libdispatch/os/,$(dispatch_os_headers) $(dispatch_os_private)); \
 		env -i PATH="$$PATH" DEPLOYMENT_LOCATION=YES DSTROOT="$(dispatch_root)" \
 			OS_PUBLIC_HEADERS_FOLDER_PATH=/usr/include/os \
