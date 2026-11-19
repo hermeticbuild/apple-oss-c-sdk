@@ -10,6 +10,7 @@ HERE = Path(__file__).resolve().parent
 
 
 COMBINED = HERE / "fixtures/default_profile.c"
+COMPILER_ENV = {"PATH": "/usr/bin:/bin", "LC_ALL": "C"}
 
 
 def main() -> int:
@@ -24,10 +25,11 @@ def main() -> int:
     if not roots or len(roots) != len(set(roots)):
         parser.error("C fixture must contain unique include roots")
     resource = subprocess.check_output(
-        [str(args.clang), "-print-resource-dir"], text=True).strip()
+        [str(args.clang), "--no-default-config", "-print-resource-dir"],
+        text=True, env=COMPILER_ENV).strip()
     failures = []
     for arch in ("arm64", "x86_64"):
-        base = [str(args.clang), "-target", f"{arch}-apple-macos14.0",
+        base = [str(args.clang), "--no-default-config", "-target", f"{arch}-apple-macos14.0",
                 "-isysroot", str(sysroot), "-nostdinc",
                 "-isystem", resource + "/include",
                 "-isystem", str(sysroot / "usr/include"),
@@ -36,12 +38,12 @@ def main() -> int:
             flags = ["-D_XOPEN_SOURCE=700"] if name == "ucontext.h" else []
             result = subprocess.run([*base, *flags, "-"],
                                     input=f"#include <{name}>\n",
-                                    text=True, capture_output=True)
+                                    text=True, capture_output=True, env=COMPILER_ENV)
             if result.returncode:
                 failures.append((arch, name, result.stderr.splitlines()[-3:]))
         for fixture in (COMBINED, *args.fixture):
             result = subprocess.run([*base, str(fixture.resolve())],
-                                    text=True, capture_output=True)
+                                    text=True, capture_output=True, env=COMPILER_ENV)
             if result.returncode:
                 failures.append((arch, fixture, result.stderr.splitlines()[-3:]))
     total = (len(roots) + 1 + len(args.fixture)) * 2
