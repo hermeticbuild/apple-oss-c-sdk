@@ -834,3 +834,27 @@ Source staging, paired links and both packages are in
 `/tmp/libsystem-notify-all.ARfEzg`. The public-only prototype was
 `0d625c6` on local branch `cerisier/libsystem-libnotify` in
 `/tmp/libsystem-libnotify`; the SDK repository has no Git remote.
+
+**Isolated 26.5 C header differences.** We substituted each of the 48
+divergent reference headers individually into the existing C installation.
+The public include route, all other headers and Clang 23.1.2 stayed fixed.
+Across both CPUs, minima 11.0, 14.0 and 26.5, and default and Darwin C11
+profiles, all 576 cells reached the target header on both sides.
+
+Five paths gave the same preprocessed C and macro definitions in all 12
+configurations: `dispatch/dispatch.h`, `dispatch/object.h`, `dispatch/queue.h`,
+`dispatch/time.h` and `sys/kdebug.h`. For example, the time header splits
+one enum declaration across two lines, and the dispatch umbrella changes
+a guard used when building libdispatch itself. This finding is scoped to
+the measured C clients. Forty-two paths changed the body or at least one
+macro in every configuration. These require review of the individual
+differences; an off-platform availability attribute can change the
+preprocessed body without affecting a macOS caller. The last path,
+`os/log.h`, preprocesses from the installation, but substituting the
+reference header requires the previously recorded missing `os/trace.h`
+in every cell. No additional reference dependencies were substituted.
+
+Reproduce with [the isolation command](../sdk_review/c_interface_review.md).
+The local per-header report, including source and both digests, is
+`/tmp/libsystem-fortify-qual.1isE94/close-header-review/isolated.json`.
+This audit did not change the C package or the libSystem candidate.

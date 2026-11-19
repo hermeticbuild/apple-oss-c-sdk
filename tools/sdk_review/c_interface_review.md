@@ -1,5 +1,24 @@
 # Compare installed C interfaces
 
+To isolate which differences originate in each header, run the following
+audit against an existing source-locked installation.
+
+```sh
+python3 -m tools.sdk_review.isolate_header_differences \
+  --installation "$C_INSTALL" --sdk "$APPLE_SDK" --clang "$LLVM/bin/clang" \
+  --out "$WORK/isolated.json"
+```
+
+Clang preprocesses the same public include twice against the installation.
+A virtual filesystem overlay supplies just the selected reference header for
+the second pass. Each cell records whether both passes entered the header,
+the digest of the preprocessed C, and the names of differing macros. The
+matrix covers arm64 and x86_64, default C11 and `_DARWIN_C_SOURCE`, and
+deployment minima 11.0, 14.0 and the reference SDK version. Preprocessing
+failures and headers skipped by their umbrella stay visible. Matching
+preprocessing applies to that configuration and measures neither diagnostics
+nor linkage. Keep the report local with the reference audit results.
+
 Use the generated C installation, the reference SDK for the same canonical
 release and build, and the verified LLVM bundle. Run from the repository root.
 
