@@ -81,3 +81,47 @@ Run the CLI tests with the pinned source checkout to exercise the full layer.
 LIBSYSTEM_TEST_OBJC4="$OBJC4_SOURCE" \
   python3 -m unittest tools.sdk_composition.test_compose_libsystem
 ```
+
+## libiconv and libcharset
+
+Generate the two separate libraries before composing the SDK. The producer
+reads the pinned Git objects for Apple's libiconv-115.120.2, the standalone
+C header installation, and the pinned macOS arm64 LLVM projection. macOS
+`plutil` reads the Xcode project. The compiler uses a temporary sysroot
+containing only C headers verified against the installation manifest.
+
+```sh
+python3 -m tools.sdk_composition.iconv_stubs \
+  --source "$ICONV_SOURCE" --c-install "$C_INSTALL" --llvm "$LLVM" --out "$STUBS"
+```
+
+Both dylibs use the Release target's public and private header phases, product
+names and versions. For libiconv the TAPI configuration supplies `-DIN_TAPI`,
+the Citrus include path and the reexport of the freshly generated libcharset.
+The install script specifies the two unversioned symlinks. The generated
+`manifest.json` records the source revision, tool and C manifest digests,
+registered headers and output digests.
+[Project](https://github.com/apple-oss-distributions/libiconv/blob/7fb0198429570d3b6aa562d228a6ea5936d15c05/libiconv.xcodeproj/project.pbxproj)
+· [TAPI configuration](https://github.com/apple-oss-distributions/libiconv/blob/7fb0198429570d3b6aa562d228a6ea5936d15c05/xcodeconfig/libiconv.xcconfig)
+· [Install aliases](https://github.com/apple-oss-distributions/libiconv/blob/7fb0198429570d3b6aa562d228a6ea5936d15c05/xcodescripts/dest_cleanup.sh)
+
+Append these four arguments to `compose_libsystem`.
+
+```sh
+--external-stub "usr/lib/libiconv.2.tbd=$STUBS/usr/lib/libiconv.2.tbd" \
+--external-stub "usr/lib/libiconv.tbd=$STUBS/usr/lib/libiconv.tbd" \
+--external-stub "usr/lib/libcharset.1.tbd=$STUBS/usr/lib/libcharset.1.tbd" \
+--external-stub "usr/lib/libcharset.tbd=$STUBS/usr/lib/libcharset.tbd"
+```
+
+For qualification, export `ICONV_SOURCE`, `C_INSTALL` and `LLVM` and run
+`python3 -m unittest -v tools.sdk_composition.test_iconv_stubs`. The tests
+check reproducibility, link a client against `-liconv` alone for arm64 and
+x86_64, and inspect the two-level bindings for `iconv_open` and `locale_charset`.
+
+Setting `ICONV_REFERENCE_SDK` additionally compares the products with the macOS
+26.5 SDK. All 95 direct iconv exports and both charset exports match, including
+the reexport edge and dylib versions. The producer targets macOS arm64 and
+x86_64 with a deployment floor of 11.0. The reference uses arm64e and x86_64,
+and also includes Catalyst. Upstream LLVM emits `not_app_extension_safe` for
+these project settings. App-extension compatibility remains unqualified.
