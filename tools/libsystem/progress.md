@@ -624,3 +624,14 @@ matched `2b5eadab…42a02f4` byte for byte. This reproduces the candidate
 from its prepared inputs. Promotion of the local component evidence into
 a release lock remains a separate gate. Logs and hashes are under
 `/tmp/libsystem-close-clean-rebuild.2EqlcX`.
+
+Extending that sandbox to the C installation itself exposed a separate
+Apple tool-launcher dependency. With the entire macOS SDK unreadable,
+Apple's Libinfo install script failed at `xcrun unifdef` while filtering
+its RPC module map. The `/usr/bin/unifdef` launcher also returned 72.
+Invoking the selected Xcode toolchain's actual `usr/bin/unifdef` on the
+same host succeeded under the strict sandbox. Apple's system MIG script
+also performs `xcrun -find cc` when `MIGCC` is unset. The libSystem
+producer remains reproducible under the stricter policy. Any adjustment
+to tool selection in the C recipes requires separate qualification.
+See `install-offline.log` under the fresh rebuild directory.
