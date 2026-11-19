@@ -14,5 +14,5 @@ stage-CarbonHeaders:
 		"$(carbon_include)/AvailabilityMacros.h"
 	$(call copy-headers,CarbonHeaders,.,sources/CarbonHeaders/ConditionalMacros.h sources/CarbonHeaders/MacTypes.h)
 	"$(PYTHON)" recipes/CarbonHeaders/target_conditionals.py "$(carbon_include)/TargetConditionals.h"
-	$(call header-record,CarbonHeaders,usr/include/TargetConditionals.h,derived:$(carbon_template) via recipes/CarbonHeaders/target_conditionals.py,CarbonHeaders derivation,resolve macOS placeholders and derive arm64 aliases,$(carbon_template))
+	$(call header-record,CarbonHeaders,usr/include/TargetConditionals.h,derived:$(carbon_template) via recipes/CarbonHeaders/target_conditionals.py,CarbonHeaders derivation,resolve macOS placeholders and derive architecture and ABI aliases,$(carbon_template) recipes/CarbonHeaders/target_conditionals.py recipes/CarbonHeaders/macos-abi.md)
 	$(call record-installed,CarbonHeaders,recipes/CarbonHeaders/Makefile,usr/include/AssertMacros.h)

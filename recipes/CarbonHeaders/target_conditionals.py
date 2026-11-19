@@ -49,6 +49,16 @@ def target_conditionals() -> bytes:
               "#define TARGET_CPU_ARM64 1\n"
               "#else\n#define TARGET_CPU_ARM64 0\n#endif\n")
     final = "\n#endif  /* __TARGETCONDITIONALS__ */\n"
+    if "TARGET_ABI_USES_IOS_VALUES" in source:
+        raise ValueError("Review the upstream target ABI definition")
+    suffix += (
+        "#if defined(__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__) && !defined(TARGET_ABI_USES_IOS_VALUES)\n"
+        "#if defined(__arm64__) || defined(__aarch64__)\n"
+        "#define TARGET_ABI_USES_IOS_VALUES 1\n"
+        "#elif defined(__x86_64__)\n"
+        "#define TARGET_ABI_USES_IOS_VALUES 0\n"
+        "#endif\n#endif\n"
+    )
     if source.count(final) != 1:
         raise ValueError("CarbonHeaders final guard changed")
     return source.replace(final, suffix + final).encode()
