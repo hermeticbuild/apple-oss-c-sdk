@@ -85,6 +85,31 @@ SDK 26.5. The baseline lacked both exports. Disassembly of both 25F84
 runtime images confirms that both functions end in a call to `abort`.
 The probes link the relocations without calling either function.
 
+### Reproduce the Rust consumer
+
+Use the pinned Rust 1.96.1 compiler and its standard library for the selected
+target. Set `RUSTC` to that compiler, `RUST_SYSROOT` to the directory
+containing `lib/rustlib/$TRIPLE`, `LLVM` to the pinned LLVM tool directory
+containing `bin/clang`, and `SDK` to the composed sysroot. From the repository
+root, run this once with `TRIPLE=aarch64-apple-darwin` and once with
+`TRIPLE=x86_64-apple-darwin`. Use a distinct output path for each run.
+
+```sh
+SDKROOT="$SDK" MACOSX_DEPLOYMENT_TARGET=14.0 "$RUSTC" \
+  --sysroot "$RUST_SYSROOT" --target "$TRIPLE" -Cpanic=unwind \
+  -Clinker="$LLVM/bin/clang" -Clink-arg=-fuse-ld=lld \
+  -Clink-arg=-isysroot -Clink-arg="$SDK" -Clink-arg=-Wl,-dead_strip \
+  tools/libsystem/fixtures/rust_panic.rs -o "$OUTPUT"
+"$OUTPUT"
+"$LLVM/bin/llvm-nm" -um "$OUTPUT" | grep '__Unwind_'
+"$LLVM/bin/llvm-objdump" --macho --dylibs-used "$OUTPUT"
+```
+
+The executable must catch the panic and exit successfully. Check that
+`__Unwind_GetTextRelBase` and `__Unwind_GetDataRelBase` both bind through
+libSystem. Repeat with the reference SDK as a differential control. Running
+the Intel executable on Apple Silicon requires Rosetta.
+
 Nine reference exports remain open per target.
 
 - `__ZN9libunwind25findDynamicUnwindSectionsEPvP27unw_dynamic_unwind_sections`
