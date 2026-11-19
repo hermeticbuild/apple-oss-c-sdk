@@ -447,3 +447,35 @@ The Intel e2e run under Rosetta registered the Intel execution platform:
 The concrete Intel sanitizer imports are eight unadorned inode-compatibility
 names (`asan-e2e-rosetta.log`). Normal Intel C clients compile with the
 existing inode64 spellings.
+
+### Two-architecture sanitizer and unwind consumer qualification
+
+The Intel inode compatibility recipe cleared all three sanitizer build
+failures. Intel e2e completed with 36 passes and 45 skips under Rosetta
+(`intel-e2e-rosetta.log`). The arm64 and Intel e2e runs used successive
+compositions. A common-archive rerun is still required.
+
+The maintainer chose the pinned Apple implementation as the production
+input for the two relative-base compatibility entries. The LLVM artifacts
+provide independent corroboration. Commit `539ecbd` extends the embedded
+libunwind section from 32 to 34 names on each CPU. For this change the
+distributed inputs are the same Apple source pin and the same public
+headers as before. A scratch build of the real arm64 Rust process wrapper
+imports both names from libSystem and successfully compiles downstream crates.
+
+Two offline builds with the Intel sanitizer and unwind fixes produced
+identical packages. The libSystem.B.tbd SHA-256 is
+`08823a35c8ef65406a7d53c46f34b5c5e8fd7319ee2b8a28510b0ffe20f914d5`.
+All 44 producer tests passed with their source fixtures enabled.
+Six differential links matched SDK 26.5 for both bindings, dependency
+versions and deployment metadata on arm64 and x86_64 at 11.0, 14.0 and
+26.5. Evidence lives under `/tmp/libsystem-fortify-qual.1isE94` in
+`accepted-package`, `accepted-repeat`, `accepted-checked-tests.log` and
+`accepted-unwind-links`.
+
+PyO3, two Prost generator tools, and wasm-bindgen reached a separate
+`-liconv` link failure. The maintainer approved producing libiconv and
+libcharset as separate composition inputs from Apple's libiconv project.
+The unversioned-path Rust test itself reported a pass, but Bazel's
+`generate-xml.sh` process crashed. The host bash crash report identifies
+Homebrew bash in libintl's locale initialization. Rerun the Bazel gate.
