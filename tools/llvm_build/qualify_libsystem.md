@@ -108,3 +108,42 @@ explicitly excluded target transitions over every Rust target triple and
 requires a separate Windows MSVC license decision. A pass here establishes
 the macOS consumer scope. For host shell scripts the test PATH selects
 macOS bash and retains the user's Bazel executable for nested tests.
+
+## Cross-link the C client on Linux
+
+Use a scratch Bazel module pointing to the same hermetic-llvm checkout,
+with its toolchains registered and the composition pinned by archive digest.
+Copy [stage2_client.c](fixtures/stage2_client.c) into this module. Define
+this target so that the final executable retains only the dylibs it uses.
+
+```starlark
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
+cc_binary(
+    name = "getpid",
+    srcs = ["stage2_client.c"],
+    linkopts = ["-Wl,-dead_strip_dylibs"],
+)
+```
+
+With hermetic-llvm's remote configuration imported and the same SDK
+repository environment as the e2e gate, run the following from the scratch
+module on the Mac. The remote platform should select a Linux worker.
+
+```bash
+for cpu in arm64 x86_64; do
+  bazel build --config=remote "--platforms=@llvm//platforms:macos_$cpu" \
+    --@llvm//config:macos_libcxx_headers=llvm "${sdk_flags[@]}" \
+    "--execution_log_json_file=$REPORTS/linux-$cpu.json" //:getpid || exit 1
+  cp -L bazel-bin/getpid "$REPORTS/linux-$cpu" || exit 1
+  /usr/bin/arch "-$cpu" "$REPORTS/linux-$cpu" || exit 1
+  "$LLVM/bin/llvm-nm" -um "$REPORTS/linux-$cpu" || exit 1
+  otool -L "$REPORTS/linux-$cpu" || exit 1
+done
+```
+
+Check the client compile and link entries in each execution log. Inspect
+the runner, cache status, OSFamily and input digest for
+`sysroot/usr/lib/libSystem.B.tbd`. Record the Mach-O imports and dylib
+dependencies. This experiment exercises a C-only client of the complete
+SDK with the normal hermetic-llvm driver.

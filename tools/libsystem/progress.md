@@ -577,3 +577,17 @@ and imported that name from libSystem. All eight executables closed a valid
 pipe descriptor, then observed `EBADF` on the second close on macOS 26.5.2
 (native arm64 and Rosetta x86_64, minima 11.0 and 26.5). Reports are in
 `/tmp/xnu-close-qual.7LUZ35/runtime-close`.
+
+The [Linux C cross-link](../llvm_build/qualify_libsystem.md#cross-link-the-c-client-on-linux)
+exercised the normalized composition starting with `8117d4ff`. Both client
+compilations and both links executed on uncached Ubuntu 22.04 arm64 workers.
+Each action received the generated `libSystem.B.tbd` starting with
+`68d32af6`. Both Mach-O executables imported `_getpid` and
+`dyld_stub_binder`, loaded only `/usr/lib/libSystem.B.dylib`, and ran
+successfully on macOS 26.5.2. See `linux-c-{arm64,x86_64}.actions.jsonl`
+and `.imports` in `/tmp/libsystem-fortify-qual.1isE94`.
+
+The Intel macOS-scoped rules_rs run on composition `c0a98a31` passed
+39/39. Bazel executed 15 and reused 24 test results. PyO3, Prost, AWS-LC,
+CoreAudio bindgen and all four Miri tests executed. Invocation
+`7c2f7d37-1ffe-4d84-98a3-efb8e40d981c`, log `close-rules-x86_64.log`.
