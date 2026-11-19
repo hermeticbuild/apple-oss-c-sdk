@@ -65,3 +65,7 @@ printf '%s\n' '#include <sys/types.h>' '#include <bsm/audit_record.h>' \
 ```
 
 The supported classification distinguishes a libSystem binding, a separately qualified dylib or framework binding, a toolchain/linker-provided symbol, an evidenced declaration without an SDK link provider, and an unresolved investigation. Review non-libSystem matches before promoting provider facts into a production lock. An approved missing libSystem export and a missing SDK-wide provider have different consequences for consumers.
+
+## Packaging decision for zlib
+
+The standalone C package may omit both `zlib.h` and `zconf.h`. A Bazel consumer using zlib should declare a zlib dependency that supplies its headers and link input. Our libSystem package has no obligation to ship a libz stub or satisfy zlib symbols. The SDK discovery probe can still inventory Apple's zlib for comparison. The current header recipe and shipping probe still include it. This decision applies only to zlib. The packaging decision for iconv remains open.
