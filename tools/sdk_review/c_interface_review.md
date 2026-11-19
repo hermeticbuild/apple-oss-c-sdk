@@ -50,6 +50,12 @@ enabled clients import the typed functions strongly. Keep the object and IR
 files in `WORK` with the other review evidence. These checks cover code
 generation and do not execute on an older runtime.
 
+## Inspect fpclassify linkage
+
+Use the [macOS 26.5 fpclassify gap](data/macosx26.5/fpclassify-gap.md) for
+the isolated float, double and long-double client links. The arm64 double and
+long-double cases compile successfully and surface the gap at link time.
+
 ## Inspect logging macro lowering
 
 The same logging macro can emit different imports after a header change.
