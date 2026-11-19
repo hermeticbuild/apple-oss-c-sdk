@@ -37,6 +37,17 @@ class LibsystemReviewTest(unittest.TestCase):
     def read_report(self):
         return json.loads((self.work / "diff/libsystem-diff.json").read_bytes())
 
+    def test_dylib_header_resolves_without_a_system_library_while_getpid_requires_one(self):
+        from tools.sdk_review.libsystem_client_coverage import resolves_without_libraries
+
+        tools = Path(LLVM) / "bin"
+        for arch in ("arm64", "x86_64"):
+            with self.subTest(arch=arch):
+                self.assertTrue(resolves_without_libraries(tools, self.work, arch, "11.0", "26.5",
+                                                           "__mh_dylib_header"))
+                self.assertFalse(resolves_without_libraries(tools, self.work, arch, "11.0", "26.5",
+                                                            "_getpid"))
+
     def test_v4_v5_preserve_mixed_platform_flags_and_child_only_targets(self):
         self.compare("raw-targets.tbd", "raw-targets-v5.tbd")
         report = self.read_report()

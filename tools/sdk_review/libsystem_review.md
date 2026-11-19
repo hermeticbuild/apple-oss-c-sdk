@@ -43,6 +43,14 @@ two-level libSystem import counts. The report preserves missing and extra names,
 the subset declared at installed header paths and names requiring individual
 inspection. Each result names a specific architecture and deployment minimum.
 
+When a name has no decoded import on either side, the audit assembles
+one pointer relocation to it and verifies the object has that undefined
+symbol. A strict dylib link with an empty library search path can resolve
+Mach-O image symbols such as `___dso_handle` and `__mh_dylib_header`.
+The report lists these under `resolved_without_libraries` when the output
+has no undefined imports. This result applies to dylib clients. The
+producer never consumes this classification.
+
 Mac Catalyst is outside the release scope. The Apple SDK uses an arm64e slice
 in its umbrella even for ordinary arm64 clients. Compatible source slices can
 contribute spellings to test, but only a successful client binding counts.

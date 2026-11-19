@@ -782,3 +782,22 @@ source-lock digest now marks it stale. Both runs retain the two approved
 eventlink contexts. All 35 SDK review tests passed with the pinned LLVM
 tools. The paired backlog reports are under `semantic-lock-identity/`
 in the consumer qualification directory.
+
+### Individual links for undecoded names
+
+On both architectures, the two names left for individual links,
+`___dso_handle` and `__mh_dylib_header`, resolve inside the client dylib.
+For each name the input object had one undefined reference. A strict LLD
+link with zero libraries resolved it and left no undefined imports. The
+same experiment with `_getpid` failed with the expected undefined symbol.
+This matches LLD's Mach-O image-header symbol construction. The audit now
+performs the control link for names undecoded by both bulk scans.
+
+The refreshed `close-export-review/qualified-client-bindings.json`
+covers macOS minima 11, 12, 13, 14, 15, 26 and 26.5. Every cell has
+zero remaining undecoded names and zero extra candidate bindings. The
+missing 23/22 names associated with installed header paths comprise
+13 half-precision Libm functions and nine logging functions on both
+architectures, plus the denormals environment object on arm64. This is a
+link-time survey. Tests ran on host 25F84; historical runtimes were not
+executed. All 36 SDK review tests passed with official LLVM 23.1.2.
