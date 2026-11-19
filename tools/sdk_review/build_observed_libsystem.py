@@ -10,6 +10,7 @@ from tempfile import TemporaryDirectory
 from tools.libsystem.emit import ARCHES, SYSTEM, resolve, version
 from tools.header_manifest import read_header_manifest
 from tools.libsystem.expected_undefined import policy_for, verify_header
+from tools.libsystem.libc_aliases import FILES, LIBC, PLATFORM, REVISION, forwarding_record, read_aliases
 from .probe_runtime_providers import match_export
 
 
@@ -62,6 +63,11 @@ def build(args):
     installation = None
     minimum = deployment_version(args.minimum)
     review = {"qualification": "local-partial", "targets": {}}
+    aliases = read_aliases(args.libc_source) if getattr(args, "libc_source", None) else {}
+    if aliases and graph["scope"]["sdk"] != "macosx26.5":
+        raise ValueError("the reviewed Libc alias rule applies only to macOS 26.5")
+    if aliases:
+        review["libc_alias_source"] = {"commit": REVISION, "files": FILES}
     policy = policy_for(graph["scope"]["sdk"])
     approved_manifest = None
     if policy and args.c_install:
@@ -90,6 +96,7 @@ def build(args):
             raise ValueError("additional component levels require review")
         omitted = []
         expected = []
+        forwarded = {}
         count = 0
         clients[arch] = []
         observed = {}
@@ -119,6 +126,22 @@ def build(args):
                 if approved_manifest:
                     expected.append(row["symbol"])
                     continue
+            symbol = row["symbol"]
+            if symbol in aliases:
+                implementation = aliases[symbol]
+                expected_forward = {"image": LIBC, "role": "forwarder",
+                                    "detail": f"({implementation} from libsystem_platform)"}
+                definitions = [hit for hit in observed[implementation] if hit["image"] == PLATFORM]
+                if (hits != [expected_forward] or kinds != {"function"} or len(definitions) != 1
+                        or definitions[0]["role"] != "definition"
+                        or export_kind("function", definitions[0]["attributes"]) != "text.global"):
+                    raise ValueError(f"{arch}: runtime evidence disagrees with Libc alias {symbol} -> {implementation}")
+                forwarded[symbol] = implementation
+                images[LIBC]["slices"][arch].setdefault("symbol_reexports", {})[symbol] = forwarding_record(implementation)
+                for _, header in row["client_declarations"]:
+                    clients[arch].append({"symbol": symbol, "header": header, "kind": "function"})
+                count += 1
+                continue
             if len(hits) != 1 or hits[0]["role"] != "definition" or len(kinds) != 1:
                 omitted.append(row)
                 continue
@@ -135,6 +158,7 @@ def build(args):
                                   "root_findings": report.get("root_findings", []),
                                   "linker_demands": report["linker_demands"],
                                   "expected_undefined": expected,
+                                  "verified_libc_aliases": forwarded,
                                   "included_symbols": count, "omitted_demands": omitted, "edges": edges}
     interface, _ = resolve(images.values(), clients, args.minimum)
     args.out.parent.mkdir(parents=True, exist_ok=True)
@@ -154,6 +178,7 @@ def main():
         parser.add_argument("--" + key, required=True, type=Path)
     parser.add_argument("--minimum", required=True)
     parser.add_argument("--c-install", type=Path, help="verify reviewed header receipts before classifying omissions")
+    parser.add_argument("--libc-source", type=Path, help="resolve verified aliases from pinned Apple Libc")
     args = parser.parse_args()
     try:
         build(args)

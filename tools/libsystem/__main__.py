@@ -13,6 +13,7 @@ from tools.header_manifest import read_header_manifest
 from tools.toolchain.official_llvm import PIN, projection, read_lock
 from .emit import ARCHES, fields, resolve
 from .expected_undefined import filter_demands, policy_for, verify_header
+from .libc_aliases import FILES as ALIAS_FILES, REVISION as LIBC_REVISION, install_aliases
 
 
 def digest(path):
@@ -46,7 +47,10 @@ def relative_file(root, name):
 def build(args):
     projection(args.llvm.resolve(), read_lock(PIN))
     lock = read_json(args.lock)
-    fields(lock, ("schema", "sdk", "minimum", "headers", "sources", "manifest_sha256"), "release lock")
+    lock_fields = {"schema", "sdk", "minimum", "headers", "sources", "manifest_sha256"}
+    if "libc_alias_source" in lock:
+        lock_fields.add("libc_alias_source")
+    fields(lock, lock_fields, "release lock")
     if lock["schema"] != 1 or not isinstance(lock["headers"], list) or not lock["headers"] or len(lock["headers"]) != len(set(lock["headers"])):
         raise ValueError("invalid release schema or header list")
     out = args.out.absolute()
@@ -76,6 +80,10 @@ def build(args):
         inventories = {}
         receipt = {"sdk": lock["sdk"], "lock_sha256": digest(args.lock), "toolchain_lock_sha256": digest(PIN),
                    "images": lock["sources"], "scan_sha256": {}}
+        if "libc_alias_source" in lock:
+            source = relative_file(args.lock.parent, lock["libc_alias_source"])
+            install_aliases(source, lock["sdk"], images)
+            receipt["libc_alias_source"] = {"commit": LIBC_REVISION, "files": ALIAS_FILES}
         for arch in ARCHES:
             path = work / (arch + ".json")
             command = [sys.executable, "-m", "tools.libsystem.scan", "--llvm", args.llvm,

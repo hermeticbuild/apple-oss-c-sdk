@@ -42,7 +42,10 @@ def library_document(image, minimum):
     }
     edge_targets = defaultdict(list)
     for arch, target_slice in sorted(slices.items()):
-        fields(target_slice, ("exports", "reexports"), f"{name} {arch}")
+        required = {"exports", "reexports"}
+        if "symbol_reexports" in target_slice:
+            required.add("symbol_reexports")
+        fields(target_slice, required, f"{name} {arch}")
         target = arch + "-macos"
         document["target_info"].append({"target": target, "min_deployment": minimum})
         edges = target_slice["reexports"]
@@ -50,16 +53,24 @@ def library_document(image, minimum):
             raise ValueError(f"{name} {arch}: invalid or repeated reexport")
         for edge in edges:
             edge_targets[edge].append(target)
-        group = {"targets": [target]}
-        if not isinstance(target_slice["exports"], dict):
-            raise ValueError(f"{name} {arch}: exports must map names to symbol kinds")
-        for symbol, kind in sorted(target_slice["exports"].items()):
-            if not symbol or kind not in KINDS:
-                raise ValueError(f"{name} {arch}: unsupported export {symbol!r} {kind!r}")
-            section, flag = kind.split(".")
-            group.setdefault(section, {}).setdefault(flag, []).append(symbol)
-        if len(group) > 1:
-            document.setdefault("exported_symbols", []).append(group)
+        for field, role in (("exports", "exported_symbols"), ("symbol_reexports", "reexported_symbols")):
+            group = {"targets": [target]}
+            symbols = target_slice.get(field, {})
+            if not isinstance(symbols, dict):
+                raise ValueError(f"{name} {arch}: {field} must map names to symbol kinds")
+            for symbol, description in sorted(symbols.items()):
+                kind = description
+                if field == "symbol_reexports":
+                    fields(description, ("kind", "target_library", "target_symbol"), f"{name} {arch} {symbol}")
+                    kind = description["kind"]
+                    if not isinstance(description["target_symbol"], str) or not description["target_symbol"]:
+                        raise ValueError(f"{name} {arch}: missing forwarded implementation for {symbol}")
+                if not symbol or kind not in KINDS:
+                    raise ValueError(f"{name} {arch}: unsupported export {symbol!r} {kind!r}")
+                section, flag = kind.split(".")
+                group.setdefault(section, {}).setdefault(flag, []).append(symbol)
+            if len(group) > 1:
+                document.setdefault(role, []).append(group)
     # The v5 reader indexes each reexported name once. Group its target set.
     for edge, targets in sorted(edge_targets.items()):
         entry = {"names": [edge]}
@@ -100,7 +111,9 @@ def resolve(images, inventories, minimum):
             for edge in sorted(item["reexports"]):
                 visit(edge)
             for symbol, kind in item["exports"].items():
-                providers[symbol].append((name, kind))
+                providers[symbol].append((name, kind, None))
+            for symbol, forward in item.get("symbol_reexports", {}).items():
+                providers[symbol].append((name, forward["kind"], forward))
             active.remove(name)
             reached.add(name)
 
@@ -111,14 +124,26 @@ def resolve(images, inventories, minimum):
         for symbol, definitions in providers.items():
             if len(definitions) != 1:
                 raise ValueError(f"{arch}: ambiguous provider for {symbol}: {definitions}")
+            owner, kind, forward = definitions[0]
+            if forward:
+                destination = forward["target_library"]
+                if destination not in reached or destination == owner:
+                    raise ValueError(f"{arch}: invalid forwarding destination for {symbol}: {destination}")
+                target = by_name[destination]["slices"][arch]
+                implementation = forward["target_symbol"]
+                if implementation in target.get("symbol_reexports", {}) or target["exports"].get(implementation, kind) != kind:
+                    raise ValueError(f"{arch}: conflicting implementation for {symbol} in {destination}")
         for item in inventories[arch]:
             symbol = item["symbol"]
             if symbol not in providers:
                 raise ValueError(f"{arch}: missing provider for {symbol} from {item['header']}")
-            name, kind = providers[symbol][0]
+            name, kind, forward = providers[symbol][0]
             if KINDS[kind] != item["kind"]:
                 raise ValueError(f"{arch}: export kind mismatch for {symbol}: {kind} vs {item['kind']}")
-            rows.append({"arch": arch, "symbol": symbol, "kind": kind, "provider": name, "header": item["header"]})
+            row = {"arch": arch, "symbol": symbol, "kind": kind, "provider": name, "header": item["header"]}
+            if forward:
+                row.update(role="reexport", target_library=forward["target_library"], target_symbol=forward["target_symbol"])
+            rows.append(row)
     tbd = {"tapi_tbd_version": 5, "main_library": documents.pop(SYSTEM)}
     if documents:
         tbd["libraries"] = [documents[name] for name in sorted(documents)]

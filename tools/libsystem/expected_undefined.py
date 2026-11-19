@@ -37,7 +37,7 @@ def filter_demands(policy, images, inventories):
     excluded = set(policy["symbols"])
     for image in images:
         for arch, part in image["slices"].items():
-            conflicts = excluded.intersection(part["exports"])
+            conflicts = excluded.intersection(part["exports"]) | excluded.intersection(part.get("symbol_reexports", {}))
             if conflicts:
                 raise ValueError(f"reopen expected-undefined decision: {image['install_name']} "
                                  f"exports {sorted(conflicts)} on {arch}")

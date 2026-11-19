@@ -12,6 +12,7 @@ from tempfile import TemporaryDirectory
 
 from tools.libsystem.capture import capture
 from tools.libsystem.emit import SYSTEM
+from tools.libsystem.libc_aliases import PLATFORM, read_aliases
 from tools.libsystem.scan_roots import SCANNED, json_bytes
 
 
@@ -104,6 +105,7 @@ def match_export(image, symbol, line):
 
 def probe(args):
     candidates, identities, findings = collect(args.scan, args.matrix, args.client_arch)
+    implementations = set(read_aliases(args.libc_source).values()) if args.libc_source else set()
     linker = add_linker_demands(candidates, args.dyld_evidence, args.client_arch) if args.dyld_evidence else None
     if args.observed_arch not in (("arm64", "arm64e") if args.client_arch == "arm64" else ("x86_64",)):
         raise ValueError("incompatible client and cache architectures")
@@ -120,7 +122,10 @@ def probe(args):
             if name in images:
                 continue
             folder = out / "images" / hashlib.sha256(name.encode()).hexdigest()
-            capture(name, args.observed_arch, args.inspector, args.cache, candidates, folder)
+            requested = set(candidates)
+            if name == PLATFORM:
+                requested.update(implementations)
+            capture(name, args.observed_arch, args.inspector, args.cache, requested, folder)
             receipt = json.loads((folder / "capture.json").read_bytes())
             images[name] = {"receipt": (folder / "capture.json").relative_to(out).as_posix(),
                             "uuid": receipt["image_uuid"], "reexports": receipt["reexports"]}
@@ -151,6 +156,7 @@ def main():
     parser.add_argument("--inspector", required=True, type=Path)
     parser.add_argument("--cache", type=Path)
     parser.add_argument("--dyld-evidence", type=Path, help="output of the pinned dyld assembly recipe")
+    parser.add_argument("--libc-source", type=Path, help="verify implementation names from the pinned Libc linker alias list")
     parser.add_argument("--out", required=True, type=Path)
     args = parser.parse_args()
     try:

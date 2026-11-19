@@ -42,7 +42,7 @@ def link(root, obj, binary, args):
     if not (root / "usr/lib/libSystem.tbd").is_file():
         raise ValueError(f"missing libSystem.tbd under {root}")
     command = [
-        tools / "ld64.lld", "-t", "-Z", "-fatal_warnings", "-arch", args.arch,
+        tools / "ld64.lld", "-t", "-Z", "-fatal_warnings", "--error-limit=0", "-arch", args.arch,
         "-platform_version", "macos", args.minimum, args.sdk_version,
         "-syslibroot", root, "-L" + str(root / "usr/lib"), "-dylib", obj, "-lSystem", *args.builtins,
         "-fixup_chains", "-install_name", "/fixture/libClient.dylib", "-o", binary,
