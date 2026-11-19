@@ -547,3 +547,25 @@ supported platform and whose Windows configuration requires an MSVC
 license decision. The Rust and hermetic-llvm runs against the later
 close-alias archive have separate `close-rules-*` and `close-e2e-*`
 logs. The native Stage 2 bootstrap log is `close-stage2-arm64.log`.
+
+### Same-archive e2e execution and reproducible packaging
+
+With the close-alias archive starting with `c0a98a31`, hermetic-llvm's
+rules_cc e2e suite executed and passed all 36 applicable tests on each CPU
+with test-result reuse disabled. Bazel skipped 45 targets per CPU. See
+`close-e2e-execute-arm64.log` and `close-e2e-execute-x86_64.log` under
+`/tmp/libsystem-fortify-qual.1isE94`. The bootstrap, e2e and rules_rs
+materialized sysroots all contain the same `libSystem.B.tbd` starting with
+`68d32af6`. Every retained manifest file and symlink matched the composition
+in `close-materialized-sysroots.json`. The hermetic-llvm extraction rule
+selects `usr/include/device` when IOKit is requested by rules_rs.
+
+Two independent package and composition trees produced identical normalized
+archives with zstd 1.5.7. The standalone libSystem archive SHA-256 is
+`2b5eadab3b94f3b3a5e2b3e74cba7157fc01fe775f915ca24fd4e771642a02f4`.
+The composed SDK SHA-256 is
+`8117d4ff1e17befb7dfe306dd862a3ba39f6f6c64d320987a4fed4c1c33ec5c2`.
+Its 5,252 logical members match the archive used for the consumer runs,
+including file contents, executable modes and link targets. Normalization
+removed 5,252 AppleDouble entries and the macOS extended attributes.
+See `/tmp/sdk-normalized-qualification.LkoaBE/receipt.json`.
