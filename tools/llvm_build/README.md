@@ -1,5 +1,10 @@
 # LLVM cross-build proof
 
+Use the [libSystem consumer qualification](qualify_libsystem.md) to test a
+generated libSystem package through the native LLVM bootstrap, hermetic-llvm
+e2e and rules_rs. The older cross-build proof below exercises the C header
+installation with an externally supplied libSystem.
+
 Run this after changes that could affect the composed macOS SDK. It exercises
 the C header tree against LLVM's C++ build and links an LLVM binary for each
 macOS target.
