@@ -288,3 +288,21 @@ Archive SHA-256 is `6dc80a49940bc48ea32b45130c3636ad68aa94254ef83677f87ba0f319a0
 The Intel bootstrap, hermetic-llvm e2e and rules_rs runs against that archive
 write `netname-bootstrap-intel.log`, `netname-e2e.log` and
 `netname-rules-rs.log` under `/tmp/libsystem-fortify-qual.1isE94`.
+
+The Intel Stage 2 build completed and the thin executable was fetched to
+`stage2-x86_64`. The arm64 build on the identical archive writes
+`netname-bootstrap-arm64.log`. The standalone ObjC layer was integrated
+from `cerisier/libsystem-objc-layer`, `03c5203`, `/tmp/libsystem-objc-layer`.
+All 17 composer checks passed, and a two-library Objective-C client linked
+and ran on both architectures. The scratch branches have no publication.
+
+UBSan subsequently reached its dynamic-library link and requested
+`-lc++abi`, three kernel syscall entries, two malloc data exports and four
+dyld inspection entries. All nine C bindings linked against the reference
+at both supported client architectures and both deployment endpoints.
+Apple OSS supplies the implementation evidence for each. The entries are
+SPI consumed by the pinned compiler runtime, so their release eligibility
+requires an explicit scoped decision. The C headers were sufficient for
+this compilation. The SDK Gen `libc++abi.tbd` is a separate composition
+input. The broad rules_rs run requests the MSVC runtime EULA through a
+cross-target test; native target results are in `netname-rules-native.log`.
