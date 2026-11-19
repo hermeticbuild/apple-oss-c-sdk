@@ -1,0 +1,221 @@
+{
+  "schema": 1,
+  "sdk": "macosx26.5",
+  "added_targets": [
+    "x86_64-macos"
+  ],
+  "sources": {
+    "compiler-rt": {
+      "version": "23.1.6",
+      "commit": "85ac560262434c9ccfc0c183ec22d4138ed647fb",
+      "archive_sha256": "c3e2bef93d81acddd3b0bb3a94bfc8b94f4ec03e0af3a82d66a2b21970ef7244",
+      "files": {
+        "lib/sanitizer_common/sanitizer_common_interceptors.inc": "cfbc8ee482a3adb1bf26579e12ef9415632de3d21cf2438fdc856acd3f29b8f4",
+        "lib/tsan/rtl/tsan_interceptors_posix.cpp": "fd6b1413f3c20ff41265f560a45259fde9f9a1503115fee7a3c342c6ec92a6b3",
+        "lib/interception/interception.h": "d4975de0870fba1092486f432031285c38371c514fa2945b9f194dac1a6d8a8b"
+      }
+    },
+    "libc": {
+      "project": "apple-oss-distributions/Libc",
+      "commit": "4e34d0559e3a1b081afeb8604d9e204a1f31321d",
+      "files": {
+        "Libc.xcodeproj/project.pbxproj": "f17b1de720b7e8e608b6b4506405ead702644fbcf3824bb6d9878a94971c0e52",
+        "xcodescripts/variants.xcconfig": "6028cea57e471a2db33d8f991cde4e64b9c6378b72d77ac6fe5782021301f4bb",
+        "gen/FreeBSD/getmntinfo.c": "fa4531b6dd716469b649b9b8baaf7fe1daf111e0d230a62457fd7e48cb689e0c",
+        "gen/FreeBSD/opendir.c": "7d81f6cc343f2a6afac63d33313dcec89eb958b9f87c36f4de28090710a3d951",
+        "gen/FreeBSD/readdir.c": "b6ba492f294a2577fd4c68c5ecc29efcde30fcbfbe3df65ca9fb369040d34c6d",
+        "include/sys/cdefs.h": "d9d66b6e1cbee8f082935124fbf82315672647260f0910e90e199714f9f17691",
+        "include/dirent.h": "d4509c79ea7f394f246ef9082818496107503390c04a73b889e57100e21c2613"
+      }
+    },
+    "xnu": {
+      "project": "apple-oss-distributions/xnu",
+      "commit": "ac9718fb1af618d5ce8678d0dc6e8a58f252216f",
+      "files": {
+        "bsd/kern/syscalls.master": "7e866891439ad5b3464777d2cacc3b82fc2e7f439fb5a8686c3e6f160d5aeab5",
+        "libsyscall/Libsyscall.xcodeproj/project.pbxproj": "8f9f38b7847bd9195ba4d94d9c78f56024ad72279064a6e4afbe5e6bca59eef2",
+        "libsyscall/xcodescripts/create-syscalls.pl": "964e434052612424347e920623adeef9ce1465d32912898b3a0f7a0b387f4bb2",
+        "libsyscall/Platforms/syscall.map": "75d1635f23ee409e3feed41367dd45f3d8d5003dd94c2d5baacdfb61e3a14883",
+        "libsyscall/Platforms/MacOSX/x86_64/syscall.map": "e467a159ee69363eefac3cae503f426370af8df48cef1e5f34e15cdc5c705f55",
+        "libsyscall/Platforms/MacOSX/arm64/syscall.map": "241d04fbbc8ab08431b803aa98e09e373717f79681ab43c4e2b222110eab12dd",
+        "bsd/sys/cdefs.h": "6bab328310e9d4f9ff47f763f1fa8cf0000e25ce6be04a9743bf176ccdf94682"
+      }
+    }
+  },
+  "interceptors": [
+    {
+      "file": "lib/tsan/rtl/tsan_interceptors_posix.cpp",
+      "lines": [
+        [
+          1742,
+          1742
+        ]
+      ],
+      "c_names": [
+        "fstat"
+      ]
+    },
+    {
+      "file": "lib/sanitizer_common/sanitizer_common_interceptors.inc",
+      "lines": [
+        [
+          3583,
+          3583
+        ],
+        [
+          3593,
+          3593
+        ],
+        [
+          3605,
+          3606
+        ],
+        [
+          4718,
+          4718
+        ],
+        [
+          4729,
+          4729
+        ],
+        [
+          7077,
+          7077
+        ],
+        [
+          8061,
+          8061
+        ]
+      ],
+      "c_names": [
+        "opendir",
+        "readdir",
+        "readdir_r",
+        "statfs",
+        "fstatfs",
+        "stat",
+        "getmntinfo"
+      ]
+    }
+  ],
+  "consumer_uses": {
+    "lib/interception/interception.h": [
+      141,
+      145,
+      335,
+      336,
+      341,
+      342
+    ]
+  },
+  "groups": [
+    {
+      "provider": "/usr/lib/system/libsystem_c.dylib",
+      "kind": "text.global",
+      "weak_import": false,
+      "c_names": [
+        "getmntinfo",
+        "opendir",
+        "readdir",
+        "readdir_r"
+      ],
+      "provider_sources": {
+        "Libc.xcodeproj/project.pbxproj": [
+          9666,
+          9679,
+          9681,
+          15952,
+          16750,
+          16764
+        ],
+        "xcodescripts/variants.xcconfig": [
+          63,
+          68,
+          70
+        ],
+        "gen/FreeBSD/getmntinfo.c": [
+          83
+        ],
+        "gen/FreeBSD/opendir.c": [
+          63
+        ],
+        "gen/FreeBSD/readdir.c": [
+          140,
+          153,
+          156
+        ],
+        "include/sys/cdefs.h": [
+          59,
+          60,
+          97
+        ],
+        "include/dirent.h": [
+          122,
+          125,
+          129,
+          131
+        ]
+      }
+    },
+    {
+      "provider": "/usr/lib/system/libsystem_kernel.dylib",
+      "kind": "text.global",
+      "weak_import": false,
+      "c_names": [
+        "fstat",
+        "fstatfs",
+        "stat",
+        "statfs"
+      ],
+      "provider_sources": {
+        "bsd/kern/syscalls.master": [
+          247,
+          248,
+          284,
+          285
+        ],
+        "libsyscall/Libsyscall.xcodeproj/project.pbxproj": [
+          1462
+        ],
+        "libsyscall/xcodescripts/create-syscalls.pl": [
+          163,
+          211
+        ],
+        "libsyscall/Platforms/MacOSX/x86_64/syscall.map": [
+          5,
+          7,
+          30,
+          31
+        ],
+        "libsyscall/Platforms/MacOSX/arm64/syscall.map": [
+          5,
+          7,
+          29,
+          30
+        ],
+        "bsd/sys/cdefs.h": [
+          925,
+          927
+        ]
+      }
+    }
+  ],
+  "qualification": {
+    "reference_sdk_build": "25F70",
+    "runtime_build": "25F84",
+    "runtime_uuids": {
+      "libsystem_c": {
+        "arm64e": "694B7881-1BF3-3D0F-8F19-B50AE4E8EF8A",
+        "x86_64": "29997E25-BF1B-37BB-8801-AFD1054B8639"
+      },
+      "libsystem_kernel": {
+        "arm64e": "FCA53B98-3D6A-38B2-A0EC-DF0F7E05F171",
+        "x86_64": "93064F3A-6853-3BD5-9DCC-BB6171003FA8"
+      }
+    },
+    "paired_link_minima": [
+      "11.0",
+      "26.5"
+    ]
+  }
+}
