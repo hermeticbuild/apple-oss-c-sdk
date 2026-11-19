@@ -600,3 +600,14 @@ Full re-execution with `--nocache_test_results` passed 39/39 on arm64 and
 Together with the hermetic-llvm results, this covers 150 executed tests
 on the common archive across the two CPU configurations. Native
 self-bootstrap has a separate build and execution gate.
+
+The separate standalone archive starting with `2b5eadab` also passed a
+Linux-to-macOS runtime test. Both remote Ubuntu compile-and-link actions
+received the standalone libSystem and its 11 aliases, 767 installed C
+headers, and Clang's resource headers. Their inputs contained zero
+frameworks or composed SDK paths. The `ld64.lld -Z` links used only
+`-lSystem`. Both Mach-O binaries bound all seven imports through libSystem,
+including `_close$NOCANCEL`, and passed the valid-close and double-close
+checks on macOS 26.5.2. Invocation `e215c751-dac7-483e-ac45-75db32fe46c7`,
+receipts `standalone-linux.actions.jsonl` and
+`standalone-linux-{arm64,x86_64}.imports` in the consumer report directory.

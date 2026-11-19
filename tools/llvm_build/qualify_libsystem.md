@@ -147,3 +147,34 @@ the runner, cache status, OSFamily and input digest for
 `sysroot/usr/lib/libSystem.B.tbd`. Record the Mach-O imports and dylib
 dependencies. This experiment exercises a C-only client of the complete
 SDK with the normal hermetic-llvm driver.
+
+### Isolate the standalone package
+
+The same Linux worker can test only the standalone package and the C
+installation. Give the action the unpacked archive, the generated headers,
+Linux Clang and LLD, and Clang's resource headers. Use the [close
+fixture](../libsystem/fixtures/close_nocancel_runtime.c) to exercise a symbol
+required by the Intel Rust standard library. These commands also work in a
+Linux shell with `LLVM`, `WORK`, `C_INSTALL`, `LIBSYSTEM_ARCHIVE` and
+`C_SDK_REPO` set to absolute paths. Use a new work directory.
+
+```bash
+tar -xf "$LIBSYSTEM_ARCHIVE" -C "$WORK" || exit 1
+sysroot="$WORK/libSystem"
+cp -R "$C_INSTALL/usr/include" "$sysroot/usr/" || exit 1
+resource=$("$LLVM/bin/clang" --no-default-config -print-resource-dir) || exit 1
+for cpu in arm64 x86_64; do
+  "$LLVM/bin/clang" --no-default-config -target "$cpu-apple-macos11" \
+    -nostdinc -isysroot "$sysroot" -isystem "$resource/include" \
+    -isystem "$sysroot/usr/include" -c \
+    "$C_SDK_REPO/tools/libsystem/fixtures/close_nocancel_runtime.c" \
+    -o "$WORK/close-$cpu.o" || exit 1
+  "$LLVM/bin/ld64.lld" -Z -arch "$cpu" -platform_version macos 11 26.5 \
+    -syslibroot "$sysroot" -L"$sysroot/usr/lib" "$WORK/close-$cpu.o" \
+    -lSystem -o "$WORK/close-$cpu" || exit 1
+done
+```
+
+On the Mac, execute each resulting binary with `/usr/bin/arch -arm64`
+or `/usr/bin/arch -x86_64` and inspect the binding to `_close$NOCANCEL`
+with `llvm-nm -um`.
