@@ -33,6 +33,11 @@ Include `libdispatch` in `sanitizer_sources` to qualify the two Mach channel
 constructors interposed by Darwin ASan. The C package keeps the private
 dispatch header outside its install list. [ASan sources and linkage](data/macosx26.5/asan-dispatch.json)
 
+Enable `"sanitizer_inode32": true` with the Libc, XNU and compiler-rt
+source inputs to qualify the Intel compatibility imports used by ASan
+and TSan. The ordinary Intel header profile continues to select the
+`$INODE64` names. [Variant evidence and consumer links](sanitizer_inode32.md)
+
 Start by preparing the [official LLVM bundle](../toolchain/README.md). Set `LLVM` to its verified directory and run the following from the repository root. Fixture names and records are independently authored. The first runnable build lock targets the fixture; the macOS 26.5 production lock and reviewed component evidence are pending.
 
 ```sh

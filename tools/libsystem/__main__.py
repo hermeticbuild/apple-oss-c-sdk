@@ -15,7 +15,7 @@ from .emit import ARCHES, fields, resolve
 from .expected_undefined import filter_demands, policy_for, verify_header
 from .libc_aliases import FILES as ALIAS_FILES, REVISION as LIBC_REVISION, install_aliases
 from . import asan_dispatch, commoncrypto, compiler_clients, fortify, libc_compiler_abi, libunwind_abi, netname
-from . import sanitizer_abi, stack_probe, tsan_public
+from . import sanitizer_abi, sanitizer_inode32, stack_probe, tsan_public
 from .compat_links import install_compat_links
 
 
@@ -60,10 +60,11 @@ def build(args):
             lock_fields.add(component)
     if "sanitizer_sources" in lock:
         lock_fields.add("sanitizer_sources")
-        if "libfuzzer" in lock:
-            if not isinstance(lock["libfuzzer"], bool):
-                raise ValueError("libfuzzer must be a boolean")
-            lock_fields.add("libfuzzer")
+        for option in ("libfuzzer", "sanitizer_inode32"):
+            if option in lock:
+                if not isinstance(lock[option], bool):
+                    raise ValueError(f"{option} must be a boolean")
+                lock_fields.add(option)
     if "libc_alias_source" in lock:
         lock_fields.add("libc_alias_source")
     elif "libc_source" in lock:
@@ -146,6 +147,8 @@ def build(args):
                 required.add("libdispatch")
             fields(sources, required, "sanitizer sources")
             roots = {key: relative_file(args.lock.parent, path) for key, path in sources.items()}
+            if lock.get("sanitizer_inode32") and "libc" not in roots:
+                raise ValueError("the sanitizer inode32 recipe requires a libc source")
             receipt["sanitizer_abi"] = sanitizer_abi.install(
                 lock["sdk"], {k: v for k, v in roots.items() if k not in {"libc", "libdispatch"}},
                 args.llvm.resolve(), work / "sanitizer-abi", images, inventories,
@@ -159,6 +162,10 @@ def build(args):
                 receipt["asan_dispatch"] = asan_dispatch.install(
                     lock["sdk"], roots["compiler-rt"], roots["libdispatch"], args.llvm.resolve(),
                     work / "asan-dispatch", images, inventories, minimum=lock["minimum"])
+            if lock.get("sanitizer_inode32"):
+                receipt["sanitizer_inode32"] = sanitizer_inode32.install(
+                    lock["sdk"], {k: roots[k] for k in ("libc", "xnu", "compiler-rt")},
+                    args.llvm.resolve(), work / "sanitizer-inode32", images, inventories, minimum=lock["minimum"])
         policy = policy_for(lock["sdk"])
         if policy:
             verify_header(policy, args.c_install, manifest)
