@@ -511,6 +511,13 @@ Mach-O objects at minima 11.0 and 26.5. The two strong definitions share
 an address in each object and in both deployed kernel images on 25F84.
 Enable the recipe with `"close_nocancel": true` in the XNU release lock.
 
+An unlisted `mach/i386/syscall_sw.h` in the C installation could shadow
+the private XNU header. The assembler now searches the pinned XNU headers
+first and gets its C headers from the manifest-verified composition. The
+shadow-header regression is recorded in `shadow-before.log` and
+`shadow-after.log`. The corrected recipe reproduced the original assembly
+and all four object digests at the two deployment endpoints.
+
 At both minima on both CPUs, the previous package failed on the close
 relocation and the updated package matched the Xcode 25F70 bind through
 libSystem, dependency versions and deployment metadata. The new TBD adds

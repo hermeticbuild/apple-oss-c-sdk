@@ -5,6 +5,8 @@ from pathlib import Path
 import re
 import subprocess
 
+from tools.sdk_composition import compose_libsystem
+
 from .component_graph import read_source
 from .emit import ARCHES, version
 from .netname import KERNEL
@@ -33,12 +35,17 @@ def assemble(source, files, llvm, c_install, minimum, work):
         env={"ARCHS": " ".join(ARCHES), "LC_ALL": "C"}, stdout=subprocess.DEVNULL, check=True,
     )
     stub = generated / (IMPLEMENTATION + ".s")
+    # Use the same manifest-verified C header tree that SDK composition installs.
+    headers = compose_libsystem.Plan()
+    compose_libsystem.c_install(headers, c_install.resolve())
+    sysroot = (work / "sysroot").resolve()
+    headers.materialize(sysroot)
     targets = {}
     for arch in ARCHES:
         obj = work / (arch + ".o")
         flags = [
             "--no-default-config", "-target", f"{arch}-apple-macos{minimum}",
-            "-nostdinc", "-isysroot", c_install, "-I", c_install / "usr/include", "-I", inputs / "osfmk",
+            "-nostdinc", "-isysroot", sysroot, "-I", inputs / "osfmk", "-I", sysroot / "usr/include",
             "-DPRIVATE", "-D__APPLE_API_PRIVATE", "-D__DARWIN_VERS_1050=1",
             "-x", "assembler-with-cpp", "-c", stub, "-o", obj,
         ]
