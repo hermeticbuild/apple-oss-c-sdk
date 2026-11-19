@@ -24,6 +24,60 @@ compiled client object and actual link receipt with the investigation.
 
 ## Coverage
 
+### Build a local candidate from probed clients
+
+Start with the Apple OSS [component selection graph](../libsystem/component_graph.md).
+For each client architecture run the header scanner and provider probe. The
+example covers four roots under the default C profile.
+
+```sh
+make -f tools/libsystem/dyld-assembly.mk dyld-assembly SOURCE_ROOT="$SOURCE_ROOT" \
+  LLVM="$LLVM" C_INSTALL="$C_INSTALL" WORK="$WORK/dyld-evidence"
+python3 -m tools.libsystem.scan --llvm "$LLVM" --c-install "$C_INSTALL" \
+  --arch "$ARCH" --minimum 11.0 --header stdio.h --header unistd.h \
+  --header sys/stat.h --header math.h --out "$WORK/scan-$ARCH.json"
+python3 -m tools.sdk_review.probe_runtime_providers --client-arch "$ARCH" \
+  --scan "$WORK/scan-$ARCH.json" --observed-arch "$CACHE_ARCH" \
+  --inspector "$(xcrun --find dyld_info)" --cache "$CACHE" \
+  --dyld-evidence "$WORK/dyld-evidence" --out "$WORK/providers-$ARCH"
+python3 -m tools.sdk_review.build_observed_libsystem --graph "$WORK/component-graph.json" \
+  --arm64 "$WORK/providers-arm64" --x86_64 "$WORK/providers-x86_64" \
+  --minimum 11.0 --out "$WORK/stubs"
+```
+
+Use the observed cache slice, such as arm64e for an arm64 client. Omit
+`--cache` for the host's default cache. The provider probe retains local raw
+observations and the exact sources of client demands. The candidate retains
+only supported client demands with unambiguous providers; inspect
+`local-review.json` for omissions and the scope of the scans. A function
+exported through a dynamic resolver remains callable under its public symbol.
+The LLVM reader preserves export role and weakness independently of the
+resolver address. [LLVM's Mach-O reader](https://github.com/llvm/llvm-project/blob/85ac560262434c9ccfc0c183ec22d4138ed647fb/llvm/lib/TextAPI/BinaryReader/DylibReader.cpp#L248-L277)
+
+Compile [the smoke client](libsystem_fixtures/client.c) against the C
+installation. Use that exact object on both sides of the comparison.
+
+```sh
+"$LLVM/bin/clang" --no-default-config -target "$ARCH-apple-macos11" \
+  -nostdinc -isysroot "$C_INSTALL" -isystem "$("$LLVM/bin/clang" -print-resource-dir)/include" \
+  -isystem "$C_INSTALL/usr/include" -c tools/sdk_review/libsystem_fixtures/client.c -o "$WORK/client-$ARCH.o"
+python3 -m tools.sdk_review.verify_libsystem_links --llvm "$LLVM" --reference "$APPLE_SDK" \
+  --candidate "$WORK/stubs" --arch "$ARCH" --minimum 11.0 --sdk-version 26.5 \
+  --object "$WORK/client-$ARCH.o" --out "$WORK/paired-$ARCH.json"
+```
+
+The differential link checks the bind-through name, weakness, load commands
+and platform metadata. Run a separate executable link when qualifying the
+runtime. Keep raw observations and partial candidates in the local review
+directory. The release builder requires independently reviewed, locked inputs.
+
+For a wider inventory supply a completed `scan_roots` directory to the
+provider probe using `--matrix`. Repeat for each profile. The probe checks
+each compressed checkpoint against its summary digest and input identity and
+preserves failed contexts in `root_findings`.
+
+### What the SDK comparator checks
+
 - Raw keys are the install name, exact architecture and platform label, and
   symbol encoding and spelling. Both the main document and all children are
   read, including slices absent from the main document. The report enumerates

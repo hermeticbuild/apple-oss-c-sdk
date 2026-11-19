@@ -1,0 +1,27 @@
+{
+  "source": "libdyld/threadLocalHelpers.s",
+  "source_sha256": "50699dd3758b8e770a20e98626855677a932ddbc59160e66c1cbfeb87d5f758f",
+  "revision": "fd8d0c4d52320ebf64db34f3cb280310d905c5ae",
+  "url": "https://github.com/apple-oss-distributions/dyld/blob/fd8d0c4d52320ebf64db34f3cb280310d905c5ae/libdyld/threadLocalHelpers.s#L298-L309",
+  "assembly_objects_sha256": {
+    "arm64": "23d5bb12a0be5017ac8557fbb512a2f9747399868c0caa2b7dfcaaaab0858029",
+    "x86_64": "df3f6280056ba8f167a2230f021c947193392bbe9efa729543ec0bd0fd75eaf5"
+  },
+  "demands": [
+    {
+      "symbol": "dyld_stub_binder",
+      "kind": "function",
+      "architectures": ["arm64", "x86_64"],
+      "consumer": "Mach-O linker stub binding",
+      "evidence": "Apple declares a global text label on ordinary macOS with separate Intel and ARM branch instructions. The external spelling has no leading underscore. The paired-link smoke detects its omission from the interface."
+    },
+    {
+      "symbol": "__tlv_bootstrap",
+      "kind": "function",
+      "architectures": ["arm64", "x86_64"],
+      "consumer": "Clang's C thread-local variable descriptor",
+      "evidence": "The client defining a thread-local integer has a relocation to this helper. Both architecture branches of the pinned dyld source define the corresponding external text symbol.",
+      "url": "https://github.com/apple-oss-distributions/dyld/blob/fd8d0c4d52320ebf64db34f3cb280310d905c5ae/libdyld/threadLocalHelpers.s"
+    }
+  ]
+}
