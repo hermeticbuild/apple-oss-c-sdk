@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "sdk": "macosx26.5",
+  "distribution": {
+    "repository": "https://github.com/apple-oss-distributions/distribution-macOS",
+    "tag": "macos-265",
+    "commit": "83390100289cedfe669c31a96c94326d31afa1ed",
+    "gitlink": "Libsystem"
+  },
+  "project": {
+    "repository": "https://github.com/apple-oss-distributions/Libsystem",
+    "tag": "Libsystem-1356",
+    "commit": "c23b51183e46e613375dc7639fb4bf11fbf59ba8",
+    "license": "APSL-2.0",
+    "files": {
+      "APPLE_LICENSE": "212846e0145aa50fb3a5aef254a370311a93acf6c1e792e47e0068d64c8c3885",
+      "Libsystem.xcconfig": "d140fb53b3fcd3335cf70c494145166bbe0dafb314c563840cc76287ef258475",
+      "Libsystem.xcodeproj/project.pbxproj": "326c783f70432775194b3636bfeb9df68ac762ff246b7f86f3dfe3c3a4a07775",
+      "optionallibs": "5347430b7e5c2a94cd965a61c524396adc8e018a9e94c5aef49b9150897889eb",
+      "requiredlibs": "7dda9065ac3062246f666506a298631372c827ecd824d281a0840309ddce1643",
+      "xcodescripts/create_dylib_symlinks.sh": "8d8a8f9f06f8a34fc7c769e9c6168b2805f32f87abac78f2fd136713835b315c",
+      "xcodescripts/linker_arguments.sh": "f2360ebb45de62920c6a456afeda28a8a4412199c3dca3994b4244eab3c81cb3"
+    }
+  }
+}
