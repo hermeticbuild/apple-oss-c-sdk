@@ -1,8 +1,9 @@
 .PHONY: stage-xnu
 stage: stage-xnu
-stage-xnu:
+stage-xnu: stage-AvailabilityVersions
 	mkdir -p "$(STAGE)/xnu"
-	"$(PYTHON)" recipes/xnu/headers.py "$(STAGE)/xnu" > "$(STAGE)/xnu/records"
+	"$(PYTHON)" recipes/xnu/headers.py "$(STAGE)/xnu" \
+		"$(availability_build_source)" $(availability_supplement) > "$(STAGE)/xnu/records"
 	SOURCE_ROOT="$(or $(SOURCE_ROOT),$(CURDIR)/sources)" "$(PYTHON)" -m recipes.xnu.asm_headers \
 		"$(STAGE)/xnu" >> "$(STAGE)/xnu/records"
 

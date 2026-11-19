@@ -166,9 +166,8 @@ def produce_unifdef(emit) -> None:
                      transform="macOS public unifdef")
 
 
-def produce_symbol_headers(emit, temporary: Path) -> None:
+def produce_symbol_headers(emit, temporary: Path, availability: Path, supplement_inputs) -> None:
     xnu = ROOT / "sources/xnu"
-    availability = ROOT / "sources/AvailabilityVersions"
     tool = temporary / "sdk/usr/local/libexec"
     tool.mkdir(parents=True)
     (tool / "availability.pl").symlink_to(availability / "availability")
@@ -186,7 +185,7 @@ def produce_symbol_headers(emit, temporary: Path) -> None:
                      "recipes/xnu/headers.py",
                      inputs=(("sources/xnu/bsd/sys/make_symbol_aliasing.sh",
                               "sources/AvailabilityVersions/availability",
-                              "sources/AvailabilityVersions/availability.dsl")
+                              "sources/AvailabilityVersions/availability.dsl", *supplement_inputs)
                              if name == "sys/_symbol_aliasing.h" else
                              ("sources/xnu/bsd/sys/make_posix_availability.sh",)),
                      transform="XNU public header generator")
@@ -205,4 +204,4 @@ if __name__ == "__main__":
 
     produce_public(emit)
     produce_unifdef(emit)
-    produce_symbol_headers(emit, stage)
+    produce_symbol_headers(emit, stage, Path(sys.argv[2]).resolve(), sys.argv[3:])
