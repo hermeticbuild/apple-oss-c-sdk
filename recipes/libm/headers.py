@@ -43,7 +43,7 @@ def produce(emit: Emit) -> None:
     if text.count(before) != 1:
         raise ValueError("Libm math.h architecture switch changed")
     anchor = "#endif /* __MATH_H__ */"
-    if text.count(anchor) != 1 or "__sinpi" in text:
+    if text.count(anchor) != 1 or "__sinpi" in text or "__exp10" in text:
         raise ValueError("Libm math.h declaration insertion point changed")
     declarations = (
         "#if defined(__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__) && \\\n"
@@ -53,6 +53,8 @@ def produce(emit: Emit) -> None:
         "#ifdef __cplusplus\n"
         'extern "C" {\n'
         "#endif\n"
+        "extern double __exp10(double) __API_AVAILABLE(macos(10.9));\n"
+        "extern float __exp10f(float) __API_AVAILABLE(macos(10.9));\n"
         "extern double __sinpi(double) __API_AVAILABLE(macos(10.9));\n"
         "extern float __sinpif(float) __API_AVAILABLE(macos(10.9));\n"
         "#ifdef __cplusplus\n"
@@ -64,8 +66,9 @@ def produce(emit: Emit) -> None:
     math_header = text.replace(before, after).replace(anchor, declarations + anchor)
     emit("usr/include/math.h", math_header.encode(),
          "derived:sources/Libm/Source/math.h via recipes/libm/headers.py", "Libm derivation",
-         ("sources/Libm/Source/math.h", "recipes/libm/headers.py", "recipes/libm/sinpi.md"),
-         "guarded arm64 branch and macOS sine-pi declarations")
+         ("sources/Libm/Source/math.h", "recipes/libm/headers.py",
+          "recipes/libm/exp10.md", "recipes/libm/sinpi.md"),
+         "guarded arm64 branch and macOS base-10 exponential and sine-pi declarations")
 
     source = ROOT / "sources/Libm/Source/fenv.h"
     text = source.read_text()
