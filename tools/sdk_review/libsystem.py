@@ -294,8 +294,18 @@ def apply_decisions(report, path):
 def backlog(args):
     report, path = read_report(args.work)
     approved, stale, baseline_matches = apply_decisions(report, args.decisions)
+    # Keep related macOS subtypes visible: the reference uses arm64e in its
+    # umbrella for ordinary arm64 clients. Catalyst is a different platform.
+    def status(gap):
+        targets = [gap["target"]] if gap["target"] else []
+        if gap["kind"] in {"missing-library", "extra-library"}:
+            targets = gap["reference"] or gap["candidate"]
+        if targets and all(target.endswith("-maccatalyst") for target in targets):
+            return "outside-client-platform"
+        return "approved" if gap["id"] in approved else "open"
+
     entries = [
-        {**gap, "status": "approved" if gap["id"] in approved else "open",
+        {**gap, "status": status(gap),
          "decision": approved.get(gap["id"])}
         for gap in report["gaps"]
     ]
@@ -304,11 +314,12 @@ def backlog(args):
     result = {
         "schema": SCHEMA, "comparison": str(path.absolute()), "sdk": report["sdk"],
         "reference_sha256": report["reference"]["sha256"], "counts": counts,
+        "client_targets": ["arm64-macos", "x86_64-macos"],
         "decision_baseline_matches": baseline_matches, "stale_decisions": stale, "gaps": entries,
     }
     write_json((args.out or args.work) / "libsystem-backlog.json", result)
     print(f"{counts.get('open', 0)} open, {counts.get('approved', 0)} approved, "
-          f"{len(stale)} stale decisions")
+          f"{len(stale)} stale decisions, {counts.get('outside-client-platform', 0)} outside macOS")
     if baseline_matches is False:
         print("Decision ledger SDK or reference digest differs from the comparison", file=sys.stderr)
     return int(args.check and (bool(counts.get("open")) or bool(stale) or baseline_matches is False))

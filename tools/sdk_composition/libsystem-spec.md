@@ -8,6 +8,12 @@ A release for one macOS SDK version installs `usr/lib/libSystem.B.tbd` with inst
 
 The first version targets **macOS SDK 26.5, arm64 and x86_64 clients**. “Complete enough” means the public libSystem interface covered by the agreed scope, including compiler, linker, macro and inline dependencies, resolves with the expected binding behavior. Enumerate every observed difference against the matching Apple reference. A consumer passing can establish demand. A lack of consumer demand alone cannot establish that a public interface is dispensable.
 
+Count release gaps for these two client architectures. The [effective linker
+comparison](../sdk_review/libsystem_review.md) tests them directly. Preserve
+raw subtype evidence when qualifying a supported client, including the Apple
+reference's arm64e umbrella. Mac Catalyst findings are reported outside the
+release scope. There is no separate arm64e or x86_64h client qualification.
+
 **Frameworks continue to come from Apple SDK Gen.** Pin its release and any existing framework-only repairs needed by the consumers. Separately supplied library stubs, such as the Apple system libc++ dylib stub, and the Objective-C runtime layer can be named inputs to the composed consumer SDK. The standalone libSystem output has its own manifest and digest. Generated C headers come from the existing installer. Clang resources, libc++ headers and compiler builtins belong to the toolchain. Check a provider's actual reexport relationship before classifying a difference as owned elsewhere.
 
 This repository should contain the production recipes, pinned input specifications, publishable reviewed facts, repair workflow and repeatable qualification commands. Large upstream archives, raw runtime captures, the reference SDK and generated scratch outputs live outside Git. An offline build must be reproducible from the repository and its materialized, digest-verified public inputs. A release needing an unshareable private input cannot meet that goal.

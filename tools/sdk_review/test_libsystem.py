@@ -86,6 +86,19 @@ class LibsystemReviewTest(unittest.TestCase):
         self.run_command("backlog", "--work", self.work, "--check")
         self.assertEqual(self.read_report()["gaps"], [])
 
+    def test_catalyst_only_change_is_visible_outside_macos_gate(self):
+        fixture = "raw-targets-v5.tbd"
+        candidate = json.loads((FIXTURES / fixture).read_text())
+        private_slice = candidate["libraries"][0]["exported_symbols"][1]
+        self.assertTrue(all(target.endswith("-maccatalyst") for target in private_slice["targets"]))
+        private_slice["text"]["weak"].append("_fixtureCatalystOnly")
+        path = self.work / "candidate.tbd"
+        path.write_text(json.dumps(candidate))
+        self.compare(fixture, path, exit_code=1)
+        self.run_command("backlog", "--work", self.work, "--check")
+        result = json.loads((self.work / "libsystem-backlog.json").read_text())
+        self.assertEqual(result["counts"], {"outside-client-platform": 2})
+
     def test_approved_member_set_reopens_when_a_member_disappears(self):
         self.compare("original-provider-v5.tbd", "moved-provider-v5.tbd", exit_code=1)
         report = self.read_report()
