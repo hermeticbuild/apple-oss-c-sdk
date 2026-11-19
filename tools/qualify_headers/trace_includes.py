@@ -193,6 +193,9 @@ def main() -> int:
         "probe_sha256": hashlib.sha256(probe.read_bytes()).hexdigest(),
         "targets": {},
     }
+    source_lock = sysroot / "source-lock.json"
+    if source_lock.is_file():
+        manifest["source_lock_sha256"] = hashlib.sha256(source_lock.read_bytes()).hexdigest()
     errors = []
     roots = header_roots(probe)
     with tempfile.TemporaryDirectory(prefix="apple-c-probe-") as temporary:

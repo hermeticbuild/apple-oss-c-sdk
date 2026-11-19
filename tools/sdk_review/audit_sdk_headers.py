@@ -116,6 +116,7 @@ def baseline_paths(path: Path) -> tuple[set[str], dict]:
 
 def installed_provenance(installation: Path) -> dict[str, dict[str, str]]:
     files, metadata = read_header_manifest(installation)
+    metadata.add(installation / "source-lock.json")
     for relative, record in files.items():
         parts = Path(relative)
         if (parts.is_absolute() or ".." in parts.parts or not record.get("origin")
@@ -506,16 +507,12 @@ def main() -> None:
     parser.add_argument("--baseline", type=Path,
                         help="prior path inventory; new paths require review and removed paths block release")
     parser.add_argument("--decisions", type=Path,
-                        default=Path(__file__).with_name("data") / "sdk-header-decisions.tsv",
                         help="reviewed include/omit decisions; defaults to the checked-in ledger")
     parser.add_argument("--review-notes", type=Path,
-                        default=Path(__file__).with_name("data") / "sdk-review-notes.tsv",
                         help="versioned source gaps that remain pending")
     parser.add_argument("--scope-approvals", type=Path,
-                        default=Path(__file__).with_name("data") / "sdk-scope-approvals.tsv",
                         help="reviewed SDK path sets for out-of-scope categories")
     parser.add_argument("--extra-approvals", type=Path,
-                        default=Path(__file__).with_name("data") / "installation-only-decisions.tsv",
                         help="reviewed installation paths absent from this SDK")
     parser.add_argument("--out", required=True, type=Path)
     parser.add_argument("--review-out", type=Path,
@@ -536,9 +533,36 @@ def main() -> None:
         parser.error("Clang binary does not exist")
     settings = sdk / "SDKSettings.json"
     metadata = json.loads(settings.read_text()) if settings.is_file() else {}
+    canonical = metadata.get("CanonicalName", "")
+    ledgers = Path(__file__).with_name("data")
+    if re.fullmatch(r"[a-z][a-z0-9]*[0-9](?:\.[0-9]+)+", canonical):
+        ledgers = ledgers / canonical
+
+    def ledger(option: Path | None, filename: str) -> Path | None:
+        if option is not None:
+            return option
+        path = ledgers / filename
+        return path if path.is_file() else None
+
+    decisions = ledger(args.decisions, "sdk-header-decisions.tsv")
+    notes = ledger(args.review_notes, "sdk-review-notes.tsv")
+    scope = ledger(args.scope_approvals, "sdk-scope-approvals.tsv")
+    extra = ledger(args.extra_approvals, "installation-only-decisions.tsv")
     reference = json.loads(args.reference.read_text()) if args.reference else None
     generated = json.loads(args.generated_probe.read_text()) if args.generated_probe else None
+    source_lock = installation / "source-lock.json"
+    lock_digest = None
+    if source_lock.is_file():
+        lock_bytes = source_lock.read_bytes()
+        locked_sdk = json.loads(lock_bytes)["sdk"]["canonical_name"]
+        if locked_sdk != canonical:
+            parser.error(f"installation SDK {locked_sdk} does not match audited SDK {canonical}")
+        lock_digest = hashlib.sha256(lock_bytes).hexdigest()
+    if generated and generated.get("source_lock_sha256") != lock_digest:
+        parser.error("generated probe must use the installation's source lock; rerun trace_includes")
     if reference:
+        if canonical and reference.get("sdk", {}).get("CanonicalName") != canonical:
+            parser.error("reference probe SDK does not match the audited SDK")
         if reference["compiler_binary_sha256"] != hashlib.sha256(args.clang.read_bytes()).hexdigest():
             parser.error("Clang binary differs from probe reference")
         if reference["resource_headers_sha256"] != digest_tree(resource):
@@ -565,10 +589,10 @@ def main() -> None:
                               if args.baseline else (None, None))
     generated_closure = (closure_paths(generated, None)[0] if generated else None)
     report = audit(sdk, installation, resource, closure, lookup_candidates,
-                   decision_rules(args.decisions), baseline,
-                   scope_approvals(args.scope_approvals), generated_closure,
-                   extra_approvals(args.extra_approvals),
-                   review_notes(args.review_notes, metadata.get("CanonicalName")))
+                   decision_rules(decisions) if decisions else [], baseline,
+                   scope_approvals(scope) if scope else None, generated_closure,
+                   extra_approvals(extra) if extra else None,
+                   review_notes(notes, canonical) if notes else None)
     if baseline_sdk:
         report["baseline_sdk"] = baseline_sdk
     if reference:
@@ -583,6 +607,8 @@ def main() -> None:
     if generated:
         report["generated_probe_sha256"] = generated["probe_sha256"]
         report["generated_probe_failures"] = generated_failures
+    if lock_digest is not None:
+        report["installation_source_lock_sha256"] = lock_digest
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
     if args.review_out:
