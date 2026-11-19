@@ -635,3 +635,12 @@ also performs `xcrun -find cc` when `MIGCC` is unset. The libSystem
 producer remains reproducible under the stricter policy. Any adjustment
 to tool selection in the C recipes requires separate qualification.
 See `install-offline.log` under the fresh rebuild directory.
+
+A control build permitted Apple tool discovery while denying network access
+and reads of the official macOS SDK's `usr/include`, `usr/lib`, public
+frameworks and private frameworks directories. Direct negative controls
+confirmed that `unistd.h`, `libSystem.tbd` and CoreFoundation's umbrella
+were unreadable. `make -j4 install` completed. Its entire output tree
+matched the ordinary serial installation, including the header manifest.
+See `no-sdk-interfaces.sb`, `no-sdk-interfaces-install.log` and the empty
+`no-sdk-interfaces.diff` under the fresh rebuild directory.
