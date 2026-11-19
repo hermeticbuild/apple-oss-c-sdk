@@ -591,3 +591,12 @@ The Intel macOS-scoped rules_rs run on composition `c0a98a31` passed
 39/39. Bazel executed 15 and reused 24 test results. PyO3, Prost, AWS-LC,
 CoreAudio bindgen and all four Miri tests executed. Invocation
 `7c2f7d37-1ffe-4d84-98a3-efb8e40d981c`, log `close-rules-x86_64.log`.
+
+Full re-execution with `--nocache_test_results` passed 39/39 on arm64 and
+39/39 on x86_64 using that same composition. The arm64 invocation was
+`e0bdbec6-142c-4e7f-a5a5-7e89a9c2ed59` and the Intel invocation was
+`bc4203d1-6116-483e-9fde-37456154914f`. The logs are
+`close-rules-execute-arm64.log` and `close-rules-execute-x86_64.log`.
+Together with the hermetic-llvm results, this covers 150 executed tests
+on the common archive across the two CPU configurations. Native
+self-bootstrap has a separate build and execution gate.

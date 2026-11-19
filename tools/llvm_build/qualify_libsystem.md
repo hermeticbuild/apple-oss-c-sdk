@@ -88,7 +88,7 @@ for cpu in arm64 x86_64; do
     platform=(--platforms=@rules_rs//rs/platforms:x86_64-apple-darwin
               --extra_execution_platforms=@platforms//host,@llvm//platforms:macos_x86_64)
   fi
-  bazel test --keep_going --build_tests_only --test_env="PATH=/bin:$PATH" \
+  bazel test --nocache_test_results --keep_going --build_tests_only --test_env="PATH=/bin:$PATH" \
     "${sdk_flags[@]}" "${platform[@]}" --@llvm//config:macos_libcxx_headers=llvm \
     -- //... -//:target_triple_constraints_test || exit 1
 done
