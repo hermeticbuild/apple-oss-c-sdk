@@ -15,6 +15,11 @@ approved linker dependencies with their provider and kind. The three
 kernel calls have weak imports in the client and strong text exports in the
 provider. Both malloc zone exports are data.
 
+Include `libplatform` in the same mapping to qualify the four private lock
+calls that ThreadSanitizer intercepts. The build checks the pinned provider
+sources and compiles the interceptor declarations. The public C installation
+does not include the private lock header. [Source and binding evidence](data/macosx26.5/sanitizer-tsan-locks.json)
+
 Start by preparing the [official LLVM bundle](../toolchain/README.md). Set `LLVM` to its verified directory and run the following from the repository root. Fixture names and records are independently authored. The first runnable build lock targets the fixture; the macOS 26.5 production lock and reviewed component evidence are pending.
 
 ```sh

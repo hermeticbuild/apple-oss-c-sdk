@@ -132,7 +132,10 @@ def build(args):
                 minimum=lock["minimum"])
         if "sanitizer_sources" in lock:
             sources = lock["sanitizer_sources"]
-            fields(sources, {"compiler-rt", "dyld", "libmalloc", "xnu"}, "sanitizer sources")
+            required = {"compiler-rt", "dyld", "libmalloc", "xnu"}
+            if "libplatform" in sources:
+                required.add("libplatform")
+            fields(sources, required, "sanitizer sources")
             roots = {key: relative_file(args.lock.parent, path) for key, path in sources.items()}
             receipt["sanitizer_abi"] = sanitizer_abi.install(
                 lock["sdk"], roots, args.llvm.resolve(), work / "sanitizer-abi", images, inventories,
