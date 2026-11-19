@@ -14,6 +14,7 @@ from .sanitizer_abi import install
 KERNEL = "/usr/lib/system/libsystem_kernel.dylib"
 MALLOC = "/usr/lib/system/libsystem_malloc.dylib"
 DYLD = "/usr/lib/system/libdyld.dylib"
+PLATFORM = "/usr/lib/system/libsystem_platform.dylib"
 SDK = "macosx26.5"
 SOURCE_ENV = "LIBSYSTEM_TEST_SANITIZER_SOURCES"
 LLVM_ENV = "LIBSYSTEM_TEST_LLVM"
@@ -55,6 +56,7 @@ class ScopeTests(unittest.TestCase):
 class QualifiedTests(unittest.TestCase):
     def setUp(self):
         self.roots = {name: Path(path) for name, path in json.loads(os.environ[SOURCE_ENV]).items()}
+        self.libplatform = self.roots.pop("libplatform", None)
         self.llvm = Path(os.environ[LLVM_ENV]).resolve()
         self.images = [image(SYSTEM, KERNEL, MALLOC, DYLD), image(KERNEL), image(MALLOC), image(DYLD)]
         self.inventories = {arch: [] for arch in ARCHES}
@@ -85,6 +87,38 @@ class QualifiedTests(unittest.TestCase):
                 self.assertEqual(
                     receipt["client"]["slices"][arch]["imports"],
                     {name: {"kind": kind, "weak_import": weak} for name, (_, _, kind, weak) in expected.items()},
+                )
+
+    def test_tsan_lock_opt_in_adds_only_four_strong_platform_functions(self):
+        if self.libplatform is None:
+            self.skipTest("requires pinned libplatform and compiler-rt TSan sources")
+        self.images = [image(SYSTEM, KERNEL, MALLOC, DYLD, PLATFORM),
+                       image(KERNEL), image(MALLOC), image(DYLD), image(PLATFORM)]
+        old_images, old_inventories = deepcopy((self.images, self.inventories))
+        with TemporaryDirectory() as temp:
+            work = Path(temp)
+            before = install(SDK, self.roots, self.llvm, work / "before",
+                             old_images, old_inventories, minimum="11.0")
+            after = install(SDK, {**self.roots, "libplatform": self.libplatform}, self.llvm, work / "after",
+                            self.images, self.inventories, minimum="11.0")
+        _, old_providers = resolve(old_images, old_inventories, "11.0")
+        _, new_providers = resolve(self.images, self.inventories, "11.0")
+
+        expected = {"_os_lock_lock", "_os_lock_trylock", "_os_lock_unlock", "_os_unfair_lock_lock_with_options"}
+        self.assertEqual([row for row in new_providers if row["symbol"] not in expected], old_providers)
+        self.assertEqual(
+            {(row["arch"], row["symbol"], row["provider"], row["kind"])
+             for row in new_providers if row["symbol"] in expected},
+            {(arch, name, PLATFORM, "text.global") for arch in ARCHES for name in expected},
+        )
+        for arch in ARCHES:
+            with self.subTest(arch=arch):
+                self.assertEqual(
+                    after["client"]["slices"][arch]["imports"],
+                    {
+                        **before["client"]["slices"][arch]["imports"],
+                        **dict.fromkeys(expected, {"kind": "function", "weak_import": False}),
+                    },
                 )
 
     def test_reject_existing_wrong_export_kind_without_mutating_any_image(self):

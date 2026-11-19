@@ -10,7 +10,18 @@ from .scan import digest, run
 
 
 RECORD = Path(__file__).parent / "data/macosx26.5/sanitizer-abi.json"
+TSAN_RECORD = RECORD.with_name("sanitizer-tsan-locks.json")
 UNDEFINED = re.compile(r"\s*\(undefined\) (weak )?external (\w+)")
+
+
+def locked_evidence(include_tsan):
+    evidence = json.loads(RECORD.read_bytes())
+    if include_tsan:
+        extension = json.loads(TSAN_RECORD.read_bytes())
+        evidence["sources"]["compiler-rt"]["files"].update(extension["compiler_rt_files"])
+        evidence["sources"]["libplatform"] = extension["libplatform"]
+        evidence["groups"].append(extension["group"])
+    return evidence
 
 
 def excerpt(source, span):
@@ -35,7 +46,20 @@ def consumer_source(evidence, compiler_rt):
     references = []
     for group in evidence["groups"]:
         kind = KINDS[group["kind"]]
-        source.append(excerpt(compiler_rt, group["consumer_declarations"]))
+        declaration = group["consumer_declarations"]
+        lines = excerpt(compiler_rt, declaration)
+        if declaration.get("form") == "tsan_interceptor":
+            # The pinned Darwin expansion declares the original with C linkage before interposing it.
+            source.extend([
+                "struct os_unfair_lock_s;",
+                "using os_unfair_lock_t = os_unfair_lock_s *;",
+                "using u32 = __UINT32_TYPE__;",
+                "#define TSAN_INTERCEPTOR(ret, func, ...) ret func(__VA_ARGS__);",
+                lines.replace(" {", ""),
+                "#undef TSAN_INTERCEPTOR",
+            ])
+        else:
+            source.append(lines)
         for name in group["c_names"]:
             expected = "true" if kind == "function" else "false"
             references.extend([
@@ -73,14 +97,14 @@ def qualify(evidence, source, llvm, work, minimum):
 
 
 def install(sdk, source_roots, llvm, work, images, inventories, *, minimum):
-    evidence = json.loads(RECORD.read_bytes())
+    evidence = locked_evidence("libplatform" in source_roots)
     if sdk != evidence["sdk"]:
         raise ValueError(f"the reviewed sanitizer ABI applies only to {evidence['sdk']}")
     parts = tuple(map(int, version(minimum).split(".")))
     if not (11, 0, 0) <= parts + (0,) * (3 - len(parts)) <= (26, 5, 0):
         raise ValueError("the reviewed sanitizer ABI covers macOS deployment minima 11.0–26.5")
     if set(source_roots) != set(evidence["sources"]):
-        raise ValueError("sanitizer ABI requires pinned compiler-rt, dyld, libmalloc and XNU sources")
+        raise ValueError(f"sanitizer ABI requires pinned sources for {', '.join(evidence['sources'])}")
     if set(inventories) != set(ARCHES):
         raise ValueError("sanitizer ABI requires both client inventories")
 
