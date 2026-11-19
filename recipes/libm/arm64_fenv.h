@@ -25,7 +25,9 @@ typedef unsigned short fexcept_t;
 #define FE_OVERFLOW   (1 << 2) /* XNU FPSR_OFC */
 #define FE_UNDERFLOW  (1 << 3) /* XNU FPSR_UFC */
 #define FE_INEXACT    (1 << 4) /* XNU FPSR_IXC */
-#define FE_ALL_EXCEPT (FE_INVALID | FE_DIVBYZERO | FE_OVERFLOW | FE_UNDERFLOW | FE_INEXACT)
+#define FE_FLUSHTOZERO (1 << 7) /* XNU FPSR_IDC */
+#define FE_ALL_EXCEPT (FE_INVALID | FE_DIVBYZERO | FE_OVERFLOW | FE_UNDERFLOW | \
+                       FE_INEXACT | FE_FLUSHTOZERO)
 
 #define FE_TONEAREST  0
 #define FE_UPWARD     (1 << 22) /* XNU FPCR_RMODE */

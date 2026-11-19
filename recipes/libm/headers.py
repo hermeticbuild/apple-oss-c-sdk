@@ -80,7 +80,20 @@ def produce(emit: Emit) -> None:
     emit("usr/include/architecture/arm64/fenv.h",
          (ROOT / "recipes/libm/arm64_fenv.h").read_bytes(),
          "recipes/libm/arm64_fenv.h", "Libm derivation",
-         ("recipes/libm/arm64_fenv.h",), "local ABI declaration")
+         ("recipes/libm/arm64_fenv.h", "sources/Libm/Source/ARM/fenv.h",
+          "sources/xnu/osfmk/arm64/proc_reg.h"), "local ABI declaration and FPSR exception flags")
+
+    intel_fenv = "sources/Libm/Source/Intel/fenv.h"
+    text = (ROOT / intel_fenv).read_bytes()
+    before = b"#define FE_ALL_EXCEPT       0x003D\n"
+    after = (b"#define FE_DENORMALOPERAND  (1 << 1) /* MXCSR and x87 denormal operand flag */\n"
+             b"#define FE_ALL_EXCEPT       (0x003D | FE_DENORMALOPERAND)\n")
+    if text.count(before) != 1 or b"FE_DENORMALOPERAND" in text:
+        raise ValueError("Libm Intel fenv.h exception definitions changed")
+    emit("usr/include/architecture/i386/fenv.h", text.replace(before, after),
+         f"derived:{intel_fenv} via recipes/libm/headers.py", "Libm derivation",
+         (intel_fenv, "recipes/libm/headers.py", "sources/architecture/i386/fpu.h"),
+         "include Intel denormal operand in FE_ALL_EXCEPT")
 
 
 if __name__ == "__main__":
