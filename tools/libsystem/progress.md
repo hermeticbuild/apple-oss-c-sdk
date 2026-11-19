@@ -391,8 +391,8 @@ The native rules_rs retry passed 23 tests. Sixteen could not build because
 Rust's prebuilt standard library refers to `_Unwind_GetTextRelBase` and
 `_Unwind_GetDataRelBase` in its panic personality. The maintainer declined
 adding the two system compatibility exports. An LLVM-toolchain alternative
-is under investigation. The official LLVM 23.1.2 macOS archive supplies
-the unwind header and has no prebuilt libunwind archive or dylib. The
+is under investigation. The projected LLVM tools directory supplies
+the unwind header and omits the prebuilt library. The
 current Rust action's libunwind search directory contains an empty
 compatibility archive. This differs from hermetic-llvm's explicit
 `@llvm//runtimes/libunwind:libunwind.static` source-build target.
@@ -415,3 +415,35 @@ After adding them, both client architectures matched the reference at
 both deployment endpoints. Only two strong text entries per slice were
 added to libdispatch. Source commit f15d017, integration 6658b83.
 Receipts are in `/tmp/libsystem-asan-dispatch-audit.dnBULg`.
+
+### Generating linker entries from LLVM runtime artifacts
+
+Correction to the initial archive inspection: the official macOS ARM64
+LLVM 23.1.2 release tarball includes all three shared libraries.
+The project's extracted tool projection omits them. Reading the original
+tar with `zstd --long=30 -dc`, then applying
+`llvm-readtapi -stubify --filetype=tbd-v5` to the three real dylibs,
+produced arm64 TBDs with a macOS 14 minimum and `@rpath` install names.
+The thin dylibs and resulting stubs are under
+`/tmp/libsystem-fortify-qual.1isE94/upstream-runtimes`.
+
+SDK 26.5 clients can request the unwinder through `-lSystem`.
+The SDK's `usr/lib/libSystem.B.tbd` reexports the install name
+`/usr/lib/system/libunwind.dylib` and embeds the provider's document.
+Apple also supplies `usr/lib/system/libunwind.tbd` separately.
+The official LLVM arm64 libunwind stub has 44 exported names. Its two
+relative-base names both link through Apple's umbrella at minimum 11.
+LLVM also exports `_unw_strerror`, which failed that same reference link.
+The maintainer requested combining the verified relative-base entries with
+our system provider. Keep its install name, reexport edge and deployment
+evidence, and derive the two entries for each architecture from its LLVM
+artifact. A separate runtime dylib is unnecessary for those clients.
+
+The ASan-plus-fuzzer composition passed the native arm64 hermetic-llvm e2e
+run: 36 passed and 45 skipped (`asan-e2e-native.log`). The repeated
+offline packages matched. All 42 libSystem producer tests passed.
+The Intel e2e run under Rosetta registered the Intel execution platform:
+33 passed, three ASan-related targets failed to build and 45 were skipped.
+The concrete Intel sanitizer imports are eight unadorned inode-compatibility
+names (`asan-e2e-rosetta.log`). Normal Intel C clients compile with the
+existing inode64 spellings.
