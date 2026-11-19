@@ -801,3 +801,36 @@ missing 23/22 names associated with installed header paths comprise
 architectures, plus the denormals environment object on arm64. This is a
 link-time survey. Tests ran on host 25F84; historical runtimes were not
 executed. All 36 SDK review tests passed with official LLVM 23.1.2.
+
+### Libnotify public and private exports
+
+Corentin approved the 23 functions explicitly exported by Apple OSS
+Libnotify at `227c145bcf26ec93e18304ba81306a3014d9bd56`. Thirteen are
+declared in its public header and ten in its private header. Each maps
+to strong text in the independently inspected arm64e and x86_64 runtime
+images. The component derives the names from Apple's declarations and
+keeps each header's provenance in the provider report. The C installation
+ships the same 767 paths. [Producer and source evidence](README.md)
+
+The previous stub failed to resolve all 23 on both CPUs. Compiling typed
+references against the staged OSS headers and linking each object against
+the new stub and Xcode produced matching imports, library versions and
+platform commands in all 14 architecture/deployment pairs. On host 25F84,
+a public notification client registered, checked and cancelled a process-local
+token on arm64 and under Rosetta. For each CPU its candidate and reference
+executables were byte-identical. Private APIs were qualified for linkage.
+All 47 producer tests passed with the pinned source inputs enabled.
+
+Two offline builds produced identical packages. Only the embedded notify
+document changed in the TBD. The new stub SHA-256 is
+`8c35f896ddb7c0e34ba7dcb2c52644a5db2fa3cd2690497c28c77e3626f5e420`.
+The standalone archive SHA-256 is
+`e2483763b148e7d2308ba2975617f64738866907f9d21d5cfc24baad2591aaa1`.
+At minima 11.0 and 26.5 the remaining effective-binding differences fell
+to 5,844 on arm64 and 6,350 on Intel. There were zero extras. The
+installed-path gap remains 23/22. The LLVM and Rust consumer receipts apply
+to the prior composition. Requalify the final digest at the release gate.
+Source staging, paired links and both packages are in
+`/tmp/libsystem-notify-all.ARfEzg`. The public-only prototype was
+`0d625c6` on local branch `cerisier/libsystem-libnotify` in
+`/tmp/libsystem-libnotify`; the SDK repository has no Git remote.

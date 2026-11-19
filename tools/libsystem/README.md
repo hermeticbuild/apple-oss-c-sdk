@@ -71,6 +71,21 @@ The macOS 26.5 release lock can name `libunwind_source` to derive the supported 
 
 Set `commoncrypto_source` to the staged CommonCrypto source directory to derive its complete macOS export list. The recipe checks each symbol's kind against the reviewed runtime observation. The C package continues to install the public headers. [Export evidence and qualification](commoncrypto.md)
 
+Set `libnotify_source` to the staged Apple Libnotify source directory.
+The producer verifies the [source pins](data/macosx26.5/libnotify.json)
+and reads declarations marked `OS_EXPORT`. Apple's header phases identify
+13 public and ten private declarations. The private declarations contribute
+only linker names. The receipt attributes each provider row to its declaring
+header. Apple's build configuration names the library and places it under
+`/usr/lib/system`. [Public header](https://github.com/apple-oss-distributions/Libnotify/blob/227c145bcf26ec93e18304ba81306a3014d9bd56/notify.h) · [Private header](https://github.com/apple-oss-distributions/Libnotify/blob/227c145bcf26ec93e18304ba81306a3014d9bd56/notify_private.h) · [Library settings](https://github.com/apple-oss-distributions/Libnotify/blob/227c145bcf26ec93e18304ba81306a3014d9bd56/xcodeconfig/libnotify.xcconfig)
+
+The recorded digest covers the sorted Mach-O names and strong text kinds
+verified on both macOS 25F84 runtime slices. Requalify on a changed pin:
+compile typed address references to the declarations on each architecture
+using `-fblocks`, the two OSS headers and the standalone C installation.
+Check the undefined names with `llvm-nm -uj`, then pass the same object
+to `tools.sdk_review.verify_libsystem_links` for the reference and candidate.
+
 The current resolver supports ordinary functions, data, weak definitions, TLS objects, symbol reexports and whole-library reexports. It rejects conflicting providers and unfamiliar evidence fields. This fixture build demonstrates the interface contract. A production release additionally needs source-based selection of public exports, coverage of non-header demands, approved deployment directives, complete target/profile qualification and reviewed provenance.
 
 For macOS 26.5 the offline producer keeps three Apple Libc declarations out of the link interface. It verifies the SDK identity, source revision, installed header receipt and exact symbol names before exempting them from provider resolution. A provider record that exports one of those names fails the build and reopens review. The output manifest records the applied policy. [Reviewed exceptions](data/macosx26.5/expected-undefined.json) · [Reference qualification](../sdk_review/sdk_header_linkage.md)

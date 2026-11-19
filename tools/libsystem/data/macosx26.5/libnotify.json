@@ -1,0 +1,32 @@
+{
+  "schema": 1,
+  "sdk": "macosx26.5",
+  "source": {
+    "project": "apple-oss-distributions/Libnotify",
+    "tag": "Libnotify-348.120.4",
+    "commit": "227c145bcf26ec93e18304ba81306a3014d9bd56",
+    "distribution_commit": "83390100289cedfe669c31a96c94326d31afa1ed",
+    "public_header": "notify.h",
+    "private_header": "notify_private.h",
+    "files": {
+      "Libnotify.xcodeproj/project.pbxproj": "32609198610d0ea192002f40cfdf651e6abd296296269141736e61f6a1a63d2b",
+      "notify.h": "c7bf63e398effebe5e8895f4b89eace820437cfdd9735ffeb99ed69707dd5bb3",
+      "notify_private.h": "7fbd0fc627302851ff664aaa91495f56f2bfe8fea31a3d82e3897c610f4c950c",
+      "notify_client.c": "d6a955e8fbadfe6e8716ab3b60dda6ea2a964654420b09c45ae2455b334326f7",
+      "xcodeconfig/base.xcconfig": "cb3a44afd467da6b87c3df07a35ca334a33c38010495a0b405427c1335000843",
+      "xcodeconfig/libnotify.xcconfig": "7454a02694ac7629d7bf63bfda42e84089e0333ad10ce22e36b4726e63701682"
+    }
+  },
+  "qualification": {
+    "reference_sdk_build": "25F70",
+    "paired_link_minima": ["11.0", "26.5"],
+    "exports_by_header": {"notify.h": 13, "notify_private.h": 10},
+    "runtime_build": "25F84",
+    "runtime_role": "strong text",
+    "runtime_symbol_kinds_sha256": "352d5b16ab74c0bae587fda70f6be4339ebf11b3d0afb0d9b45a1351d21a5d71",
+    "runtime_images": {
+      "arm64e": "64D76451-1E0C-369B-A631-54DA3140E083",
+      "x86_64": "62649BC6-F8C3-37AA-BCF9-93129A44DBD8"
+    }
+  }
+}

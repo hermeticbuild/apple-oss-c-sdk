@@ -15,7 +15,7 @@ from .emit import ARCHES, fields, resolve
 from .expected_undefined import filter_demands, policy_for, verify_header
 from .libc_aliases import FILES as ALIAS_FILES, REVISION as LIBC_REVISION, install_aliases
 from . import asan_dispatch, close_nocancel, commoncrypto, compiler_clients, fortify, libc_compiler_abi
-from . import libunwind_abi, netname, sanitizer_abi, sanitizer_inode32, stack_probe, tsan_public
+from . import libnotify, libunwind_abi, netname, sanitizer_abi, sanitizer_inode32, stack_probe, tsan_public
 from .compat_links import install_compat_links
 
 
@@ -59,7 +59,7 @@ def build(args):
             if not isinstance(lock["close_nocancel"], bool):
                 raise ValueError("close_nocancel must be a boolean")
             lock_fields.add("close_nocancel")
-    for component in ("libunwind_source", "commoncrypto_source"):
+    for component in ("libunwind_source", "commoncrypto_source", "libnotify_source"):
         if component in lock:
             lock_fields.add(component)
     if "sanitizer_sources" in lock:
@@ -142,6 +142,10 @@ def build(args):
         if "commoncrypto_source" in lock:
             receipt["commoncrypto"] = commoncrypto.install(
                 lock["sdk"], relative_file(args.lock.parent, lock["commoncrypto_source"]), images, inventories,
+                minimum=lock["minimum"])
+        if "libnotify_source" in lock:
+            receipt["libnotify"] = libnotify.install(
+                lock["sdk"], relative_file(args.lock.parent, lock["libnotify_source"]), images, inventories,
                 minimum=lock["minimum"])
         if "sanitizer_sources" in lock:
             sources = lock["sanitizer_sources"]
