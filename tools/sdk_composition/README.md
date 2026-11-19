@@ -35,3 +35,10 @@ architectures.
 The current restricted mode copies every SDK Gen `.tbd` in the library and
 framework directories and requires libc++. A lightweight shipping profile
 would need its own asset selection and link validation.
+
+`compose_libsystem.py` verifies a standalone libSystem package using the
+supplied SHA-256 of `manifest.json`. A package's `symlinks` object lists
+SDK-relative link paths and exact relative targets. The canonical
+`usr/lib/libSystem.tbd` points to `libSystem.B.tbd`. Compatibility links such
+as `usr/lib/libm.tbd` and `usr/lib/libdl.tbd` point to `libSystem.tbd`.
+For older manifests without `symlinks`, the canonical link is implicit.

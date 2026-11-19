@@ -56,6 +56,7 @@ class File:
     source_root: Path
     layer: str
     sha256: str | None
+    symlink: str | None
 
 
 class Plan:
@@ -70,7 +71,7 @@ class Plan:
                 raise ValueError(f"SDK path collision: {destination}")
             self.directories.add(destination)
 
-    def file(self, destination, source, source_root, layer, sha256=None):
+    def file(self, destination, source, source_root, layer, sha256=None, *, symlink=None):
         allowed_path(destination)
         self.directory(destination.parent)
         if destination in self.files or destination in self.directories:
@@ -78,7 +79,10 @@ class Plan:
         mode = source.lstat().st_mode
         if not (stat.S_ISREG(mode) or stat.S_ISLNK(mode)):
             raise ValueError(f"unsupported SDK file type: {source}")
-        if source.is_symlink() and Path(os.readlink(source)).is_absolute():
+        link = os.readlink(source) if stat.S_ISLNK(mode) else None
+        if symlink is not None and link != symlink:
+            raise ValueError(f"generated {destination} must be a relative alias to {symlink}")
+        if link is not None and Path(link).is_absolute():
             raise ValueError(f"absolute symlink in SDK source: {source}")
         try:
             resolved = source.resolve(strict=True)
@@ -86,7 +90,7 @@ class Plan:
             raise ValueError(f"invalid SDK input path or symlink {source}: {err}") from err
         if not resolved.is_relative_to(source_root):
             raise ValueError(f"SDK source symlink escapes selected input: {source}")
-        self.files[destination] = File(source, source_root, layer, sha256)
+        self.files[destination] = File(source, source_root, layer, sha256, link)
 
     def tree(self, destination, source, source_root, layer):
         self.directory(destination)
@@ -107,10 +111,9 @@ class Plan:
         for path, file in sorted(self.files.items()):
             dest = root / path
             receipt = {"layer": file.layer, "source": file.source.relative_to(file.source_root).as_posix()}
-            if file.source.is_symlink():
-                link = os.readlink(file.source)
-                dest.symlink_to(link)
-                receipt["symlink"] = link
+            if file.symlink is not None:
+                dest.symlink_to(file.symlink)
+                receipt["symlink"] = file.symlink
             else:
                 with file.source.open("rb") as stream, dest.open("xb") as output:
                     prefix = stream.read(8)
@@ -167,23 +170,39 @@ def libsystem_layer(plan, root, expected):
     manifest = root / "manifest.json"
     if manifest.is_symlink() or not manifest.is_file():
         raise ValueError(f"missing regular libSystem layer manifest: {manifest}")
-    # Hash and parse the same bytes, then validate the copied stub against it.
+    # Hash and parse the same bytes, then validate the stub and each link against it.
     data = manifest.read_bytes()
     if hashlib.sha256(data).hexdigest() != expected:
         raise ValueError("libSystem layer manifest digest mismatch")
     record = read_json(data)
     if not isinstance(record, dict) or not re.fullmatch(r"[0-9a-f]{64}", str(record.get("tbd_sha256"))):
         raise ValueError("libSystem layer manifest has no valid TBD digest")
-    if (root / STUB).is_symlink():
-        raise ValueError(f"generated libSystem must be a regular TBD: {STUB}")
-    if not (root / ALIAS).is_symlink() or os.readlink(root / ALIAS) != STUB.name:
-        raise ValueError(f"generated {ALIAS} must be a relative alias to {STUB.name}")
-    files = {path.relative_to(root) for path in (root / "usr").rglob("*")
-             if path.is_symlink() or not path.is_dir()}
-    if files != {STUB, ALIAS}:
+    links = record.get("symlinks", {ALIAS.as_posix(): STUB.name})
+    if not isinstance(links, dict) or links.get(ALIAS.as_posix()) != STUB.name:
+        raise ValueError(f"libSystem layer manifest must declare {ALIAS} as an alias to {STUB.name}")
+    symlinks = {}
+    for name, target in links.items():
+        path = relative_path(name)
+        if (path == STUB or path.parent != STUB.parent or
+                not re.fullmatch(r"lib[A-Za-z0-9_.+-]+\.tbd", path.name)):
+            raise ValueError(f"unexpected declared libSystem symlink path: {path}")
+        if path != ALIAS and target != ALIAS.name:
+            raise ValueError(f"unexpected declared libSystem symlink target for {path}: {target!r}")
+        symlinks[path] = target
+
+    usr = root / "usr"
+    library = root / STUB.parent
+    if any(path.is_symlink() or not path.is_dir() for path in (usr, library)):
+        raise ValueError("generated libSystem payload requires real usr and usr/lib directories")
+    files = {path.relative_to(root) for path in usr.iterdir() if path != library}
+    files.update(path.relative_to(root) for path in library.iterdir())
+    if files != {STUB, *symlinks}:
         raise ValueError(f"unexpected generated libSystem payload: {sorted(str(path) for path in files)}")
+    if (root / STUB).is_symlink() or not (root / STUB).is_file():
+        raise ValueError(f"generated libSystem must be a regular TBD: {STUB}")
     plan.file(STUB, root / STUB, root, "generated-libsystem", record["tbd_sha256"])
-    plan.file(ALIAS, root / ALIAS, root, "generated-libsystem")
+    for path, target in sorted(symlinks.items()):
+        plan.file(path, root / path, root, "generated-libsystem", symlink=target)
 
 
 def framework(plan, sdk_gen, name):

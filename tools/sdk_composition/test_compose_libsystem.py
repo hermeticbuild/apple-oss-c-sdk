@@ -54,6 +54,12 @@ class ComposeTests(unittest.TestCase):
         (self.package / "usr/lib/libSystem.tbd").symlink_to("libSystem.B.tbd")
         self.manifest_sha256 = write(self.package / "manifest.json", json.dumps({"tbd_sha256": digest}))
 
+    def declare_compat_alias(self, path, target):
+        manifest = self.package / "manifest.json"
+        record = json.loads(manifest.read_text())
+        record["symlinks"] = {"usr/lib/libSystem.tbd": "libSystem.B.tbd", path: target}
+        self.manifest_sha256 = write(manifest, json.dumps(record))
+
     def compose(self, *extra):
         return subprocess.run([
             sys.executable, "-m", "tools.sdk_composition.compose_libsystem",
@@ -167,6 +173,54 @@ install-name: '{CHILD}'
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("SDK file differs from its input manifest: usr/lib/libSystem.B.tbd",
                       result.stderr)
+        self.assertFalse(self.out.exists())
+
+    def test_generated_compatibility_alias_keeps_its_declared_relative_target(self):
+        path = "usr/lib/libm.tbd"
+        self.declare_compat_alias(path, "libSystem.tbd")
+        (self.package / path).symlink_to("libSystem.tbd")
+
+        result = self.compose()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(os.readlink(self.out / path), "libSystem.tbd")
+        manifest = json.loads((self.out / "composition.json").read_text())
+        self.assertEqual(manifest["files"][path]["symlink"], "libSystem.tbd")
+        self.assertEqual(manifest["providers"][PARENT], ["usr/lib/libSystem.B.tbd"])
+
+    def test_legacy_package_rejects_an_undeclared_compatibility_alias(self):
+        (self.package / "usr/lib/libm.tbd").symlink_to("libSystem.tbd")
+
+        result = self.compose()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("unexpected generated libSystem payload", result.stderr)
+        self.assertFalse(self.out.exists())
+
+    def test_generated_compatibility_alias_rejects_a_different_link_to_the_same_stub(self):
+        path = "usr/lib/libm.tbd"
+        self.declare_compat_alias(path, "libSystem.tbd")
+        (self.package / path).symlink_to("libSystem.B.tbd")
+
+        result = self.compose()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(f"generated {path} must be a relative alias to libSystem.tbd", result.stderr)
+        self.assertFalse(self.out.exists())
+
+    def test_generated_compatibility_alias_manifest_cannot_escape_usr_lib(self):
+        self.declare_compat_alias("usr/lib/../libm.tbd", "libSystem.tbd")
+
+        result = self.compose()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("expected a canonical SDK-relative path", result.stderr)
+        self.assertFalse(self.out.exists())
+
+    def test_generated_compatibility_alias_manifest_rejects_escaping_target(self):
+        path = "usr/lib/libm.tbd"
+        self.declare_compat_alias(path, "../../libSystem.tbd")
+        (self.package / path).symlink_to("../../libSystem.tbd")
+
+        result = self.compose()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(f"unexpected declared libSystem symlink target for {path}", result.stderr)
         self.assertFalse(self.out.exists())
 
     def test_named_framework_cannot_embed_a_static_archive(self):
