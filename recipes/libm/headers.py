@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[2]
 Emit = Callable[[str, bytes, str, str, tuple[str, ...], str], None]
 
 
-def produce(emit: Emit) -> None:
+def produce(emit: Emit, sdk: str) -> None:
     complex_source = (ROOT / "sources/Libm/Source/complex.h").read_bytes()
     old = b"#elif defined(__arm__)\n#define __LIBMLDBL_COMPAT"
     new = b"#elif defined(__arm__) || defined(__arm64__) || defined(__aarch64__)\n#define __LIBMLDBL_COMPAT"
@@ -21,11 +21,20 @@ def produce(emit: Emit) -> None:
     # Use direct component construction to preserve signed zero and infinity.
     # WG14 N1570 section 7.3.9.3.
     # https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf
-    constructors = (
-        b"\n/* C11 complex constructors, ISO/IEC 9899 7.3.9.3. */\n"
+    constructor_guard = (
         b"#if !defined(__cplusplus) && defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L \\\n"
         b"    && __has_builtin(__builtin_complex)\n"
-        b"#define CMPLX(x, y)  __builtin_complex((double)(x), (double)(y))\n"
+    )
+    if sdk == "macosx26.5":
+        constructor_guard = (
+            b"#if !defined(__cplusplus) && __has_builtin(__builtin_complex) && \\\n"
+            b"    ((defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L) || \\\n"
+            b"     __DARWIN_C_LEVEL >= __DARWIN_C_FULL)\n"
+        )
+    constructors = (
+        b"\n/* C11 complex constructors, ISO/IEC 9899 7.3.9.3. */\n"
+        + constructor_guard
+        + b"#define CMPLX(x, y)  __builtin_complex((double)(x), (double)(y))\n"
         b"#define CMPLXF(x, y) __builtin_complex((float)(x), (float)(y))\n"
         b"#define CMPLXL(x, y) __builtin_complex((long double)(x), (long double)(y))\n"
         b"#endif\n"
@@ -34,7 +43,8 @@ def produce(emit: Emit) -> None:
     emit("usr/include/complex.h", complex_header,
          "generated:apple via recipes/libm/headers.py:complex.h",
          "recipes/libm/headers.py", ("sources/Libm/Source/complex.h", "recipes/libm/headers.py"),
-         "guarded arm64 branch and C11 complex constructors")
+         ("guarded arm64 branch and complex constructors in C11 or full Darwin C"
+          if sdk == "macosx26.5" else "guarded arm64 branch and C11 complex constructors"))
 
     source = ROOT / "sources/Libm/Source/math.h"
     text = source.read_text()
@@ -116,4 +126,4 @@ if __name__ == "__main__":
         output.write_bytes(data)
         print(path, "Libm", origin, selection, transform, *inputs, sep="\t")
 
-    produce(emit)
+    produce(emit, sys.argv[2])

@@ -1,9 +1,19 @@
 #include <complex.h>
 
-#if defined(__cplusplus) || !defined(__STDC_VERSION__) || __STDC_VERSION__ < 201112L
+#if defined(__cplusplus) || ((!defined(__STDC_VERSION__) || __STDC_VERSION__ < 201112L) && \
+                             __DARWIN_C_LEVEL < __DARWIN_C_FULL)
 #if defined(CMPLX) || defined(CMPLXF) || defined(CMPLXL)
-#error "C11 complex constructors exposed outside C11 and newer C modes"
+#error "complex constructors exposed outside C11 or full Darwin C"
 #endif
+#elif !defined(__STDC_VERSION__) || __STDC_VERSION__ < 201112L
+/* Full Darwin C exposes constructors even without C11 type generics. */
+static double complex darwin_double = CMPLX(1.0, 2.0);
+static float complex darwin_float = CMPLXF(1.0f, 2.0f);
+static long double complex darwin_long = CMPLXL(1.0L, 2.0L);
+int main(void) {
+    return creal(darwin_double) != 1.0 || cimagf(darwin_float) != 2.0f ||
+           cimagl(darwin_long) != 2.0L;
+}
 #else
 #include <math.h>
 
