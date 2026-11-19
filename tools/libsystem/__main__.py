@@ -14,7 +14,7 @@ from tools.toolchain.official_llvm import PIN, projection, read_lock
 from .emit import ARCHES, fields, resolve
 from .expected_undefined import filter_demands, policy_for, verify_header
 from .libc_aliases import FILES as ALIAS_FILES, REVISION as LIBC_REVISION, install_aliases
-from . import libc_compiler_abi
+from . import fortify, libc_compiler_abi
 
 
 def digest(path):
@@ -102,6 +102,8 @@ def build(args):
         if "libc_source" in lock:
             receipt["libc_compiler_abi"] = libc_compiler_abi.install(
                 source, args.llvm.resolve(), lock["minimum"], work / "stack-protector", images, inventories)
+            receipt["libc_fortify"] = fortify.install(source.resolve(), args.llvm.resolve(), args.c_install.resolve(),
+                                                       lock["minimum"], work / "fortify", images, inventories)
         policy = policy_for(lock["sdk"])
         if policy:
             verify_header(policy, args.c_install, manifest)
