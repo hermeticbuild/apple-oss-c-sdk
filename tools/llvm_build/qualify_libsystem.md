@@ -55,8 +55,9 @@ for cpu in arm64 x86_64; do
              "${sdk_flags[@]}")
   bazel build "${bootstrap[@]}" //toolchain/bootstrap/stage2:llvm || exit 1
   bazel aquery "${bootstrap[@]}" --output=text --include_commandline \
-    'inputs("llvm/lib/IR/LLVMContext[.]cpp$", mnemonic("CppCompile", deps(//toolchain/bootstrap/stage2:llvm)))' \
+    'inputs(".*llvm/lib/IR/LLVMContext[.]cpp$", mnemonic("CppCompile", deps(//toolchain/bootstrap/stage2:llvm)))' \
     > "$REPORTS/bootstrap-$cpu.actions" || exit 1
+  grep -Fx "action 'Compiling llvm/lib/IR/LLVMContext.cpp'" "$REPORTS/bootstrap-$cpu.actions" || exit 1
   mkdir -p "$REPORTS/$cpu/bin"
   cp -L bazel-bin/toolchain/bootstrap/stage2/llvm "$REPORTS/$cpu/bin/clang"
   resource=$("$LLVM/bin/clang" --no-default-config -print-resource-dir) || exit 1

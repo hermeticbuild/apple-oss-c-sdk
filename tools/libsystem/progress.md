@@ -657,6 +657,50 @@ corresponding runtime dylibs plus libSystem. These last two are build-only
 CI targets. Reports are `close-ci-{native-headers,coverage,build,contracts}-*`
 in the consumer qualification directory.
 
+**Intel bootstrap interrupted at the maintainer's timing request.** The
+full release-style build reached 22,829 of 28,315 actions. The logged
+termination was an explicit interrupt. Before cancellation, the arm64
+Stage 1 compiler compiled `llvm-profdata.cpp` to x86_64 LLVM bitcode
+against the same candidate stub as the passing arm64 build. The completed
+arm64 Stage 2 compiler also compiled the smoke client for Intel. Its
+strict link opened the candidate stub, and it executed under Rosetta.
+The Intel Stage 2 compiler executable and its execution remain open.
+Receipts are `close-stage1-observed-x86_64.json`, `close-stage2-x86_64.log`
+and `close-stage2-arm64/intel-client/`.
+
+**Relocated producer and header inventory.** A Git archive of `eaa1435`
+rebuilt the standalone package from relocated copies of the prepared
+component records, sources and C installation. The sandbox denied network
+access and reads of the Xcode SDK, original checkout and prior qualification
+directories. The archive matched the earlier candidate byte for byte
+(SHA-256 `2b5eadab3b94f3b3a5e2b3e74cba7157fc01fe775f915ca24fd4e771642a02f4`).
+The prepared component records still require independent provenance review
+before release. Receipts are in `/tmp/libsystem-relocated-release.dC8kwQ`.
+
+All 767 C manifest paths matched their counterparts in the consumer SDK.
+The exact header comparison found 715 identical, 48 divergent and four
+installation-only paths. In 56 paired probes on each target, the remaining
+three semantic differences on both CPUs were the previously recorded
+ARM32 compact unwind mask, sensitive logging macro and syscall slot 519.
+The joined backlog has 206 open paths, two approved contexts and zero stale
+or missing input reports. Inclusion failures, scope decisions and byte
+differences can overlap on one path. See `close-header-review/`.
+
+**Audit resumed with the Intel rebuild retained as a release gate.**
+Corentin approved proceeding with header and export review before that
+build. The fresh client-link survey used the relocated candidate stub
+and Xcode build 25F70 strictly as the reference. At minima 11.0 and 26.5,
+the reference bound 8,960 names on arm64 and 9,500 on Intel. The candidate
+bound 3,093 and 3,127 respectively. The survey found zero extra candidate
+bindings and two names requiring individual links per architecture.
+Within the reference declaration survey restricted to paths installed
+by the C package, 23 of 2,663 names remain missing on arm64 and 22 of
+2,686 on Intel. These subsets are included in the full differences.
+Before classifying the remaining names, establish source, public or
+compatibility role, provider, target and deployment evidence. The raw
+document comparison includes subtype, directive and metadata rows and
+counts these separately. Reports are in `close-export-review/`.
+
 The scratch checkout was originally produced from a Git archive. The
 hermetic-llvm `tests/` tree carries `export-ignore`. The contract package
 was restored from Git blobs at the exact tested commit. The separate CI
