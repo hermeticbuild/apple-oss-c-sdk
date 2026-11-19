@@ -2,7 +2,6 @@
 """Compose a test SDK and build LLVM for both macOS architectures."""
 
 import argparse
-import hashlib
 import subprocess
 import sys
 from pathlib import Path
@@ -12,17 +11,10 @@ TEMPLATE = HERE / "fixtures/MODULE.bazel.in"
 
 
 def archive_sdk(sdk: Path, archive: Path) -> str:
-    tar = subprocess.Popen(["tar", "-cf", "-", "-C", str(sdk.parent), sdk.name],
-                           stdout=subprocess.PIPE)
-    assert tar.stdout is not None
-    try:
-        zstd = subprocess.run(["zstd", "-T0", "-6", "-o", str(archive)],
-                              stdin=tar.stdout, check=False)
-    finally:
-        tar.stdout.close()
-    if tar.wait() != 0 or zstd.returncode != 0:
-        raise RuntimeError("SDK archive creation failed")
-    return hashlib.sha256(archive.read_bytes()).hexdigest()
+    return subprocess.check_output([
+        sys.executable, "-m", "tools.sdk_composition.pack_archive",
+        "--source", sdk.absolute(), "--output", archive.absolute(), "--root-name", sdk.name,
+    ], cwd=HERE.parents[1], text=True).strip()
 
 
 def main() -> None:

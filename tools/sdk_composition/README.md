@@ -36,6 +36,30 @@ The current restricted mode copies every SDK Gen `.tbd` in the library and
 framework directories and requires libc++. A lightweight shipping profile
 would need its own asset selection and link validation.
 
+## Packing release archives
+
+Run the packer on a standalone package or composed SDK. Each command prints
+the SHA-256 of the compressed archive. The output directory must already exist
+outside the source tree. The archive root name stays the same across builds in
+different source directories.
+
+```sh
+python3 -m tools.sdk_composition.pack_archive --source "$PACKAGE" \
+  --root-name libSystem --output "$DIST/libSystem.tar.zst"
+python3 -m tools.sdk_composition.pack_archive --source "$NEW_SDK" \
+  --root-name MacOSX.sdk --output "$DIST/MacOSX.sdk.tar.zst"
+```
+
+The packer writes sorted POSIX pax tar entries with epoch timestamps and
+numeric owner and group zero. It keeps file bytes, empty directories and
+symlink target strings. Regular files use mode 0644 or 0755 according to
+their executable bits, and hard-linked files each carry their own bytes.
+Extended attributes and AppleDouble sidecars are omitted. Compression uses
+the local `zstd --single-thread -6`. Use the same zstd version for both builds
+when comparing release hashes.
+
+## Composing with libSystem
+
 `compose_libsystem.py` verifies a standalone libSystem package using the
 supplied SHA-256 of `manifest.json`. A package's `symlinks` object lists
 SDK-relative link paths and exact relative targets. The canonical

@@ -22,7 +22,7 @@ for arm64 and x86_64. It leaves the archive, composition log, and one build
 log per architecture in the new work directory.
 
 Set the inputs to absolute paths and run from the repository root on a host
-with Bazel, tar, and zstd available. The libc++ paths point to the headers
+with Bazel and zstd available. The libc++ paths point to the headers
 and archive prepared from hermetic-llvm. SDK Gen 27.0's CoreFoundation
 umbrella currently requires a missing Objective-C header. For this proof,
 use an installation generated from Git tag
