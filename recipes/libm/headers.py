@@ -84,7 +84,7 @@ def produce(emit: Emit) -> None:
           "sources/xnu/osfmk/arm64/proc_reg.h"), "local ABI declaration and FPSR exception flags")
 
     intel_fenv = "sources/Libm/Source/Intel/fenv.h"
-    text = (ROOT / intel_fenv).read_bytes()
+    text = (source.parent / "Intel/fenv.h").read_bytes()
     before = b"#define FE_ALL_EXCEPT       0x003D\n"
     after = (b"#define FE_DENORMALOPERAND  (1 << 1) /* MXCSR and x87 denormal operand flag */\n"
              b"#define FE_ALL_EXCEPT       (0x003D | FE_DENORMALOPERAND)\n")
