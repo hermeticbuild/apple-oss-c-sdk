@@ -479,3 +479,25 @@ libcharset as separate composition inputs from Apple's libiconv project.
 The unversioned-path Rust test itself reported a pass, but Bazel's
 `generate-xml.sh` process crashed. The host bash crash report identifies
 Homebrew bash in libintl's locale initialization. Rerun the Bazel gate.
+
+Commit `c66899b` generates the two versioned iconv and charset stubs
+and their aliases from Apple's libiconv-115.120.2 project. The composition
+uses the generated artifacts under `/tmp/iconv-provider-26.5/qualified`.
+All 95 direct libiconv exports and both libcharset exports match the 26.5
+reference. A client linking with `-liconv` alone binds `_iconv_open` to
+libiconv and `_locale_charset` to libcharset on both CPUs. The generated
+stubs conservatively mark app-extension use unsafe. Qualification covers
+ordinary macOS clients.
+
+The common archive is `qualified-union-composition/MacOSX.sdk.tar.zst`
+under the qualification directory above, SHA-256
+`463a57dda1cf809b59ba9263375193642c6352996eb28323bb4955ed5b896e0f`.
+The native bootstrap and e2e trials moved to this digest. Earlier bootstrap
+actions from the locks-only archive do not count as a completed bootstrap.
+
+Stock Rust 1.96.1 at minimum macOS 14 linked and ran the panic fixture on
+arm64 with both this archive and Xcode. On x86_64 the control also ran,
+while the candidate had one unresolved import, `_close$NOCANCEL` from
+Rust std's file-descriptor cleanup. The pinned XNU macOS syscall maps give
+that alias on both CPUs. The two-level unwind checks themselves matched.
+The candidate and control logs are in `accepted-unwind-links`.
