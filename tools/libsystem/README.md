@@ -7,6 +7,14 @@ The generator derives the four Mach NetName client spellings from Apple's
 on both client architectures. Its public-header and target-build rules are
 verified by digest. The standalone C installation keeps its existing scope.
 
+The optional `sanitizer_sources` lock mapping names source directories for
+`compiler-rt`, `dyld`, `libmalloc` and `xnu`. The generator verifies the
+[source pins and runtime observations](data/macosx26.5/sanitizer-abi.json),
+compiles the sanitizer declarations for each target and records the nine
+approved linker dependencies with their provider and kind. The three
+kernel calls have weak imports in the client and strong text exports in the
+provider. Both malloc zone exports are data.
+
 Start by preparing the [official LLVM bundle](../toolchain/README.md). Set `LLVM` to its verified directory and run the following from the repository root. Fixture names and records are independently authored. The first runnable build lock targets the fixture; the macOS 26.5 production lock and reviewed component evidence are pending.
 
 ```sh

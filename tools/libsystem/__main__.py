@@ -14,7 +14,7 @@ from tools.toolchain.official_llvm import PIN, projection, read_lock
 from .emit import ARCHES, fields, resolve
 from .expected_undefined import filter_demands, policy_for, verify_header
 from .libc_aliases import FILES as ALIAS_FILES, REVISION as LIBC_REVISION, install_aliases
-from . import compiler_clients, fortify, libc_compiler_abi, netname, stack_probe
+from . import compiler_clients, fortify, libc_compiler_abi, netname, sanitizer_abi, stack_probe
 from .compat_links import install_compat_links
 
 
@@ -54,6 +54,8 @@ def build(args):
         lock_fields.add("libsystem_source")
     if "xnu_source" in lock:
         lock_fields.add("xnu_source")
+    if "sanitizer_sources" in lock:
+        lock_fields.add("sanitizer_sources")
     if "libc_alias_source" in lock:
         lock_fields.add("libc_alias_source")
     elif "libc_source" in lock:
@@ -116,6 +118,13 @@ def build(args):
         if "xnu_source" in lock:
             receipt["netname"] = netname.install(
                 lock["sdk"], relative_file(args.lock.parent, lock["xnu_source"]), images, inventories,
+                minimum=lock["minimum"])
+        if "sanitizer_sources" in lock:
+            sources = lock["sanitizer_sources"]
+            fields(sources, {"compiler-rt", "dyld", "libmalloc", "xnu"}, "sanitizer sources")
+            roots = {key: relative_file(args.lock.parent, path) for key, path in sources.items()}
+            receipt["sanitizer_abi"] = sanitizer_abi.install(
+                lock["sdk"], roots, args.llvm.resolve(), work / "sanitizer-abi", images, inventories,
                 minimum=lock["minimum"])
         policy = policy_for(lock["sdk"])
         if policy:
