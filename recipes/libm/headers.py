@@ -43,7 +43,7 @@ def produce(emit: Emit) -> None:
     if text.count(before) != 1:
         raise ValueError("Libm math.h architecture switch changed")
     anchor = "#endif /* __MATH_H__ */"
-    if text.count(anchor) != 1 or "__sinpi" in text or "__exp10" in text:
+    if text.count(anchor) != 1 or any(name in text for name in ("__sinpi", "__exp10", "__sincos")):
         raise ValueError("Libm math.h declaration insertion point changed")
     declarations = (
         "#if defined(__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__) && \\\n"
@@ -63,12 +63,14 @@ def produce(emit: Emit) -> None:
         "#endif\n"
         "\n"
     )
-    math_header = text.replace(before, after).replace(anchor, declarations + anchor)
+    paired_trig = (ROOT / "recipes/libm/paired_trig.h").read_text()
+    math_header = text.replace(before, after).replace(anchor, declarations + paired_trig + "\n" + anchor)
     emit("usr/include/math.h", math_header.encode(),
          "derived:sources/Libm/Source/math.h via recipes/libm/headers.py", "Libm derivation",
          ("sources/Libm/Source/math.h", "recipes/libm/headers.py",
-          "recipes/libm/exp10.md", "recipes/libm/sinpi.md"),
-         "guarded arm64 branch and macOS base-10 exponential and sine-pi declarations")
+          "recipes/libm/exp10.md", "recipes/libm/sinpi.md", "recipes/libm/paired_trig.h",
+          "recipes/libm/paired_trig.md", "sources/xnu/bsd/sys/cdefs.h"),
+         "guarded arm64 branch and macOS scalar math extensions")
 
     source = ROOT / "sources/Libm/Source/fenv.h"
     text = source.read_text()
