@@ -37,6 +37,7 @@ FIXTURE_HEADERS = {
     "abi_target_value": ("TargetConditionals.h",),
     "compact_arm32": ("mach-o/compact_unwind_encoding.h",),
     "complex_constructor": ("complex.h",),
+    "darwin_exp10": ("math.h", "architecture/arm/math.h", "architecture/i386/math.h"),
     "darwin_sinpi": ("math.h", "architecture/arm/math.h", "architecture/i386/math.h"),
     "dyld_images_layout": ("mach-o/dyld_images.h",),
     "fenv_denorm_mask": ("fenv.h", "architecture/arm64/fenv.h", "architecture/i386/fenv.h"),

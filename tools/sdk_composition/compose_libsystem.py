@@ -139,7 +139,7 @@ class Plan:
                 if resolved.is_dir():
                     # Framework version aliases must keep pointing within the
                     # selected framework. Header installs list individual files.
-                    if file.layer != "sdk-gen-framework" or not target.is_relative_to(
+                    if file.layer not in {"sdk-gen-framework", "prepared-framework"} or not target.is_relative_to(
                             FRAMEWORKS / path.parts[len(FRAMEWORKS.parts)]):
                         raise ValueError(f"SDK directory alias escapes its selected framework: {path}")
                 elif (target not in self.files or self.files[target].layer != file.layer or
@@ -203,18 +203,34 @@ def libsystem_layer(plan, root, expected):
     plan.file(STUB, root / STUB, root, "generated-libsystem", record["tbd_sha256"])
     for path, target in sorted(symlinks.items()):
         plan.file(path, root / path, root, "generated-libsystem", symlink=target)
+    return record
 
 
-def framework(plan, sdk_gen, name):
+def sdk_settings(package, sdk, receipts):
+    if "c_header_manifest_sha256" not in package:
+        return  # Older qualification packages carried only the stub digest.
+    if receipts.get("header-manifest.tsv", {}).get("sha256") != package["c_header_manifest_sha256"]:
+        raise ValueError("selected C installation differs from the one used to generate libSystem")
+    if package.get("sdk") != "macosx26.5":
+        return
+    settings = {"CanonicalName": "macosx26.5", "Version": "26.5", "MaximumDeploymentTarget": "26.5",
+                "SupportedTargets": {"macosx": {"Archs": ["arm64", "x86_64"], "LLVMTargetTripleVendor": "apple",
+                                                 "LLVMTargetTripleSys": "macosx"}}}
+    path = sdk / "SDKSettings.json"
+    path.write_text(json.dumps(settings, indent=2, sort_keys=True) + "\n")
+    receipts[path.name] = {"layer": "sdk-settings", "source": "libsystem:macosx26.5", "sha256": digest(path)}
+
+
+def framework(plan, sdk_gen, name, *, prepared=None):
     if not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.+-]*", name):
         raise ValueError(f"invalid SDK Gen framework name: {name}")
     relative = FRAMEWORKS / f"{name}.framework"
-    source = sdk_gen / relative
-    if (source.is_symlink() or not source.is_dir() or
-            not source.resolve().is_relative_to(sdk_gen)):
-        raise ValueError(f"missing or escaped SDK Gen framework: {relative}")
+    source = prepared if prepared is not None else sdk_gen / relative
+    if (source.name != relative.name or source.is_symlink() or not source.is_dir()
+            or (prepared is None and not source.resolve().is_relative_to(sdk_gen))):
+        raise ValueError(f"missing or escaped framework: {relative}")
     source = source.resolve()
-    plan.tree(relative, source, source, "sdk-gen-framework")
+    plan.tree(relative, source, source, "prepared-framework" if prepared is not None else "sdk-gen-framework")
 
 
 def external_stub(plan, spec):
@@ -263,9 +279,11 @@ def compose(args):
         raise ValueError(f"output already exists: {out}")
     plan = Plan()
     c_install(plan, args.c_install.resolve())
-    libsystem_layer(plan, args.libsystem.resolve(), args.libsystem_manifest_sha256)
+    package = libsystem_layer(plan, args.libsystem.resolve(), args.libsystem_manifest_sha256)
     for name in args.framework:
         framework(plan, args.sdk_gen.resolve(), name)
+    for name, source in args.prepared_framework:
+        framework(plan, None, name, prepared=Path(source))
     for spec in args.external_stub:
         external_stub(plan, spec)
 
@@ -274,6 +292,7 @@ def compose(args):
         sdk = Path(temporary) / "SDK"
         sdk.mkdir()
         receipts = plan.materialize(sdk)
+        sdk_settings(package, sdk, receipts)
         composition = {
             "schema": 1,
             "libsystem_manifest_sha256": args.libsystem_manifest_sha256,
@@ -296,6 +315,8 @@ def main():
                         help="expected SHA-256 of the libSystem package's manifest.json")
     parser.add_argument("--sdk-gen", type=Path, help="SDK Gen root containing System/Library/Frameworks")
     parser.add_argument("--framework", action="append", default=[], help="public SDK Gen framework name")
+    parser.add_argument("--prepared-framework", nargs=2, action="append", default=[], metavar=("NAME", "DIRECTORY"),
+                        help="select a previously qualified framework layer and record its files separately")
     parser.add_argument("--external-stub", action="append", default=[], metavar="DESTINATION=SOURCE",
                         help="select one .tbd or relative alias at a path below usr/lib")
     args = parser.parse_args()

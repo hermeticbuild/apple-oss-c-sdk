@@ -14,7 +14,8 @@ from tools.toolchain.official_llvm import PIN, projection, read_lock
 from .emit import ARCHES, fields, resolve
 from .expected_undefined import filter_demands, policy_for, verify_header
 from .libc_aliases import FILES as ALIAS_FILES, REVISION as LIBC_REVISION, install_aliases
-from . import fortify, libc_compiler_abi
+from . import compiler_clients, fortify, libc_compiler_abi, stack_probe
+from .compat_links import install_compat_links
 
 
 def digest(path):
@@ -49,6 +50,8 @@ def build(args):
     projection(args.llvm.resolve(), read_lock(PIN))
     lock = read_json(args.lock)
     lock_fields = {"schema", "sdk", "minimum", "headers", "sources", "manifest_sha256"}
+    if "libsystem_source" in lock:
+        lock_fields.add("libsystem_source")
     if "libc_alias_source" in lock:
         lock_fields.add("libc_alias_source")
     elif "libc_source" in lock:
@@ -82,7 +85,7 @@ def build(args):
         lib.mkdir(parents=True)
         inventories = {}
         receipt = {"sdk": lock["sdk"], "lock_sha256": digest(args.lock), "toolchain_lock_sha256": digest(PIN),
-                   "images": lock["sources"], "scan_sha256": {}}
+                   "images": lock["sources"], "scan_sha256": {}, "c_header_manifest_sha256": lock["manifest_sha256"]}
         if "libc_alias_source" in lock or "libc_source" in lock:
             source = relative_file(args.lock.parent, lock.get("libc_source", lock.get("libc_alias_source")))
             install_aliases(source, lock["sdk"], images)
@@ -104,6 +107,10 @@ def build(args):
                 source, args.llvm.resolve(), lock["minimum"], work / "stack-protector", images, inventories)
             receipt["libc_fortify"] = fortify.install(source.resolve(), args.llvm.resolve(), args.c_install.resolve(),
                                                        lock["minimum"], work / "fortify", images, inventories)
+            receipt["compiler_clients"] = compiler_clients.install(
+                lock["sdk"], args.llvm.resolve(), args.c_install.resolve(), lock["minimum"],
+                work / "compiler-clients", images, inventories)
+            receipt["stack_probe"] = stack_probe.install(lock["sdk"], images, minimum=lock["minimum"])
         policy = policy_for(lock["sdk"])
         if policy:
             verify_header(policy, args.c_install, manifest)
@@ -112,7 +119,12 @@ def build(args):
         tbd, rows = resolve(images, inventories, lock["minimum"])
         stub = lib / "libSystem.B.tbd"
         write_json(stub, tbd)
-        (lib / "libSystem.tbd").symlink_to(stub.name)
+        if "libsystem_source" in lock:
+            if lock["sdk"] != "macosx26.5":
+                raise ValueError("the locked Libsystem compatibility link rule requires macosx26.5")
+            receipt["symlinks"] = install_compat_links(relative_file(args.lock.parent, lock["libsystem_source"]), lib)
+        else:
+            (lib / "libSystem.tbd").symlink_to(stub.name)
         receipt["tbd_sha256"] = digest(stub)
         write_json(package / "providers.json", rows)
         write_json(package / "manifest.json", receipt)

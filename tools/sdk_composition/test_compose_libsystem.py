@@ -69,6 +69,26 @@ class ComposeTests(unittest.TestCase):
             "--sdk-gen", self.gen, "--out", self.out, *extra,
         ], text=True, capture_output=True)
 
+    def test_prepared_framework_and_versioned_package(self):
+        header = self.framework / "Headers/Example.h"
+        write(header, "typedef int example;\n")
+        path = self.package / "manifest.json"
+        record = json.loads(path.read_text())
+        record.update(sdk="macosx26.5", c_header_manifest_sha256="0" * 64)
+        self.manifest_sha256 = write(path, json.dumps(record))
+        args = ("--prepared-framework", "Example", self.framework)
+        self.assertIn("selected C installation differs", self.compose(*args).stderr)
+        self.assertFalse(self.out.exists())
+        record["c_header_manifest_sha256"] = hashlib.sha256((self.c / "header-manifest.tsv").read_bytes()).hexdigest()
+        self.manifest_sha256 = write(path, json.dumps(record))
+        result = self.compose(*args)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        settings = json.loads((self.out / "SDKSettings.json").read_text())
+        self.assertEqual(settings["Version"], "26.5")
+        self.assertEqual(settings["SupportedTargets"]["macosx"]["Archs"], ["arm64", "x86_64"])
+        files = json.loads((self.out / "composition.json").read_text())["files"]
+        self.assertEqual(files[f"{FRAMEWORK}/Headers/Example.h"]["layer"], "prepared-framework")
+
     def test_selected_assets_and_relative_framework_aliases(self):
         write(self.framework / "Versions/A/Headers/Example.h", "#define EXAMPLE 1\n")
         example = "/System/Library/Frameworks/Example.framework/Versions/A/Example"

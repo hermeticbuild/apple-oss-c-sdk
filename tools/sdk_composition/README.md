@@ -42,3 +42,10 @@ SDK-relative link paths and exact relative targets. The canonical
 `usr/lib/libSystem.tbd` points to `libSystem.B.tbd`. Compatibility links such
 as `usr/lib/libm.tbd` and `usr/lib/libdl.tbd` point to `libSystem.tbd`.
 For older manifests without `symlinks`, the canonical link is implicit.
+
+For macOS 26.5, a package with a C manifest digest verifies that its original
+header installation was selected. The composer writes the macOS SDK version
+and both supported architectures to `SDKSettings.json` so that Clang can
+record the SDK version in the linked executable. Use
+`--prepared-framework NAME /path/to/NAME.framework` for a separately
+qualified framework. Its files receive the `prepared-framework` source label.
