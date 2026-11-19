@@ -24,6 +24,11 @@ With both `libc` and `libplatform` in the sanitizer source mapping, the
 builder also compiles the public ucontext and POSIX realpath clients and the
 out-of-line fileno interceptor. [TSan inputs and runtime checks](tsan_public.md)
 
+A release lock with sanitizer sources can enable `"libfuzzer": true`. Darwin
+libFuzzer reads the external `environ` object to pass its environment to
+`posix_spawn`. The generator pins that LLVM client and Apple's dyld definition.
+[Source and binding evidence](data/macosx26.5/sanitizer-fuzzer.json)
+
 Start by preparing the [official LLVM bundle](../toolchain/README.md). Set `LLVM` to its verified directory and run the following from the repository root. Fixture names and records are independently authored. The first runnable build lock targets the fixture; the macOS 26.5 production lock and reviewed component evidence are pending.
 
 ```sh

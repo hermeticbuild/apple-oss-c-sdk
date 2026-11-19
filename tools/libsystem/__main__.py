@@ -59,6 +59,10 @@ def build(args):
             lock_fields.add(component)
     if "sanitizer_sources" in lock:
         lock_fields.add("sanitizer_sources")
+        if "libfuzzer" in lock:
+            if not isinstance(lock["libfuzzer"], bool):
+                raise ValueError("libfuzzer must be a boolean")
+            lock_fields.add("libfuzzer")
     if "libc_alias_source" in lock:
         lock_fields.add("libc_alias_source")
     elif "libc_source" in lock:
@@ -142,7 +146,7 @@ def build(args):
             receipt["sanitizer_abi"] = sanitizer_abi.install(
                 lock["sdk"], {k: v for k, v in roots.items() if k != "libc"},
                 args.llvm.resolve(), work / "sanitizer-abi", images, inventories,
-                minimum=lock["minimum"])
+                minimum=lock["minimum"], include_fuzzer=lock.get("libfuzzer", False))
             if "libc" in roots:
                 receipt["tsan_public"] = tsan_public.install(
                     lock["sdk"], {k: roots[k] for k in ("libc", "libplatform", "compiler-rt")},
