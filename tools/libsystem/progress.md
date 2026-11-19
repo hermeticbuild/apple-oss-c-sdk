@@ -858,3 +858,15 @@ Reproduce with [the isolation command](../sdk_review/c_interface_review.md).
 The local per-header report, including source and both digests, is
 `/tmp/libsystem-fortify-qual.1isE94/close-header-review/isolated.json`.
 This audit did not change the C package or the libSystem candidate.
+
+**Ranked all 48 divergent header paths.** The [26.5 review](../sdk_review/data/macosx26.5/ranked-header-differences.md)
+records a recommendation per path. The pinned Apple libclosure public header
+matches the SDK's Block.h byte for byte; its license placeholder needs
+resolution. Feeding the existing version supplement to XNU's own unmodified
+generator in scratch recovered all 18 missing macOS alias selectors.
+The 23-client compilation comparison found 19 object-identical clients and
+four differing acceptance outcomes at five deployment minima on both CPUs.
+The four cases concern XNU aliases, C99 complex constructors, the AssertMacros
+short-name default, and MacTypes callback prototypes. The malloc 16.0/26.0
+spelling gave the same 26.0 availability diagnostic on both CPUs.
+These are review findings. The release candidate remains the Libnotify build.
