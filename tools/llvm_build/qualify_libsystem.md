@@ -65,9 +65,11 @@ for cpu in arm64 x86_64; do
     -isystem "$resource/include" -isystem "$SDK/usr/include" \
     -c "$C_SDK_REPO/tools/llvm_build/fixtures/stage2_client.c" \
     -o "$REPORTS/$cpu/client.o" || exit 1
-  "$LLVM/bin/ld64.lld" -Z -arch "$cpu" -platform_version macos 11 26.5 \
+  "$LLVM/bin/ld64.lld" -t -Z -arch "$cpu" -platform_version macos 11 26.5 \
     -syslibroot "$SDK" -L"$SDK/usr/lib" "$REPORTS/$cpu/client.o" -lSystem \
-    -o "$REPORTS/$cpu/client" || exit 1
+    -o "$REPORTS/$cpu/client" > "$REPORTS/$cpu/client.link-trace" 2>&1 || exit 1
+  grep -Fx "$SDK/usr/lib/libSystem.tbd(/usr/lib/libSystem.B.dylib)" \
+    "$REPORTS/$cpu/client.link-trace" || exit 1
   /usr/bin/arch "-$cpu" "$REPORTS/$cpu/client" || exit 1
   "$LLVM/bin/llvm-nm" -um "$REPORTS/$cpu/client" | grep -F '_getpid (from libSystem)' || exit 1
 done
