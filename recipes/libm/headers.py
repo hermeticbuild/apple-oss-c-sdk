@@ -15,10 +15,26 @@ def produce(emit: Emit) -> None:
     new = b"#elif defined(__arm__) || defined(__arm64__) || defined(__aarch64__)\n#define __LIBMLDBL_COMPAT"
     if complex_source.count(old) != 1:
         raise ValueError("Libm complex.h architecture branch changed")
-    emit("usr/include/complex.h", complex_source.replace(old, new),
+    anchor = b"#define I _Complex_I\n"
+    if complex_source.count(anchor) != 1 or b"CMPLX" in complex_source:
+        raise ValueError("Libm complex.h complex constructor definitions changed")
+    # Use direct component construction to preserve signed zero and infinity.
+    # WG14 N1570 section 7.3.9.3.
+    # https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf
+    constructors = (
+        b"\n/* C11 complex constructors, ISO/IEC 9899 7.3.9.3. */\n"
+        b"#if !defined(__cplusplus) && defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L \\\n"
+        b"    && __has_builtin(__builtin_complex)\n"
+        b"#define CMPLX(x, y)  __builtin_complex((double)(x), (double)(y))\n"
+        b"#define CMPLXF(x, y) __builtin_complex((float)(x), (float)(y))\n"
+        b"#define CMPLXL(x, y) __builtin_complex((long double)(x), (long double)(y))\n"
+        b"#endif\n"
+    )
+    complex_header = complex_source.replace(old, new).replace(anchor, anchor + constructors)
+    emit("usr/include/complex.h", complex_header,
          "generated:apple via recipes/libm/headers.py:complex.h",
-         "recipes/libm/headers.py", ("sources/Libm/Source/complex.h",),
-         "guarded arm64 branch")
+         "recipes/libm/headers.py", ("sources/Libm/Source/complex.h", "recipes/libm/headers.py"),
+         "guarded arm64 branch and C11 complex constructors")
 
     source = ROOT / "sources/Libm/Source/math.h"
     text = source.read_text()
