@@ -729,3 +729,12 @@ It compiled the C client. The traced strict link opened the candidate
 produced an executable whose sole dylib load is libSystem. Both copies
 ran on the arm64 host. Find the artifacts under `close-stage2-arm64/`.
 The separate Intel build began at 21:41 UTC.
+
+**Header review evidence.** The backlog previously treated a missing
+semantic report source-lock digest as a match. The new regression first
+reproduced that failure. Replaying the archived 767-header comparison
+for build 25F70 keeps the intact report current; deleting only its
+source-lock digest now marks it stale. Both runs retain the two approved
+eventlink contexts. All 35 SDK review tests passed with the pinned LLVM
+tools. The paired backlog reports are under `semantic-lock-identity/`
+in the consumer qualification directory.

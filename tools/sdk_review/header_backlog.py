@@ -215,7 +215,7 @@ def build_backlog(args):
         issues.append("stale-sdk-path-audit")
     semantic_current = bool(semantic and not altered and (semantic["sdk"], semantic["sdk_build"]) == sdk and
                             semantic["manifest_sha256"] == manifest_digests.get("header-manifest.tsv") and
-                            semantic.get("source_lock_sha256", lock_digest) == lock_digest and
+                            semantic.get("source_lock_sha256") == lock_digest and
                             set(semantic_paths) == set(headers) and
                             all(headers.get(path, {}).get("sha256") == row["installed_sha256"]
                                 for path, row in semantic_paths.items()))

@@ -68,6 +68,7 @@ class HeaderBacklogTest(unittest.TestCase):
         }
         self.semantic = {
             "sdk": "macosx26.5", "sdk_build": "25F70", "manifest_sha256": manifest_sha,
+            "source_lock_sha256": sha(self.put("install/source-lock.json", self.lock).read_bytes()),
             "headers": {HEADER: {"installed_sha256": header_sha, "status": "identical"}},
             "probes": {},
         }
@@ -112,6 +113,13 @@ class HeaderBacklogTest(unittest.TestCase):
         report = self.run_backlog()
         self.assertEqual(report["counts"]["approved_contexts"], 0)
         self.assertEqual(report["counts"]["reasons"]["missing-include"], 2)
+        self.assertIn("stale-semantic-report", report["input_issues"])
+
+    def test_missing_source_lock_identity_marks_semantic_report_stale(self):
+        del self.semantic["source_lock_sha256"]
+        report = self.run_backlog()
+        self.assertFalse(report["inputs"]["semantic"]["current"])
+        self.assertIn("stale-semantic-report", report["input_issues"])
 
     def test_changed_include_context_cannot_reuse_standalone_approval(self):
         self.census["rows"][0]["context"] = {"defines": ["_DARWIN_C_SOURCE"]}
