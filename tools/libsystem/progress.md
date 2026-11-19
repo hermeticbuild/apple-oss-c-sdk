@@ -662,3 +662,15 @@ hermetic-llvm `tests/` tree carries `export-ignore`. The contract package
 was restored from Git blobs at the exact tested commit. The separate CI
 job that explicitly requests the host's Xcode SDK exercises a different
 SDK and supplies no evidence about this composition.
+
+During the native bootstrap, the host `llvm-min-tblgen` link was replayed
+from Bazel's original response file with only the output path changed and
+LLD tracing enabled. Its executable matched Bazel's original SHA-256
+`5a7f79d63ef6bc142619fb7faadfc06991b7e43a8dadb256ffec5912908ec583`.
+The trace opened the materialized composition's `libSystem.B.tbd`,
+`libc++.tbd` and `Foundation.tbd`. Both native executables reported LLVM
+23.1.6. This is the consumer LLVM version. The independent stub producer
+uses the pinned official LLVM 23.1.2 bundle. The TableGen result establishes
+one executed bootstrap tool. Stage 1 Clang and Stage 2 have their own
+build, identity and execution checks. Evidence is in `close-native-tablegen`
+under the consumer qualification directory.
