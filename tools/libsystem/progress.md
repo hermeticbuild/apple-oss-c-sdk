@@ -611,3 +611,16 @@ including `_close$NOCANCEL`, and passed the valid-close and double-close
 checks on macOS 26.5.2. Invocation `e215c751-dac7-483e-ac45-75db32fe46c7`,
 receipts `standalone-linux.actions.jsonl` and
 `standalone-linux-{arm64,x86_64}.imports` in the consumer report directory.
+
+A subsequent rebuild started with a new C installation directory, the
+locked Apple source checkouts, system MIG and the pinned LLVM 23.1.2.
+Its header manifest matched the original SHA-256 `674576f8…c62f519`.
+The recipe tests, all 364 C compilation checks and the native floating-point
+environment check passed. With that installation and the same local candidate
+input lock, the libSystem producer and archive packer ran under a macOS
+sandbox denying network access and reads of the installed macOS SDK.
+Both denials were exercised separately. The resulting standalone archive
+matched `2b5eadab…42a02f4` byte for byte. This reproduces the candidate
+from its prepared inputs. Promotion of the local component evidence into
+a release lock remains a separate gate. Logs and hashes are under
+`/tmp/libsystem-close-clean-rebuild.2EqlcX`.
