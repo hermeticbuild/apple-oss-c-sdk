@@ -14,6 +14,58 @@ A build checks the official toolchain projection, the install manifest and every
 
 The current resolver supports ordinary functions, data, weak definitions, TLS objects and whole-library reexports. It rejects conflicting providers and unfamiliar evidence fields. This fixture build demonstrates the interface contract. A production release additionally needs source-based selection of public exports, coverage of non-header demands, approved deployment directives, complete target/profile qualification and reviewed provenance.
 
+## Extract macOS deployment directives
+
+Use the macOS 26.5 locked source tree and a C header installation.
+
+```sh
+python3 -m tools.libsystem.directives --llvm "$LLVM" --source-root "$SOURCE_ROOT" \
+  --c-install "$C_INSTALL" --out "$work/directives.json"
+```
+
+The extractor verifies the LLVM projection, the three Apple OSS input
+digests, and the installed `TargetConditionals.h` receipt. It compiles
+`Libc/darwin/compatibility_hacks.c` directly. For libdispatch it compiles the
+macro and macOS switch from `src/internal.h` with their invocations from
+`src/init.c`. The compiler takes headers from the C installation and its
+pinned resource directory. Both target objects are read with `llvm-nm`; the
+extractor does not take an Apple SDK or cache path.
+[Pinned Libc](https://github.com/apple-oss-distributions/Libc/blob/4e34d0559e3a1b081afeb8604d9e204a1f31321d/darwin/compatibility_hacks.c) ·
+[Pinned libdispatch macro](https://github.com/apple-oss-distributions/libdispatch/blob/701f4d1a24ae9c6863901bbbb22624b7d1b87321/src/internal.h) ·
+[Pinned libdispatch invocations](https://github.com/apple-oss-distributions/libdispatch/blob/701f4d1a24ae9c6863901bbbb22624b7d1b87321/src/init.c)
+
+Schema 1 records the SDK, source SHA-256 values, toolchain lock SHA-256, and
+the installed target header SHA-256. Each row records the generated target
+`arm64-macos` or `x86_64-macos`, provider install name, complete directive
+`name`, `kind`, exact `deployment` selector from the directive, and
+affected Mach-O `symbol`. The rows describe static linker pseudo-symbols.
+The production resolver can consume the receipt separately from ordinary
+runtime export evidence.
+
+| Provider | Kind | Exact selector | Mach-O symbols on each target |
+| --- | --- | --- | --- |
+| `/usr/lib/system/libsystem_c.dylib` | `weak` | 10.11 | `_basename_r`, `_clock_getres`, `_clock_gettime`, `_clock_settime`, `_dirname_r`, `_getentropy`, `_mkostemp`, `_mkostemps`, `_timingsafe_bcmp` |
+| `/usr/lib/system/libsystem_c.dylib` | `weak` | 10.12 | `_utimensat` |
+| `/usr/lib/system/libdispatch.dylib` | `hide` | 10.12 | `_dispatch_assert_queue`, `_dispatch_assert_queue_not`, `_dispatch_queue_create_with_target` |
+
+Separate local review against macOS 26.5 SDK build 25F70 matched all ten
+Libc and all three libdispatch names, with no additional directive names
+in either provider on the two sampled SDK slices. The reference stores
+both child libraries under `arm64e-macos` and `x86_64-macos`. Two
+extractions with LLVM 23.1.2 produced byte-identical receipts.
+
+Both deployment selector values precede the 11.0 deployment floor of the
+production package. In reference links at x86_64 macOS 10.12,
+`_dispatch_queue_create_with_target` was hidden with both pinned LLD and
+Xcode 26.5's linker. The same reference bound the symbol at 10.13.
+`_getentropy` imported strongly in the 10.11 and 10.12 reference probes
+using an explicit strong object reference. LLD 23.1.2 handles `hide`
+by exact selector equality and has no `weak` directive handler. Keep
+the source-backed `weak` names as recorded policy without inferring client
+weakness, introduction dates, or old-runtime availability from them.
+Compiler-rt directives and non-macOS targets remain separate work.
+[Pinned LLD directive handler](https://github.com/llvm/llvm-project/blob/85ac560262434c9ccfc0c183ec22d4138ed647fb/lld/MachO/InputFiles.cpp)
+
 ## Investigate one header or import
 
 ```sh
