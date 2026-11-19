@@ -1,5 +1,12 @@
 # libSystem tools
 
+For a 26.5 C installation containing the binary16 Libm recipe, the offline
+build also scans the installed `math.h`. It verifies the thirteen function
+signatures, target spellings and import strength against the reviewed ABI
+and emits strong definitions in the libsystem_m child. The release lock's
+explicit header list still controls the remainder of `math.h`.
+[Runtime evidence and qualification](../../recipes/libm/half_math.md)
+
 The macOS 26.5 release lock can specify `xnu_source`, a directory under its
 input root containing the [NetName inputs](data/macosx26.5/netname.json).
 The generator derives the four Mach NetName client spellings from Apple's

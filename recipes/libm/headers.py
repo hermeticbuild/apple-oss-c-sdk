@@ -79,13 +79,20 @@ def produce(emit: Emit, sdk: str) -> None:
         "\n"
     )
     paired_trig = (ROOT / "recipes/libm/paired_trig.h").read_text()
-    math_header = text.replace(before, after).replace(anchor, declarations + paired_trig + "\n" + anchor)
+    additions = declarations + paired_trig
+    half_inputs = ()
+    if sdk == "macosx26.5":
+        half_inputs = ("recipes/libm/half_math.h", "recipes/libm/half_math.md")
+        if "__sqrtf16" in text:
+            raise ValueError("review the upstream Libm binary16 declarations")
+        additions += "\n" + (ROOT / half_inputs[0]).read_text()
+    math_header = text.replace(before, after).replace(anchor, additions + "\n" + anchor)
     emit("usr/include/math.h", math_header.encode(),
          "derived:sources/Libm/Source/math.h via recipes/libm/headers.py", "Libm derivation",
          ("sources/Libm/Source/math.h", "recipes/libm/headers.py",
           "recipes/libm/exp10.md", "recipes/libm/sinpi.md", "recipes/libm/scalar_pi.md",
           "recipes/libm/paired_trig.h", "recipes/libm/paired_trig.md",
-          "sources/xnu/bsd/sys/cdefs.h"),
+          "sources/xnu/bsd/sys/cdefs.h", *half_inputs),
          "guarded arm64 branch and macOS scalar math extensions")
 
     source = ROOT / "sources/Libm/Source/fenv.h"

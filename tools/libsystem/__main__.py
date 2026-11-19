@@ -17,6 +17,7 @@ from .libc_aliases import FILES as ALIAS_FILES, REVISION as LIBC_REVISION, insta
 from . import asan_dispatch, close_nocancel, commoncrypto, compiler_clients, fortify, libc_compiler_abi
 from . import libnotify, libunwind_abi, netname, sanitizer_abi, sanitizer_inode32, stack_probe, tsan_public
 from .compat_links import install_compat_links
+from . import half_math
 
 
 def digest(path):
@@ -107,17 +108,29 @@ def build(args):
             source = relative_file(args.lock.parent, lock.get("libc_source", lock.get("libc_alias_source")))
             install_aliases(source, lock["sdk"], images)
             receipt["libc_alias_source"] = {"commit": LIBC_REVISION, "files": ALIAS_FILES}
+        roots = set(lock["headers"])
+        has_half_math = (lock["sdk"] == "macosx26.5" and
+                         half_math.RECIPE in manifest.get(half_math.HEADER, {}).get("inputs", []))
+        if has_half_math:
+            roots.add("math.h")
         for arch in ARCHES:
             path = work / (arch + ".json")
             command = [sys.executable, "-m", "tools.libsystem.scan", "--llvm", args.llvm,
                        "--c-install", args.c_install, "--arch", arch, "--minimum", lock["minimum"], "--out", path]
-            for name in sorted(lock["headers"]):
+            for name in sorted(roots):
                 command.extend(["--header", name])
             subprocess.run(command, check=True)
             scan = read_json(path)
             if scan["arch"] != arch or scan["unresolved"]:
                 raise ValueError(f"{arch}: unresolved header scan: {scan['unresolved']}")
             inventories[arch] = scan["imports"]
+            if has_half_math:
+                half_rows = half_math.install(arch, scan, images)
+                if "math.h" not in lock["headers"]:
+                    # The implicit math.h scan qualifies only the binary16 family.
+                    inventories[arch] = [row for row in scan["imports"] if row["public_root"] != half_math.HEADER]
+                    inventories[arch].extend(half_rows)
+                receipt.setdefault("half_math", {})[arch] = sorted(row["symbol"] for row in half_rows)
             receipt["scan_sha256"][arch] = digest(path)
         if "libc_source" in lock:
             receipt["libc_compiler_abi"] = libc_compiler_abi.install(
