@@ -29,6 +29,8 @@ A build checks the official toolchain projection, the install manifest and every
 
 The macOS 26.5 release lock can name `libunwind_source` to derive the supported public libunwind exports, including the compiler-generated exception cleanup import. This input supplies source headers to the producer and leaves the C header installation unchanged. [Source selection and qualification](libunwind_abi.md)
 
+Set `commoncrypto_source` to the staged CommonCrypto source directory to derive its complete macOS export list. The recipe checks each symbol's kind against the reviewed runtime observation. The C package continues to install the public headers. [Export evidence and qualification](commoncrypto.md)
+
 The current resolver supports ordinary functions, data, weak definitions, TLS objects, symbol reexports and whole-library reexports. It rejects conflicting providers and unfamiliar evidence fields. This fixture build demonstrates the interface contract. A production release additionally needs source-based selection of public exports, coverage of non-header demands, approved deployment directives, complete target/profile qualification and reviewed provenance.
 
 For macOS 26.5 the offline producer keeps three Apple Libc declarations out of the link interface. It verifies the SDK identity, source revision, installed header receipt and exact symbol names before exempting them from provider resolution. A provider record that exports one of those names fails the build and reopens review. The output manifest records the applied policy. [Reviewed exceptions](data/macosx26.5/expected-undefined.json) · [Reference qualification](../sdk_review/sdk_header_linkage.md)

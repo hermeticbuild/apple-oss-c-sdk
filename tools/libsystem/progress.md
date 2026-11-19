@@ -306,3 +306,35 @@ requires an explicit scoped decision. The C headers were sufficient for
 this compilation. The SDK Gen `libc++abi.tbd` is a separate composition
 input. The broad rules_rs run requests the MSVC runtime EULA through a
 cross-target test; native target results are in `netname-rules-native.log`.
+
+### Native bootstrap and sanitizer qualification
+
+The two NetName Stage 2 targets passed. Their action graphs show that the
+source-built Stage 1 compiler ran on Linux ARM and cross-compiled the
+macOS Stage 2 binaries. Each resulting Clang ran on this Mac and compiled
+a scalar math client. Its linked executable ran on the same architecture
+(Rosetta for Intel). This establishes executable macOS compilers on both
+targets. The separate self-bootstrap gate requires a macOS Stage 1 action.
+Selecting `--extra_execution_platforms=@platforms//host` after the release
+config produced that action in `native-arm64-action.txt`. The first local
+build failed on the host tool's C++ exception cleanup import,
+`__Unwind_Resume`. The rules_rs process wrapper exposed the same failure.
+The custom registry test passed with Bazel on the test PATH.
+
+The maintainer approved nine compiler-rt dependencies from pinned dyld,
+XNU and libmalloc. Commits 40c071c and de2035b select them from the consumer
+declarations and record verified definitions in each provider. Paired links
+passed on both clients at minima 11.0 and 26.5. Two offline builds matched.
+The composition also selected the separate SDK Gen dynamic libc++abi stub.
+The e2e rerun reached the TSan dylib link. Its nine outstanding imports were
+four private lock functions, three ucontext functions, base-name realpath and
+fileno_unlocked. The four locks have scoped linker-only approval.
+
+The libunwind receipt qualifies 32 of 43 system exports per CPU, including
+the cleanup import. A C++ exception exercised the destructor in each slice.
+Eleven names remain open. CommonCrypto's public export rule qualifies all
+245 names, 241 text and four data. The previous candidate covered 54.
+The maintainer approved the full verified list with SPI headers outside
+the C package. Local qualification receipts are
+`/tmp/libsystem-unwind-qual.bEMk41/summary.json` and
+`/tmp/commoncrypto-abi.w7cVeA/link-qualification.json`.
