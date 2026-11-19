@@ -178,6 +178,29 @@ Prompt as soon as the decision becomes necessary and before changing the affecte
 
 ## Validation loop and finish gate
 
+After running the consumer workloads and before release sign-off, reconcile
+every divergent installed C header against the exact candidate's
+`compare_c_interfaces` report. The 26.5 baseline had 45 differing paths;
+the current comparison has 48. Retain per-path decisions for the entire set.
+When one path contains multiple independent differences, decide each
+separately. A passing compiler bootstrap is evidence only for the paths
+and behavior it exercised.
+
+For each difference, record the affected arm64 or x86_64 macOS client, the
+behavior at risk, its source receipt and one of these outcomes:
+
+- **Fixed and verified** with the before/after probe or artifact.
+- **Accepted difference** with its rationale and scope, plus any required
+  maintainer approval. For a text-only difference, record the comparison
+  that establishes that the declarations agree.
+- **Open** with a reproducer or a specific evidence gap and its release impact.
+
+Reuse the first audit's findings. Prioritize target and availability branches,
+ABI layout and calling convention, public declarations, and the names or
+weakness of linker imports. New, changed or disappeared differences reopen
+the affected decisions. An unexplained potentially public ABI difference
+blocks release. No release criterion requires matching header bytes.
+
 | When | Test | Pass condition |
 | --- | --- | --- |
 | Each recipe or classifier change | Original failing case, negative control, affected header contexts and small object/link fixtures on both targets | The old failure reproduces, the repair changes the expected observable behavior, and out-of-scope cases keep their documented behavior. Include wrong-architecture builtins, false inline exports, stale waivers and conflicting providers as negative cases. |
