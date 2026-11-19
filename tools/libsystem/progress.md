@@ -711,3 +711,10 @@ same composed sysroot. The output was LLVM bitcode. Receipts are
 `close-native-stage1-link/{replay.params,link.trace,hashes}` and
 `close-stage1-observed-arm64.json` under the consumer qualification
 directory. Stage 2 completion and execution are separate gates.
+
+The same native Stage 1 compiler produced the checked-in C client for
+both targets. Strict links with LLD's default search disabled opened
+the composed sysroot's `libSystem.tbd` alias, and both executables bound
+`_getpid` through libSystem. The arm64 executable ran natively and the
+Intel executable ran under Rosetta on host build 25F84. Objects, executables,
+imports and linker traces are under `close-native-stage1-link/{arm64,x86_64}`.

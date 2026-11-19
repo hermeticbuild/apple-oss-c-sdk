@@ -112,6 +112,18 @@ extracted sysroot. Hash its `usr/lib/libSystem.B.tbd` against the composition
 receipt, inspect the produced Mach-O architecture, and use the resulting
 Clang to compile and run a client on the corresponding architecture.
 
+To establish which stubs linked Stage 1 itself, use the native compiler
+link's Bazel response file from the execution root. Identify the matching
+configuration by comparing the built `llvm.stripped` with the Stage 1
+`bin/clang++` in the Stage 2 action. Copy the response file to the report
+directory, insert `-Wl,-t`, and redirect its `-o` to a fresh directory,
+retaining the filename `llvm`. Run it from the execution root with the
+original link driver. Require the replay to match the unstripped Bazel
+`llvm` byte for byte and the trace to name the composed sysroot's
+`usr/lib/libSystem.B.tbd`. Save the trace, both comparisons and the stub
+digest. The executable's load commands show the runtime install name;
+the linker trace identifies the build-time stub.
+
 Record cached versus executed tests, incompatible targets, and failures.
 The macOS rules_rs command covers 39 tests in the pinned snapshot. Its
 explicitly excluded target transitions over every Rust target triple and
