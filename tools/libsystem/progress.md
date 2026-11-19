@@ -718,3 +718,14 @@ the composed sysroot's `libSystem.tbd` alias, and both executables bound
 `_getpid` through libSystem. The arm64 executable ran natively and the
 Intel executable ran under Rosetta on host build 25F84. Objects, executables,
 imports and linker traces are under `close-native-stage1-link/{arm64,x86_64}`.
+
+**arm64 bootstrap passed.** On 2026-11-19 the native bootstrap completed
+all 28,299 configured actions using the same archive as the e2e and Rust
+gates. Bazel reported 5,221 cache hits and 23,045 Darwin sandbox actions.
+The Stage 2 arm64 Mach-O reports Clang 23.1.6 and has SHA-256
+`530ea806841cc473cb36f9bf9b42f4722adaef82ba82cfbb2caf5cdc4d3353a1`.
+It compiled the C client. The traced strict link opened the candidate
+`libSystem.tbd`, reproduced the untraced client byte for byte and
+produced an executable whose sole dylib load is libSystem. Both copies
+ran on the arm64 host. Find the artifacts under `close-stage2-arm64/`.
+The separate Intel build began at 21:41 UTC.
