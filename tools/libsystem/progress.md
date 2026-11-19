@@ -538,3 +538,12 @@ close there. Inspect their Mach-O imports, dependencies, and run logs in
 `/tmp/libsystem-fortify-qual.1isE94/close-rust-panic`.
 The preceding archive starting with `463a57dd` passed 36 applicable
 hermetic-llvm e2e tests on each architecture, with 45 skipped per run.
+
+All 39 macOS-scoped rules_rs tests executed and passed on arm64 with the
+iconv archive starting with `463a57dd`, including PyO3, Prost and the
+custom registry test (`union-rules-arm64.log`). The command excluded
+`//:target_triple_constraints_test`, whose transition requests every
+supported platform and whose Windows configuration requires an MSVC
+license decision. The Rust and hermetic-llvm runs against the later
+close-alias archive have separate `close-rules-*` and `close-e2e-*`
+logs. The native Stage 2 bootstrap log is `close-stage2-arm64.log`.
