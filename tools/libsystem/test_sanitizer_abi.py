@@ -51,6 +51,19 @@ class ScopeTests(unittest.TestCase):
                 install(SDK, roots, None, root / "objects", [], inventories, minimum="11.0")
             self.assertEqual(inventories, {"arm64": [], "x86_64": []})
 
+    def test_fuzzer_opt_in_requires_the_reviewed_consumer_source(self):
+        with TemporaryDirectory() as temp:
+            root = Path(temp)
+            source = root / "lib/fuzzer/FuzzerUtilDarwin.cpp"
+            source.parent.mkdir(parents=True)
+            source.write_text('extern "C" const char **environ;\n')
+            roots = {name: root for name in ("compiler-rt", "dyld", "libmalloc", "xnu")}
+            inventories = {arch: [] for arch in ARCHES}
+            with self.assertRaisesRegex(ValueError, "FuzzerUtilDarwin.cpp: expected"):
+                install(SDK, roots, None, root / "objects", [], inventories,
+                        minimum="11.0", include_fuzzer=True)
+            self.assertEqual(inventories, {"arm64": [], "x86_64": []})
+
 
 @unittest.skipUnless(os.getenv(SOURCE_ENV) and os.getenv(LLVM_ENV), "requires pinned sources and official LLVM")
 class QualifiedTests(unittest.TestCase):

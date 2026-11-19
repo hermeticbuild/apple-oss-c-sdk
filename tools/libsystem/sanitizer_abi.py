@@ -11,15 +11,21 @@ from .scan import digest, run
 
 RECORD = Path(__file__).parent / "data/macosx26.5/sanitizer-abi.json"
 TSAN_RECORD = RECORD.with_name("sanitizer-tsan-locks.json")
+FUZZER_RECORD = RECORD.with_name("sanitizer-fuzzer.json")
 UNDEFINED = re.compile(r"\s*\(undefined\) (weak )?external (\w+)")
 
 
-def locked_evidence(include_tsan):
+def locked_evidence(include_tsan, *, include_fuzzer=False):
     evidence = json.loads(RECORD.read_bytes())
     if include_tsan:
         extension = json.loads(TSAN_RECORD.read_bytes())
         evidence["sources"]["compiler-rt"]["files"].update(extension["compiler_rt_files"])
         evidence["sources"]["libplatform"] = extension["libplatform"]
+        evidence["groups"].append(extension["group"])
+    if include_fuzzer:
+        extension = json.loads(FUZZER_RECORD.read_bytes())
+        evidence["sources"]["compiler-rt"]["files"].update(extension["compiler_rt_files"])
+        evidence["sources"]["dyld"]["files"].update(extension["dyld_files"])
         evidence["groups"].append(extension["group"])
     return evidence
 
@@ -96,8 +102,8 @@ def qualify(evidence, source, llvm, work, minimum):
     return {"source_sha256": digest(client), "slices": results}
 
 
-def install(sdk, source_roots, llvm, work, images, inventories, *, minimum):
-    evidence = locked_evidence("libplatform" in source_roots)
+def install(sdk, source_roots, llvm, work, images, inventories, *, minimum, include_fuzzer=False):
+    evidence = locked_evidence("libplatform" in source_roots, include_fuzzer=include_fuzzer)
     if sdk != evidence["sdk"]:
         raise ValueError(f"the reviewed sanitizer ABI applies only to {evidence['sdk']}")
     parts = tuple(map(int, version(minimum).split(".")))
