@@ -687,3 +687,13 @@ both architectures bound the two unwind compatibility names through
 libSystem. The [reproduction](libunwind_abi.md#reproduce-the-rust-consumer)
 records the compiler flags. Reports are under
 `/tmp/libsystem-fortify-qual.1isE94/close-rust-deployments.UmXTtp`.
+
+**Host tools decision for macOS 26.5.** Corentin accepted a Mac with
+working Apple developer tools for C header generation. Keep the upstream
+Libinfo launcher. It directly runs `xcrun unifdef` and offers no executable
+override. Selecting the same binary by path in other recipes would still
+leave that lookup. The verified header-install boundary permits SDK
+discovery and denies access to the SDK interface directories. The
+libSystem generation and packaging check retains its full SDK-read denial.
+Revisit tool selection if generation must run on a host without working
+Apple developer tools. [Operator instructions](README.md)

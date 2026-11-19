@@ -45,6 +45,16 @@ source inputs to qualify the Intel compatibility imports used by ASan
 and TSan. The ordinary Intel header profile continues to select the
 `$INODE64` names. [Variant evidence and consumer links](sanitizer_inode32.md)
 
+Building the prerequisite C installation assumes a Mac with working Apple
+developer tools. Run `xcrun --find unifdef` and `xcrun --find mig` to
+check tool discovery. Libinfo invokes `xcrun unifdef` itself when filtering
+its RPC module map. A fixed path for direct `unifdef` calls covers only
+part of the installation. The 26.5 C tree reproduced byte for byte with
+the host SDK's include, library and framework directories unreadable.
+With that tree and the prepared candidate lock, the separate libSystem
+producer reproduced its archive with the entire installed macOS SDK
+unreadable. [Apple's pinned install script](https://github.com/apple-oss-distributions/Libinfo/blob/39b70c515baee5b609e7e91693edbd934b6845a1/xcodescripts/install_files.sh#L77)
+
 Start by preparing the [official LLVM bundle](../toolchain/README.md). Set `LLVM` to its verified directory and run the following from the repository root. Fixture names and records are independently authored. The first runnable build lock targets the fixture; the macOS 26.5 production lock and reviewed component evidence are pending.
 
 ```sh
