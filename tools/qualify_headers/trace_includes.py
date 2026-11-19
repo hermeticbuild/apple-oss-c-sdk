@@ -163,8 +163,11 @@ def main() -> int:
     parser.add_argument("--probe", type=Path, default=DEFAULT_PROBE,
                         help="checked-in C root fixture (default: sdk_discovery.c)")
     parser.add_argument("--out", required=True, type=Path)
-    parser.add_argument("--reference", type=Path,
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--reference", type=Path,
                         help="reference closure JSON to check for missing paths")
+    mode.add_argument("--report-only", action="store_true",
+                      help="write all failed discovery roots without making them a shipping gate")
     args = parser.parse_args()
     probe = args.probe.resolve()
     if not probe.is_file() or not probe.is_relative_to(ROOT):
@@ -212,7 +215,7 @@ def main() -> int:
     print(f"{total - len(errors)}/{total} probes passed (combined + individual)")
     for line in errors + gaps:
         print(line)
-    return 1 if errors or gaps else 0
+    return 1 if (errors or gaps) and not args.report_only else 0
 
 
 if __name__ == "__main__":

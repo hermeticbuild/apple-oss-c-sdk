@@ -33,30 +33,32 @@ def options(context):
 def probe(job):
     arch, path, context, root, resource, clang, minimum = job
     public = path.removeprefix("usr/include/")
+    if not isinstance(context.get("before", []), list):
+        raise ValueError(f"invalid prerequisite list for {path}")
     includes = [*context.get("before", []), context.get("root", public)]
     if not all(INCLUDE.fullmatch(s) and not Path(s).is_absolute() and ".." not in Path(s).parts for s in includes):
         raise ValueError(f"invalid header context for {path}")
     source = "".join(f"#include <{header}>\n" for header in includes)
-    argv = [str(clang), "-target", f"{arch}-apple-macos{minimum}", "-isysroot", str(root),
+    argv = [str(clang), "--no-default-config", "-target", f"{arch}-apple-macos{minimum}", "-isysroot", str(root),
             "-nostdinc", "-isystem", str(resource), "-isystem", str(root / "usr/include"),
             "-H", "-ferror-limit=1", *options(context), "-"]
     run = subprocess.run(argv, input=source, text=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
                          env={"PATH": "/usr/bin:/bin", "LC_ALL": "C"})
-    reached = set()
+    reached = {"sysroot": set(), "resource": set()}
     diagnostic = []
     for line in run.stderr.splitlines():
         match = re.match(r"^\.+ (/.+)$", line)
         if match:
             kind, header = classify(Path(match[1]).resolve(), resource, root)
-            if kind == "sysroot":
-                reached.add(header)
+            reached[kind].add(header)
         else:
             diagnostic.append(line)
     status = "compile-failed" if run.returncode else "passed"
-    if status == "passed" and (root / path).resolve().relative_to(root).as_posix() not in reached:
+    if status == "passed" and (root / path).resolve().relative_to(root).as_posix() not in reached["sysroot"]:
         status = "header-not-reached"
     return {"arch": arch, "path": path, "context": context, "status": status,
-            "includes": sorted(reached), "diagnostic": "\n".join(diagnostic),
+            "includes": sorted(reached["sysroot"]), "resource_includes": sorted(reached["resource"]),
+            "diagnostic": "\n".join(diagnostic),
             "argv": argv, "stdin": source}
 
 
@@ -66,6 +68,7 @@ def main():
         parser.add_argument("--" + name, type=Path, required=True)
     parser.add_argument("--contexts", type=Path, help="JSON map from manifest path to per-arch include context")
     parser.add_argument("--header", action="append", help="limit to an installed usr/include-relative path")
+    parser.add_argument("--report-only", action="store_true", help="return success for a completed census with open findings")
     parser.add_argument("--minimum", required=True)
     parser.add_argument("--jobs", type=int, default=min(8, os.cpu_count() or 1))
     args = parser.parse_args()
@@ -98,7 +101,7 @@ def main():
         parser.exit(2, f"header census: {exc}\n")
     failures = sum(row["status"] != "passed" for row in rows)
     print(f"{len(rows) - failures}/{len(rows)} contexts passed")
-    return bool(failures)
+    return bool(failures) and not args.report_only
 
 
 if __name__ == "__main__":
