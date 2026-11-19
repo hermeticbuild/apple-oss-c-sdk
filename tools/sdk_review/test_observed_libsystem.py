@@ -44,7 +44,8 @@ class ObservedBindings(unittest.TestCase):
         with TemporaryDirectory() as temp:
             work = Path(temp)
             graph = work / "graph.json"
-            graph.write_text(json.dumps({"umbrella": {"install_path": SYSTEM}, "component_slots": []}))
+            graph.write_text(json.dumps({"scope": {"sdk": "fixture"}, "umbrella": {"install_path": SYSTEM},
+                                        "component_slots": []}))
             for arch in ARCHES:
                 observations = work / arch
                 observations.mkdir()

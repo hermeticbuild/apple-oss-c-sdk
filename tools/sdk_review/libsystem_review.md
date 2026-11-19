@@ -42,7 +42,7 @@ python3 -m tools.sdk_review.probe_runtime_providers --client-arch "$ARCH" \
   --dyld-evidence "$WORK/dyld-evidence" --out "$WORK/providers-$ARCH"
 python3 -m tools.sdk_review.build_observed_libsystem --graph "$WORK/component-graph.json" \
   --arm64 "$WORK/providers-arm64" --x86_64 "$WORK/providers-x86_64" \
-  --minimum 11.0 --out "$WORK/stubs"
+  --c-install "$C_INSTALL" --minimum 11.0 --out "$WORK/stubs"
 ```
 
 Use the observed cache slice, such as arm64e for an arm64 client. Omit

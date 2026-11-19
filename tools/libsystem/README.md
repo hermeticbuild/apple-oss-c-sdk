@@ -14,6 +14,8 @@ A build checks the official toolchain projection, the install manifest and every
 
 The current resolver supports ordinary functions, data, weak definitions, TLS objects and whole-library reexports. It rejects conflicting providers and unfamiliar evidence fields. This fixture build demonstrates the interface contract. A production release additionally needs source-based selection of public exports, coverage of non-header demands, approved deployment directives, complete target/profile qualification and reviewed provenance.
 
+For macOS 26.5 the offline producer keeps three Apple Libc declarations out of the link interface. It verifies the SDK identity, source revision, installed header receipt and exact symbol names before exempting them from provider resolution. A provider record that exports one of those names fails the build and reopens review. The output manifest records the applied policy. [Reviewed exceptions](data/macosx26.5/expected-undefined.json) · [Reference qualification](../sdk_review/sdk_header_linkage.md)
+
 ## Extract macOS deployment directives
 
 Use the macOS 26.5 locked source tree and a C header installation.

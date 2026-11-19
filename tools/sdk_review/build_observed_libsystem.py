@@ -1,12 +1,15 @@
 """Build a local partial TBD to qualify observed client bindings against a reference SDK."""
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 import re
 from tempfile import TemporaryDirectory
 
 from tools.libsystem.emit import ARCHES, SYSTEM, resolve, version
+from tools.header_manifest import read_header_manifest
+from tools.libsystem.expected_undefined import policy_for, verify_header
 from .probe_runtime_providers import match_export
 
 
@@ -59,6 +62,12 @@ def build(args):
     installation = None
     minimum = deployment_version(args.minimum)
     review = {"qualification": "local-partial", "targets": {}}
+    policy = policy_for(graph["scope"]["sdk"])
+    approved_manifest = None
+    if policy and args.c_install:
+        manifest, _ = read_header_manifest(args.c_install)
+        verify_header(policy, args.c_install, manifest)
+        approved_manifest = hashlib.sha256((args.c_install / "header-manifest.tsv").read_bytes()).hexdigest()
     for arch in ARCHES:
         root = getattr(args, arch)
         report = read(root / "providers.json")
@@ -68,6 +77,9 @@ def build(args):
             raise ValueError(f"no client scan receipts for {arch}")
         for scan in report["scans"]:
             scan_minimum = scan["minimum"]
+            if approved_manifest and not any(row["path"] == "header-manifest.tsv" and row["sha256"] == approved_manifest
+                                             for row in scan["c_manifest"]):
+                raise ValueError("provider evidence and approved header installation differ")
             if deployment_version(scan_minimum) != minimum:
                 raise ValueError(f"{arch}: requested minimum {args.minimum} disagrees with scan minimum {scan_minimum}")
             if installation is not None and scan["c_manifest"] != installation:
@@ -77,6 +89,7 @@ def build(args):
         if set(report["images"]) != {SYSTEM, *edges}:
             raise ValueError("additional component levels require review")
         omitted = []
+        expected = []
         count = 0
         clients[arch] = []
         observed = {}
@@ -100,6 +113,12 @@ def build(args):
             hits = row["matches"]
             if hits != sorted(observed[row["symbol"]], key=lambda item: item["image"]):
                 raise ValueError(f"provider receipts disagree on {row['symbol']}")
+            if policy and row["symbol"] in policy["symbols"]:
+                if hits or row["client_declarations"] != [["function", policy["header"]]]:
+                    raise ValueError(f"reopen expected-undefined decision for {row['symbol']}")
+                if approved_manifest:
+                    expected.append(row["symbol"])
+                    continue
             if len(hits) != 1 or hits[0]["role"] != "definition" or len(kinds) != 1:
                 omitted.append(row)
                 continue
@@ -115,6 +134,7 @@ def build(args):
         review["targets"][arch] = {"observed_arch": report["observed_arch"], "scans": report["scans"],
                                   "root_findings": report.get("root_findings", []),
                                   "linker_demands": report["linker_demands"],
+                                  "expected_undefined": expected,
                                   "included_symbols": count, "omitted_demands": omitted, "edges": edges}
     interface, _ = resolve(images.values(), clients, args.minimum)
     args.out.parent.mkdir(parents=True, exist_ok=True)
@@ -133,6 +153,7 @@ def main():
     for key in ("graph", *ARCHES, "out"):
         parser.add_argument("--" + key, required=True, type=Path)
     parser.add_argument("--minimum", required=True)
+    parser.add_argument("--c-install", type=Path, help="verify reviewed header receipts before classifying omissions")
     args = parser.parse_args()
     try:
         build(args)

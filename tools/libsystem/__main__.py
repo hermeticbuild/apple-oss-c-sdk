@@ -12,6 +12,7 @@ from tempfile import TemporaryDirectory
 from tools.header_manifest import read_header_manifest
 from tools.toolchain.official_llvm import PIN, projection, read_lock
 from .emit import ARCHES, fields, resolve
+from .expected_undefined import filter_demands, policy_for, verify_header
 
 
 def digest(path):
@@ -87,6 +88,11 @@ def build(args):
                 raise ValueError(f"{arch}: unresolved header scan: {scan['unresolved']}")
             inventories[arch] = scan["imports"]
             receipt["scan_sha256"][arch] = digest(path)
+        policy = policy_for(lock["sdk"])
+        if policy:
+            verify_header(policy, args.c_install, manifest)
+            inventories = filter_demands(policy, images, inventories)
+            receipt["expected_undefined"] = policy
         tbd, rows = resolve(images, inventories, lock["minimum"])
         stub = lib / "libSystem.B.tbd"
         write_json(stub, tbd)
