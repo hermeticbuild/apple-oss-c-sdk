@@ -29,6 +29,10 @@ libFuzzer reads the external `environ` object to pass its environment to
 `posix_spawn`. The generator pins that LLVM client and Apple's dyld definition.
 [Source and binding evidence](data/macosx26.5/sanitizer-fuzzer.json)
 
+Include `libdispatch` in `sanitizer_sources` to qualify the two Mach channel
+constructors interposed by Darwin ASan. The C package keeps the private
+dispatch header outside its install list. [ASan sources and linkage](data/macosx26.5/asan-dispatch.json)
+
 Start by preparing the [official LLVM bundle](../toolchain/README.md). Set `LLVM` to its verified directory and run the following from the repository root. Fixture names and records are independently authored. The first runnable build lock targets the fixture; the macOS 26.5 production lock and reviewed component evidence are pending.
 
 ```sh

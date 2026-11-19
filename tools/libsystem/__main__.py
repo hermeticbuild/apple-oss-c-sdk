@@ -14,7 +14,8 @@ from tools.toolchain.official_llvm import PIN, projection, read_lock
 from .emit import ARCHES, fields, resolve
 from .expected_undefined import filter_demands, policy_for, verify_header
 from .libc_aliases import FILES as ALIAS_FILES, REVISION as LIBC_REVISION, install_aliases
-from . import commoncrypto, compiler_clients, fortify, libc_compiler_abi, libunwind_abi, netname, sanitizer_abi, stack_probe, tsan_public
+from . import asan_dispatch, commoncrypto, compiler_clients, fortify, libc_compiler_abi, libunwind_abi, netname
+from . import sanitizer_abi, stack_probe, tsan_public
 from .compat_links import install_compat_links
 
 
@@ -141,10 +142,12 @@ def build(args):
                 required.update(("libc", "libplatform"))
             elif "libplatform" in sources:
                 required.add("libplatform")
+            if "libdispatch" in sources:
+                required.add("libdispatch")
             fields(sources, required, "sanitizer sources")
             roots = {key: relative_file(args.lock.parent, path) for key, path in sources.items()}
             receipt["sanitizer_abi"] = sanitizer_abi.install(
-                lock["sdk"], {k: v for k, v in roots.items() if k != "libc"},
+                lock["sdk"], {k: v for k, v in roots.items() if k not in {"libc", "libdispatch"}},
                 args.llvm.resolve(), work / "sanitizer-abi", images, inventories,
                 minimum=lock["minimum"], include_fuzzer=lock.get("libfuzzer", False))
             if "libc" in roots:
@@ -152,6 +155,10 @@ def build(args):
                     lock["sdk"], {k: roots[k] for k in ("libc", "libplatform", "compiler-rt")},
                     args.llvm.resolve(), args.c_install.resolve(), work / "tsan-public", images, inventories,
                     minimum=lock["minimum"])
+            if "libdispatch" in roots:
+                receipt["asan_dispatch"] = asan_dispatch.install(
+                    lock["sdk"], roots["compiler-rt"], roots["libdispatch"], args.llvm.resolve(),
+                    work / "asan-dispatch", images, inventories, minimum=lock["minimum"])
         policy = policy_for(lock["sdk"])
         if policy:
             verify_header(policy, args.c_install, manifest)

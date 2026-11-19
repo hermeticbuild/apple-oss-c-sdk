@@ -386,3 +386,32 @@ and retains the Apple system runtime. The first link failed when
 `usr/lib/libc++abi.tbd` was absent. The composition now includes the SDK
 Gen dynamic stub for `/usr/lib/libc++abi.dylib` alongside the system libc++
 stub. Both belong to the consumer composition.
+
+The native rules_rs retry passed 23 tests. Sixteen could not build because
+Rust's prebuilt standard library refers to `_Unwind_GetTextRelBase` and
+`_Unwind_GetDataRelBase` in its panic personality. The maintainer declined
+adding the two system compatibility exports. An LLVM-toolchain alternative
+is under investigation. The official LLVM 23.1.2 macOS archive supplies
+the unwind header and has no prebuilt libunwind archive or dylib. The
+current Rust action's libunwind search directory contains an empty
+compatibility archive. This differs from hermetic-llvm's explicit
+`@llvm//runtimes/libunwind:libunwind.static` source-build target.
+
+Darwin libFuzzer also reads `environ` directly. The baseline failed on
+that object. Pinned Apple dyld defines the data, and LLVM supplies the
+client declaration. Four paired links passed and the runtime fixture
+passed the process environment to a child on both clients.
+Source commit 030ec19 and integrations e159e99 and 66848f6 provide an
+opt-in producer input. ASan separately failed linking two private
+dispatch Mach constructors. The maintainer approved those two only.
+The full remote e2e run also attempted to execute Mach-O test binaries
+on Linux. Native macOS execution with the declared SDK is required for
+the runtime gate.
+
+The scoped ASan rule derives both consumer names from LLVM's interposers.
+Apple's private header and Mach implementation identify the APIs and the
+provider. The four baseline links failed on precisely those names.
+After adding them, both client architectures matched the reference at
+both deployment endpoints. Only two strong text entries per slice were
+added to libdispatch. Source commit f15d017, integration 6658b83.
+Receipts are in `/tmp/libsystem-asan-dispatch-audit.dnBULg`.
