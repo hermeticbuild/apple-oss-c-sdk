@@ -104,6 +104,12 @@ preserves failed contexts in `root_findings`.
 
 ## Review decisions
 
+Before proposing an omission for a declared C name with no libSystem provider,
+look up its emitted Mach-O name across the whole reference SDK. If another
+library lists it, link an object from the actual header and inspect the
+two-level binding. Keep separately supplied libraries, expected undefined
+links and unexplained ABI gaps distinct. [SDK-wide header linkage audit](sdk_header_linkage.md)
+
 The optional `backlog --decisions FILE` ledger is JSON with `schema: 1`,
 `sdk`, `reference_sha256`, and a `decisions` array. Each decision has an
 `id`, nonempty `members` array of stable gap IDs, `member_sha256`,
