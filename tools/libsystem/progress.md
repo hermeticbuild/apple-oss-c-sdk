@@ -569,3 +569,11 @@ Its 5,252 logical members match the archive used for the consumer runs,
 including file contents, executable modes and link targets. Normalization
 removed 5,252 AppleDouble entries and the macOS extended attributes.
 See `/tmp/sdk-normalized-qualification.LkoaBE/receipt.json`.
+
+The noncancelable close runtime fixture also checks arm64 directly. Both
+pre-alias links failed solely on `_close$NOCANCEL`. The same client object
+per target and minimum linked against the candidate and Xcode reference
+and imported that name from libSystem. All eight executables closed a valid
+pipe descriptor, then observed `EBADF` on the second close on macOS 26.5.2
+(native arm64 and Rosetta x86_64, minima 11.0 and 26.5). Reports are in
+`/tmp/xnu-close-qual.7LUZ35/runtime-close`.

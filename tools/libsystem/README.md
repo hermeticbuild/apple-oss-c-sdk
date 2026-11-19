@@ -190,3 +190,34 @@ python3 -m tools.sdk_composition.compose_libsystem \
 ```
 
 The composer rejects additional providers of install names already supplied by libSystem. Its `composition.json` traces files and dylib providers to their layers. For a C++ workload, supply the Apple libc++ link stub and any alias via separate `--external-stub DESTINATION=SOURCE` arguments. The consumer toolchain supplies C++ headers.
+
+### Exercise the XNU close alias on a running Mac
+
+Apple Silicon with Rosetta can execute both target slices. Set `SDK` to
+the generated SDK, `LLVM` to the qualification tool directory, and `WORK`
+to a scratch directory. Run from the repository root. The checked-in C
+client calls the actual noncancelable close alias on an open pipe and
+checks that a second close returns `EBADF`. Its explicit assembler label
+lets both CPUs exercise the alias even when their Rust runtime uses a
+different entry point.
+
+```bash
+mkdir -p "$WORK"
+resource=$("$LLVM/bin/clang" --no-default-config -print-resource-dir)
+for cpu in arm64 x86_64; do
+  for min in 11.0 26.5; do
+    out="$WORK/close-$cpu-$min"
+    "$LLVM/bin/clang" --no-default-config -target "$cpu-apple-macos$min" \
+      -nostdinc -isystem "$resource/include" -isystem "$SDK/usr/include" \
+      -c tools/libsystem/fixtures/close_nocancel_runtime.c -o "$out.o" || exit 1
+    "$LLVM/bin/ld64.lld" -Z -arch "$cpu" -platform_version macos "$min" 26.5 \
+      -syslibroot "$SDK" -L"$SDK/usr/lib" "$out.o" -lSystem -o "$out" || exit 1
+    "$LLVM/bin/llvm-nm" -um "$out" | grep -F '_close$NOCANCEL (from libSystem)' || exit 1
+    /usr/bin/arch "-$cpu" "$out" || exit 1
+  done
+done
+```
+
+For differential qualification, link each same object again using the
+reference SDK and run it. Record the runtime build separately from the
+deployment minima.
