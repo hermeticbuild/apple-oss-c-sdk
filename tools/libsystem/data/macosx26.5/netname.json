@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "sdk": "macosx26.5",
+  "source": {
+    "project": "apple-oss-distributions/xnu",
+    "commit": "ac9718fb1af618d5ce8678d0dc6e8a58f252216f",
+    "generated_public_header": "servers/netname.h",
+    "files": {
+      "libsyscall/Libsyscall.xcconfig": "965997e7c4934fd75bb5b00f9b71db4a7a4a8bb93da64f513f12a1ed11fa1d2a",
+      "libsyscall/Libsyscall.xcodeproj/project.pbxproj": "8f9f38b7847bd9195ba4d94d9c78f56024ad72279064a6e4afbe5e6bca59eef2",
+      "libsyscall/mach/servers/netname.defs": "01e973c7f1f3a2e0a87d62264fede7be1fff1d3e712dea7ed45ea763fdd3b830",
+      "libsyscall/xcodescripts/mach_install_mig.sh": "e987edd2b4dacf7807b6e6f46badc0b02aa6bfaaac0fb8a5fa7d5e02d5785a3f"
+    }
+  },
+  "qualification": {
+    "reference_sdk_build": "25F70",
+    "reference_role": "strong export",
+    "paired_link_minima": ["11.0", "26.5"],
+    "runtime_build": "25F84",
+    "runtime_images": {
+      "arm64e": "FCA53B98-3D6A-38B2-A0EC-DF0F7E05F171",
+      "x86_64": "93064F3A-6853-3BD5-9DCC-BB6171003FA8"
+    },
+    "runtime_role": "strong definition"
+  }
+}
