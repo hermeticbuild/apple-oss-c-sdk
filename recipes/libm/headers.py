@@ -39,12 +39,33 @@ def produce(emit: Emit) -> None:
     source = ROOT / "sources/Libm/Source/math.h"
     text = source.read_text()
     before = "#elif defined(__arm__)\n"
+    after = "#elif defined(__arm__) || defined(__arm64__)\n"
     if text.count(before) != 1:
         raise ValueError("Libm math.h architecture switch changed")
-    emit("usr/include/math.h", text.replace(before,
-         "#elif defined(__arm__) || defined(__arm64__)\n").encode(),
+    anchor = "#endif /* __MATH_H__ */"
+    if text.count(anchor) != 1 or "__sinpi" in text:
+        raise ValueError("Libm math.h declaration insertion point changed")
+    declarations = (
+        "#if defined(__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__) && \\\n"
+        "    (defined(__arm64__) || defined(__x86_64__))\n"
+        "#include <Availability.h>\n"
+        "\n"
+        "#ifdef __cplusplus\n"
+        'extern "C" {\n'
+        "#endif\n"
+        "extern double __sinpi(double) __API_AVAILABLE(macos(10.9));\n"
+        "extern float __sinpif(float) __API_AVAILABLE(macos(10.9));\n"
+        "#ifdef __cplusplus\n"
+        "}\n"
+        "#endif\n"
+        "#endif\n"
+        "\n"
+    )
+    math_header = text.replace(before, after).replace(anchor, declarations + anchor)
+    emit("usr/include/math.h", math_header.encode(),
          "derived:sources/Libm/Source/math.h via recipes/libm/headers.py", "Libm derivation",
-         ("sources/Libm/Source/math.h",), "guarded arm64 branch")
+         ("sources/Libm/Source/math.h", "recipes/libm/headers.py", "recipes/libm/sinpi.md"),
+         "guarded arm64 branch and macOS sine-pi declarations")
 
     source = ROOT / "sources/Libm/Source/fenv.h"
     text = source.read_text()
