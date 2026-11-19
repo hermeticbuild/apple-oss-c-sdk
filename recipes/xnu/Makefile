@@ -3,6 +3,8 @@ stage: stage-xnu
 stage-xnu:
 	mkdir -p "$(STAGE)/xnu"
 	"$(PYTHON)" recipes/xnu/headers.py "$(STAGE)/xnu" > "$(STAGE)/xnu/records"
+	SOURCE_ROOT="$(or $(SOURCE_ROOT),$(CURDIR)/sources)" "$(PYTHON)" -m recipes.xnu.asm_headers \
+		"$(STAGE)/xnu" >> "$(STAGE)/xnu/records"
 
 # The Libsyscall public MIG list uses the armv7/i386 preprocessing modes.
 .PHONY: mig-arm64 mig-x86_64
