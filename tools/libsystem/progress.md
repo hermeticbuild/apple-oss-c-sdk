@@ -644,3 +644,21 @@ were unreadable. `make -j4 install` completed. Its entire output tree
 matched the ordinary serial installation, including the header manifest.
 See `no-sdk-interfaces.sb`, `no-sdk-interfaces-install.log` and the empty
 `no-sdk-interfaces.diff` under the fresh rebuild directory.
+
+The pinned hermetic-llvm macOS CI job also explicitly runs targets outside
+the wildcard test suite. On the same `c0a98a31` composition, both target
+configurations passed the two manual Intel search-order comparisons, built
+the header-order clients, and passed the unmodified LCOV integration
+script with test-result caching disabled. Each LCOV report contained three
+covered and three uncovered lines of `coverage_lib.cc`. Both builds of
+the four C++ standard library settings contracts passed. The TSan and LSan
+binaries have the correct respective Mach-O architectures and load their
+corresponding runtime dylibs plus libSystem. These last two are build-only
+CI targets. Reports are `close-ci-{native-headers,coverage,build,contracts}-*`
+in the consumer qualification directory.
+
+The scratch checkout was originally produced from a Git archive. The
+hermetic-llvm `tests/` tree carries `export-ignore`. The contract package
+was restored from Git blobs at the exact tested commit. The separate CI
+job that explicitly requests the host's Xcode SDK exercises a different
+SDK and supplies no evidence about this composition.

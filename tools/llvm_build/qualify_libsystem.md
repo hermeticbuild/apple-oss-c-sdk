@@ -74,10 +74,18 @@ done
 
 cd "$HERMETIC_LLVM/e2e/rules_cc"
 for cpu in arm64 x86_64; do
-  bazel test --nocache_test_results --keep_going "${sdk_flags[@]}" \
-    --extra_execution_platforms=@platforms//host,@llvm//platforms:macos_x86_64 \
-    "--platforms=@llvm//platforms:macos_$cpu" \
-    --@llvm//config:macos_libcxx_headers=llvm //... || exit 1
+  darwin=("${sdk_flags[@]}"
+          --extra_execution_platforms=@platforms//host,@llvm//platforms:macos_x86_64
+          "--platforms=@llvm//platforms:macos_$cpu" --@llvm//config:macos_libcxx_headers=llvm)
+  bazel test --nocache_test_results --keep_going "${darwin[@]}" //... || exit 1
+  bazel test --nocache_test_results "${darwin[@]}" //:main_default \
+    //header_order:precedence //header_order:libcxx_c_wrappers \
+    //header_order:search_c_macos_x86_64_test //header_order:search_cxx_macos_x86_64_test || exit 1
+  bazel build "${darwin[@]}" //:tsan_fail //:lsan_fail \
+    @llvm//tests/cxxstdlib_settings:{defaults,headers_only,libraries_only,both} || exit 1
+  ./coverage_lcov_test.sh --nocache_test_results "${darwin[@]}" || exit 1
+  cp "$(bazel info output_path)/_coverage/_coverage_report.dat" \
+    "$REPORTS/coverage-$cpu.lcov" || exit 1
 done
 
 cd "$RULES_RS/test"
