@@ -870,3 +870,24 @@ The four cases concern XNU aliases, C99 complex constructors, the AssertMacros
 short-name default, and MacTypes callback prototypes. The malloc 16.0/26.0
 spelling gave the same 26.0 availability diagnostic on both CPUs.
 These are review findings. The release candidate remains the Libnotify build.
+
+**Installed XNU aliases and the approved arm64 C classifier.** XNU consumes
+the same version-selected availability source as the public availability
+headers (`6bd739e`). The arm64 C header now incorporates the integer body
+of pinned Apple Libm's ARM binary64 classifier (`1d1e089`). Its source
+has an Apple copyright notice; its applicable redistribution notice still
+needs to be established in the release input review. The builtin-only
+alternative linked but set FE_INVALID for a signaling NaN. The installed
+Apple implementation matches the reference and evaluates the argument once.
+Two clean 767-header installs matched byte for byte, including manifests.
+Relative to the prior candidate only sys/_symbol_aliasing.h and
+architecture/arm/math.h changed. The new manifest SHA-256 is
+`acce1135b4cb6ba15b39e6ec1ce91b933e95114d0909ff8a5cc02ee8093b93bf`.
+All 364 C compile checks, 12 recipe tests and the native fenv check passed.
+Both sets of clients (installed and reference headers) linked strictly
+against the existing generated libSystem and ran successfully for float,
+double and long double, O0/O2, arm64/x86_64 and minima 11.0/26.5 (48 links
+and executions on host build 25F84). Details are in the
+[fpclassify receipt](../sdk_review/data/macosx26.5/fpclassify-gap.md) and
+`/tmp/macos26-header-fixes.wIiAWC/fp-results.json`. No full consumer requalification
+or release promotion was performed for this header comparison.
