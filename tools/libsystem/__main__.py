@@ -14,7 +14,7 @@ from tools.toolchain.official_llvm import PIN, projection, read_lock
 from .emit import ARCHES, fields, resolve
 from .expected_undefined import filter_demands, policy_for, verify_header
 from .libc_aliases import FILES as ALIAS_FILES, REVISION as LIBC_REVISION, install_aliases
-from . import compiler_clients, fortify, libc_compiler_abi, stack_probe
+from . import compiler_clients, fortify, libc_compiler_abi, netname, stack_probe
 from .compat_links import install_compat_links
 
 
@@ -52,6 +52,8 @@ def build(args):
     lock_fields = {"schema", "sdk", "minimum", "headers", "sources", "manifest_sha256"}
     if "libsystem_source" in lock:
         lock_fields.add("libsystem_source")
+    if "xnu_source" in lock:
+        lock_fields.add("xnu_source")
     if "libc_alias_source" in lock:
         lock_fields.add("libc_alias_source")
     elif "libc_source" in lock:
@@ -111,6 +113,10 @@ def build(args):
                 lock["sdk"], args.llvm.resolve(), args.c_install.resolve(), lock["minimum"],
                 work / "compiler-clients", images, inventories)
             receipt["stack_probe"] = stack_probe.install(lock["sdk"], images, minimum=lock["minimum"])
+        if "xnu_source" in lock:
+            receipt["netname"] = netname.install(
+                lock["sdk"], relative_file(args.lock.parent, lock["xnu_source"]), images, inventories,
+                minimum=lock["minimum"])
         policy = policy_for(lock["sdk"])
         if policy:
             verify_header(policy, args.c_install, manifest)

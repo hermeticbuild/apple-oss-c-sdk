@@ -1,5 +1,12 @@
 # libSystem tools
 
+The macOS 26.5 release lock can specify `xnu_source`, a directory under its
+input root containing [four pinned XNU files](data/macosx26.5/netname.json).
+The generator derives the four Mach NetName client spellings from Apple's
+`netname.defs` and assigns their qualified definitions to libsystem_kernel
+on both client architectures. Its public-header and target-build rules are
+verified by digest. The standalone C installation keeps its existing scope.
+
 Start by preparing the [official LLVM bundle](../toolchain/README.md). Set `LLVM` to its verified directory and run the following from the repository root. Fixture names and records are independently authored. The first runnable build lock targets the fixture; the macOS 26.5 production lock and reviewed component evidence are pending.
 
 ```sh
