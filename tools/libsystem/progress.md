@@ -243,3 +243,21 @@ composition matched. A newly built Stage 2 executable, hermetic-llvm e2e
 and rules_rs on the latest digest are still qualification gates. Corentin
 left netname header scope to the maintainer. Use XNU's public MIG source
 to qualify the four stub entries while retaining the minimal C package.
+
+The complete joined header audit on this installation reports 206 of 3,474
+paths with open findings, two approved standalone contexts and zero input
+identity errors. These include scope decisions on optional SDK paths and
+reference-side failures. The total does not count confirmed header defects.
+The [release gate](../sdk_composition/libsystem-spec.md#validation-loop-and-finish-gate)
+now requires a post-consumer review of all 48 current byte differences.
+Recover the original 45-path review at commit `aa214ae` under
+`tools/sdk_review/reports/macosx26.5-header-differences.md`. Review distinct
+issues within each file separately against the new manifest.
+
+Scratch hermetic-llvm branch `cerisier/sdk-framework-locations`, commit
+`d92a9764364584c8f342db198c6d8cbd312e0e51`, worktree
+`/tmp/libsystem-framework-selection`, fixed SDK archive selection for the
+three recognized framework locations. The tar fetch passed with each
+location individually, with multiple matches and with the composed archive.
+Missing requested frameworks and missing required standalone files failed.
+Host and pkg behavior matched the original. The branch is local by request.
