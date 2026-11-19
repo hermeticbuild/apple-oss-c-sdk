@@ -1,5 +1,14 @@
 # SDK composition
 
+Review the [libSystem specification and implementation plan](libsystem-spec.md)
+for the independent link-stub producer, Apple SDK Gen framework composition,
+agent gap-review workflow and release gate.
+
+See [Generating macOS SDK assets without the Xcode SDK](generating_sdk_assets.md)
+for the source, documentation and runtime inputs for producing a standalone
+release. It includes the verified Apple DocC index URLs and example commands
+for the C, OSS framework and documentation-derived surfaces.
+
 `compose_sdk.py` produces an SDK directory from explicit inputs. In
 restricted mode it combines the standalone C installation, SDK Gen metadata
 and link stubs, explicitly requested framework headers, and LLVM libc++.
