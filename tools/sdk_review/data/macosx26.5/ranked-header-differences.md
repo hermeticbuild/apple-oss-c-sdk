@@ -14,6 +14,8 @@ and is already proven in isolation. The cleanest source replacement is
 `Block.h`, subject to resolving its license notice. Neither change depends
 on solving the Libm or logging provenance gaps.
 
+See the [tested repairs and prototype results](tested-header-repairs.md) for the subsequent implementation and the disposition of these recommendations.
+
 ## 1. Highest impact or a proven generator defect
 
 | Header | What differs for a client | Recommendation |
@@ -36,7 +38,7 @@ on solving the Libm or logging provenance gaps.
 
 | Header | What differs for a client | Recommendation |
 |---|---|---|
-| `Availability.h` | Public annotation dispatch supports more arguments in the SDK (up to 15 versus 13 in the installed macros). Platform handling and mixed-header version checks differ. | Seek an updated Apple AvailabilityVersions generator and template as a unit. Exercise a real multi-platform declaration while compiling for macOS before adding a local template extension. |
+| `Availability.h` | Public annotation dispatch supports more arguments in the SDK (16 arguments versus 14 in the installed macros, confirmed by compilation). Platform handling and mixed-header version checks differ. | Seek an updated Apple AvailabilityVersions generator and template as a unit. Exercise a real multi-platform declaration while compiling for macOS before adding a local template extension. |
 | `AvailabilityInternal.h` | Generated argument dispatch, platform aliases and non-macOS version ceilings differ. The macOS ceiling and 26.5 macro have already been repaired. | Keep the tested macOS supplement. Update internals together with both public facades if an affected declaration is found. Do not transplant the generated reference file. |
 | `os/availability.h` | The unprefixed annotation macros have the corresponding argument-count, platform and version-check differences. | Use the same upstream generator change as the two headers above, with a compile fixture through this public include path. |
 | `AvailabilityVersions.h` | Additional other-platform version constants and a mixed-version guard appear in the reference. The current supplement supplies the macOS release constants. | Keep the Apple version generator and the reviewed macOS table. Check the complete macOS constant set at lock updates. Add other-platform constants only for a demonstrated macOS compilation requirement or a new platform scope. |

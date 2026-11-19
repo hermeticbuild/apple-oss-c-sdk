@@ -891,3 +891,18 @@ and executions on host build 25F84). Details are in the
 [fpclassify receipt](../sdk_review/data/macosx26.5/fpclassify-gap.md) and
 `/tmp/macos26-header-fixes.wIiAWC/fp-results.json`. No full consumer requalification
 or release promotion was performed for this header comparison.
+
+**Parallel header solution qualification.** The approved Darwin constructor
+guard, legacy assertion default and MacTypes prototypes are installed in
+`fe3638d`. Two full installations of the five repairs matched byte-for-byte.
+The C header manifest SHA-256 is
+`00bb549ce554b3d321cb0473359e294f6cddd7176e21cfb45bb9652507347cc9`.
+The install passed 364 C checks, 12 recipe tests, the host fenv test,
+the 48 math compile/link/runtime controls, all 32 Carbon outcome pairs
+and 32 paired C constructor visibility cells. Eight additional complex
+clients ran against our generated libSystem. The standalone C++17
+comparison exposed a search-path-dependent difference outside the C scope.
+The arm64 denormals object is explicitly qualification-only. All 48
+ranked paths have an installed repair, concrete prototype or scoped
+retention result. See the [implementation and experiment receipts](../sdk_review/data/macosx26.5/tested-header-repairs.md).
+Full consumer requalification remains pending.
