@@ -26,6 +26,31 @@ def run(command, **kwargs):
     return result.stdout
 
 
+def probe_bindings(tools, sdk, arch, minimum, ver, names, directory):
+    empty = directory / "empty.o"
+    binary = directory / "client.dylib"
+    run([tools / "clang", "--no-default-config", "-target", f"{arch}-apple-macos{minimum}",
+         "-isysroot", sdk, "-x", "assembler", "-c", "-", "-o", empty], input=".text\n")
+    results = {}
+    ordered = sorted(names)
+    for start in range(0, len(names), 512):
+        group = ordered[start:start + 512]
+        forced = [arg for name in group for arg in ("-u", name)]
+        # dynamic_lookup lets the linker report all misses in one executable
+        # image. Only an explicit two-level binding counts as resolved.
+        run([tools / "ld64.lld", "-arch", arch, "-dylib", "-platform_version", "macos",
+             minimum, ver, "-Z", "-syslibroot", sdk, "-L" + str(sdk / "usr/lib"),
+             empty, *forced, "-lSystem", "-fixup_chains", "-undefined", "dynamic_lookup", "-o", binary])
+        observed = {}
+        for line in run([tools / "llvm-nm", "-um", binary]).splitlines():
+            match = re.search(r" external (\S+) \((?:from (.+?)|(dynamically looked up))\)$", line)
+            if match:
+                observed[match[1]] = match[2] or "unresolved"
+        for name in group:
+            results[name] = observed.get(name, "requires-individual-link")
+    return results
+
+
 def bindings(args):
     report = json.loads(args.candidates.read_bytes())
     owners = {a: defaultdict(set) for a in ARCHES}
@@ -51,31 +76,11 @@ def bindings(args):
     result = {"sdk": report["sdk"], "minimum": args.minimum, "symbols": {}}
     outside = set()
     with TemporaryDirectory() as temp:
-        empty = Path(temp) / "empty.o"
-        binary = Path(temp) / "client.dylib"
         for arch, names in owners.items():
-            run([tools / "clang", "--no-default-config", "-target", f"{arch}-apple-macos{args.minimum}",
-                 "-isysroot", sdk, "-x", "assembler", "-c", "-", "-o", empty], input=".text\n")
-            results = {}
-            ordered = sorted(names)
-            for start in range(0, len(names), 512):
-                group = ordered[start:start + 512]
-                forced = [arg for name in group for arg in ("-u", name)]
-                # dynamic_lookup lets the linker report all misses in one executable
-                # image. Only an explicit two-level binding counts as resolved.
-                run([tools / "ld64.lld", "-arch", arch, "-dylib", "-platform_version", "macos",
-                     args.minimum, ver, "-Z", "-syslibroot", sdk, "-L" + str(sdk / "usr/lib"),
-                     empty, *forced, "-lSystem", "-fixup_chains", "-undefined", "dynamic_lookup", "-o", binary])
-                observed = {}
-                for line in run([tools / "llvm-nm", "-um", binary]).splitlines():
-                    match = re.search(r" external (\S+) \((?:from (.+?)|(dynamically looked up))\)$", line)
-                    if match:
-                        observed[match[1]] = match[2] or "unresolved"
-                for name in group:
-                    provider = observed.get(name, "requires-individual-link")
-                    results[name] = {"binding": provider, "headers": sorted(names[name])}
-                    if provider != "libSystem":
-                        outside.add(name)
+            observed = probe_bindings(tools, sdk, arch, args.minimum, ver, names, Path(temp))
+            results = {name: {"binding": provider, "headers": sorted(names[name])}
+                       for name, provider in observed.items()}
+            outside.update(name for name, provider in observed.items() if provider != "libSystem")
             result["symbols"][arch] = results
     write(args.out, result)
     args.names_out.write_text("".join(name + "\n" for name in sorted(outside)))

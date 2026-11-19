@@ -145,3 +145,56 @@ A second independent check compiled ordinary calls to memcpy, memmove, memset, s
 Apple Libc's FortifySource target builds the sixteen checked wrapper source files in the input lock. A client using the ordinary public functions imports sixteen checked names on each architecture. The recipe compiles every source file and matches actual external text definitions to that client. Two additional definitions in those objects have no reference from this fixture and were not added by this rule. All sixteen reviewed names have ordinary definitions in the installed libsystem_c on both cache slices of 25F84. Twelve per architecture were missing from the preceding stub; four were already present.
 
 Both clean packages match byte for byte (stub `0502842ffbbd36a8fc199f84deca94c80dc9106e87bb8efe321e61f9ef5bd15f`). All 14 paired links across seven minima matched and both executables ran, exercising checked string copy/append, overlapping move and formatted output. At the LLVM consumers' original minimum, 14.0, three Intel Stage 2 imports and four arm64 official-Clang imports remain unresolved. The public C headers were unchanged for this result. Evidence lives under `/tmp/libsystem-fortify-qual.1isE94`. Two math-header questions and a distinct runtime forwarding decision were sent to Corentin. Their linker-side source investigations proceed independently.
+
+### Effective client coverage, macOS 26.5
+
+The release targets ordinary arm64 and x86_64 macOS clients. Apple uses
+arm64e in the reference umbrella, and its installed system uses an arm64e
+cache. Keep these as inputs for qualifying the arm64 client. Mac Catalyst,
+arm64e and x86_64h clients are outside the release gate.
+
+Two offline builds of the candidate produced identical package trees and
+stub digest `2c729ceef0000d0dcf40a0844168ec4b56bed72e406e75689377c1e23401c2d5`.
+The comparison below reran with the selected installation and the SDK 25F70
+header survey. Counts were identical at macOS deployment minima 11.0 and
+26.5. Each numerator counts symbols that actually bind through libSystem.
+
+| Client surface | arm64 candidate / Apple | x86_64 candidate / Apple |
+| --- | ---: | ---: |
+| All linker names found by the export and C declaration survey | 2,837 / 8,960 | 2,863 / 9,500 |
+| Reference C declaration survey | 2,636 / 3,112 | 2,660 / 3,133 |
+| Survey declarations associated with a header path in the C installation | 2,636 / 2,663 | 2,660 / 2,686 |
+
+The candidate had zero extra bound names. The narrowest row still misses
+17 math names and nine logging names on each architecture, plus one arm64
+floating-point environment object. Corentin approved qualifying individual
+math declarations with independent signature and availability evidence.
+5,647 arm64 and 6,164 x86_64 missing names were outside the C survey.
+Their public/private status is unresolved. The three approved
+`unistd.h` negative links are absent on both sides. The approved
+[stack-probe forwarding](stack_probe.md) covers two role differences and
+changes neither count. Its [decision record](../sdk_review/data/macosx26.5/libsystem-decisions.json)
+matches both findings and reopens on reference or finding drift.
+
+The [client coverage command](../sdk_review/libsystem_review.md) reproduces
+the comparison. Raw SDK inventories and linker evidence stay local. This
+run is under `/tmp/libsystem-effective.qXI66t`, and the package, reference
+diff and log files are under `/tmp/libsystem-fortify-qual.1isE94`. The
+full raw metadata diff of 41,185 rows includes other client targets and
+repeated differences. It has 2 approved role rows. Neither that total nor
+the coverage percentages constitute a release gate pass.
+
+The C installation passed 362/362 compile checks and the native fenv runtime
+test. The combined SDK linked and ran the base-10 exponential and paired
+trig clients on both architectures. Six replay cases with the preceding
+candidate matched all 233 arm64 official Clang and 254 prior Intel Stage 2
+LLVM imports. The fresh bootstrap first exhausted disk during LLVM source
+extraction. After space was freed, the archive selector rejected absent
+private/Cryptex framework directories before compilation. Both public
+frameworks were present in the composed archive.
+
+Integrated local branches (the repository has no remote) are
+`cerisier/libm-exp10-header` (bd12700, /tmp/libsystem-exp10-header),
+`cerisier/libsystem-stack-probe-rule` (11029ca, /tmp/libsystem-stack-probe-rule),
+`cerisier/libsystem-compat-links` (51811d3, /tmp/libsystem-compat-links) and
+`cerisier/libm-paired-trig` (a5d1213, /tmp/libsystem-paired-trig).

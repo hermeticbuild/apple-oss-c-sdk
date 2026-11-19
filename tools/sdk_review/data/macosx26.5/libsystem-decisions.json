@@ -1,0 +1,19 @@
+{
+  "decisions": [
+    {
+      "approver": "Corentin Kerisit",
+      "evidence": "tools/libsystem/stack_probe.md, 25F84 cache and pinned libpthread assembly",
+      "id": "macosx26.5-stack-probe-forwarding",
+      "impact": "Two-level clients bind both spellings through libSystem on arm64 and x86_64 at 11.0 and 26.5.",
+      "member_sha256": "02033135630b16958015130501aef7561c2d31cbb640a5d2c54b40b3067414c3",
+      "members": [
+        "libsystem-19c4f585f951877b0731e622",
+        "libsystem-70e675dcc2fc260e8fc6c1b5"
+      ],
+      "revisit": "Requalify on SDK, cache, source, role or paired-link changes."
+    }
+  ],
+  "reference_sha256": "20cfce043f11a083e2eb6111efe3579919a8082fa4cc912a7bd839af2010ec57",
+  "schema": 1,
+  "sdk": "macosx26.5"
+}

@@ -24,6 +24,32 @@ compiled client object and actual link receipt with the investigation.
 
 ## Coverage
 
+The release has two client targets, macOS arm64 and macOS x86_64. Run the
+effective binding comparison against both with the same linker and deployment
+minimum. This command defaults to 11.0 and the SDK version. Repeat
+`--minimum VERSION` for intermediate deployment checks.
+
+```sh
+python3 -m tools.sdk_review.libsystem_client_coverage \
+  --llvm "$LLVM" --reference "$APPLE_SDK" --candidate "$PACKAGE" \
+  --c-install "$C_INSTALL" --survey "$WORK/sdk-survey/bindings.json" \
+  --out "$WORK/client-coverage.json"
+```
+
+The survey comes from [classifying reference C declarations](sdk_header_linkage.md).
+The command collects candidate spellings from both macOS stubs and the survey.
+It asks the linker to bind each name in a client dylib. Only an explicit
+two-level libSystem import counts. The report preserves missing and extra names,
+the subset declared at installed header paths and names requiring individual
+inspection. Each result names a specific architecture and deployment minimum.
+
+Mac Catalyst is outside the release scope. The Apple SDK uses an arm64e slice
+in its umbrella even for ordinary arm64 clients. Compatible source slices can
+contribute spellings to test, but only a successful client binding counts.
+The all-slice `libsystem-diff.json` and its raw backlog remain diagnostic
+inputs for export roles, directives and metadata. Their total row counts
+measure a different quantity than missing client bindings.
+
 ### Build a local candidate from probed clients
 
 Start with the Apple OSS [component selection graph](../libsystem/component_graph.md).
