@@ -11,6 +11,7 @@ DISCOVERY = tools/qualify_headers/fixtures/sdk_discovery.c
 inputs:
 	@test -x "$(CLANG)" && test -f "$(C_INSTALL)/header-manifest.tsv" && test -f "$(APPLE_SDK)/SDKSettings.json" || { echo "Set LLVM, C_INSTALL and APPLE_SDK" >&2; exit 2; }
 	@test -n "$(WORK)" || { echo "Set WORK to a local report directory" >&2; exit 2; }
+	@test "$$("/usr/bin/plutil" -extract CanonicalName raw -o - "$(APPLE_SDK)/SDKSettings.json")" = "$(SDK)" || { echo "SDK must match the reference SDK's CanonicalName" >&2; exit 2; }
 	@mkdir -p "$(WORK)"
 
 census: inputs

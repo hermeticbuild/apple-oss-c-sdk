@@ -16,6 +16,7 @@ DEFAULT_PROBE = Path(__file__).with_name("fixtures") / "sdk_discovery.c"
 TARGETS = ("arm64", "x86_64")
 COMBINED = "__combined__"
 ROOT_FLAGS = {"ucontext.h": ("-D_XOPEN_SOURCE=700",)}
+COMPILER_ENV = {"PATH": "/usr/bin:/bin", "LC_ALL": "C"}
 
 
 def current_probe_path(path: str) -> str:
@@ -80,7 +81,7 @@ def run_probe(clang: Path, resource: Path, sysroot: Path, arch: str,
               header: str, depfile: Path,
               probe: Path) -> tuple[dict[str, list[str]], str | None]:
     command = [
-        str(clang), "-target", f"{arch}-apple-macos14.0",
+        str(clang), "--no-default-config", "-target", f"{arch}-apple-macos14.0",
         "-isysroot", str(sysroot), "-nostdinc",
         "-isystem", str(resource),
         "-isystem", str(sysroot / "usr/include"),
@@ -93,7 +94,7 @@ def run_probe(clang: Path, resource: Path, sysroot: Path, arch: str,
     command.append(str(probe) if combined else "-")
     result = subprocess.run(command,
                             input=None if combined else f"#include <{header}>\n",
-                            text=True, capture_output=True)
+                            text=True, capture_output=True, env=COMPILER_ENV)
     if result.returncode:
         return {}, result.stderr.strip()
     found: dict[str, set[str]] = {"resource": set(), "sysroot": set()}
@@ -175,10 +176,10 @@ def main() -> int:
     # Preserve the multicall executable name: bin/clang is a symlink to bin/llvm.
     clang, sysroot = args.clang.absolute(), args.sysroot.resolve()
     resource = Path(subprocess.check_output(
-        [str(clang), "-print-resource-dir"], text=True).strip()).resolve() / "include"
+        [str(clang), "--no-default-config", "-print-resource-dir"], text=True, env=COMPILER_ENV).strip()).resolve() / "include"
     if not clang.is_file() or not resource.is_dir() or not (sysroot / "usr/include").is_dir():
         parser.error("clang, its resource headers, and sysroot/usr/include must exist")
-    version = subprocess.check_output([str(clang), "--version"], text=True).splitlines()[0]
+    version = subprocess.check_output([str(clang), "--no-default-config", "--version"], text=True, env=COMPILER_ENV).splitlines()[0]
     sdk_settings = sysroot / "SDKSettings.json"
     sdk = json.loads(sdk_settings.read_text()) if sdk_settings.is_file() else {}
     manifest = {

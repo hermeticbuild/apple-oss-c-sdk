@@ -51,3 +51,31 @@ python3 -m tools.sdk_review.verify_libsystem_links --llvm "$LLVM" \
 The verifier records traced inputs, load commands and undefined imports with their bind-through library. Pass `--expect-undefined SYMBOL` for a deliberate negative link. Pass `--builtins ARCHIVE` only for fixtures that need that explicit static runtime on both sides. Unexpected differences exit 1. Invalid inputs or linker setup failures exit 2. The fixture suite also checks a successful link through the wrong provider.
 
 See the [implementation journal](progress.md) for the latest qualified milestone, and the [specification](../sdk_composition/libsystem-spec.md) for outstanding release gates.
+
+## Review a freshly installed header set
+
+Start with a version-locked installation and the reference SDK with the same name and build. Run from the repository root with a fresh report directory.
+
+```sh
+WORK=$(mktemp -d)
+make -f tools/sdk_review/libsystem-headers.mk -j3 header-backlog \
+  SDK=macosx26.5 LLVM="$LLVM" C_INSTALL="$C_INSTALL" APPLE_SDK="$APPLE_SDK" WORK="$WORK"
+```
+
+This runs the standalone census, shipping and discovery include traces, SDK path audit, and [paired semantic probes](../sdk_review/c_interface_review.md). Read `header-backlog.json` for path decisions, failed contexts, matched approvals and semantic differences. The two `discovery-*.json` files also preserve diagnostics for optional roots outside the shipping profile. A completed backlog with open findings deliberately fails the Make target. The underlying `tools.sdk_review.header_backlog` command exits 1 for findings and 2 for invalid inputs. A stale or missing input remains an explicit issue.
+
+The [eventlink decision](../sdk_review/data/macosx26.5/standalone-context-approvals.json) applies to two specific standalone include contexts. Reproduce it with the reference SDK attached. Review the header's linker exports independently.
+
+## Compose an integration sysroot
+
+Supply the standalone C installation, generated libSystem package and its independently recorded manifest digest. Select each SDK Gen framework and additional link stub explicitly.
+
+```sh
+python3 -m tools.sdk_composition.compose_libsystem \
+  --c-install "$C_INSTALL" --libsystem "$PACKAGE" --llvm "$LLVM" \
+  --libsystem-manifest-sha256 "$PACKAGE_MANIFEST_SHA256" \
+  --sdk-gen "$SDK_GEN" --framework CoreFoundation \
+  --out "$WORK/composed.sdk"
+```
+
+The composer rejects additional providers of install names already supplied by libSystem. Its `composition.json` traces files and dylib providers to their layers. For a C++ workload, supply the Apple libc++ link stub and any alias via separate `--external-stub DESTINATION=SOURCE` arguments. The consumer toolchain supplies C++ headers.
