@@ -39,11 +39,11 @@ def dump_json(doc):
     return json.dumps(doc, indent=2, sort_keys=True) + "\n"
 
 
-def include(relative):
+def include(relative, *, directive="include"):
     name = Path(relative).relative_to("usr/include").as_posix()
     if not re.fullmatch(r"[a-zA-Z0-9_./+-]+", name):
         raise ValueError(f"unsupported include spelling: {relative}")
-    return f"#include <{name}>\n"
+    return f"#{directive} <{name}>\n"
 
 
 def header_path(root, requested):
@@ -303,10 +303,23 @@ def scan_root(tools, flags, target, minimum, root, resource, files, public_root,
     # declaration inventory. The ordinary client probe still includes only the root.
     registered = [public_root, *sorted({row["header"] for row in declarations
                                         if row["excluded"] is None} - {public_root})]
+    registration_flags = ()
     if len(registered) > 1:
         registered_source = work / "registered.c"
         registered_source.write_text("".join(map(include, registered)))
-        registered_ast = json.loads(run(tools / "clang", (*ast_flags, registered_source), work))
+        try:
+            registered_json = run(tools / "clang", (*ast_flags, registered_source), work)
+        except ValueError:
+            # Some transitive headers reject direct inclusion even after they
+            # were entered through the public root. In pinned InstallAPI,
+            # -ObjC generates #import directives, while explicit -x c still
+            # selects C in the Clang frontend.
+            imported_source = work / "registered-import.c"
+            imported_source.write_text("".join(include(relative, directive="import")
+                                              for relative in registered))
+            registered_json = run(tools / "clang", (*ast_flags, imported_source), work)
+            registration_flags = ("-ObjC",)
+        registered_ast = json.loads(registered_json)
         if read_declarations(registered_ast, sources, root, resource) != declarations:
             raise ValueError(f"registering transitive headers changes the declaration "
                              f"inventory of {public_root}")
@@ -317,8 +330,8 @@ def scan_root(tools, flags, target, minimum, root, resource, files, public_root,
         "headers": [{"type": "public", "path": str(root / relative)} for relative in registered],
     }))
     tbd = work / "installapi.tbd"
-    run(tools / "clang-installapi", (*flags, "-dynamiclib", "-install_name", INSTALL_NAME,
-                                    "--filetype=tbd-v5", header_list, "-o", tbd), work)
+    run(tools / "clang-installapi", (*flags, *registration_flags, "-dynamiclib", "-install_name",
+                                    INSTALL_NAME, "--filetype=tbd-v5", header_list, "-o", tbd), work)
     exports = installapi_exports(tbd, target, minimum)
     imports, unresolved = probe_references(tools, flags, work, public_root, declarations, exports)
     for row in declarations:

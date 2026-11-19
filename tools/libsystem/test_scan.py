@@ -122,6 +122,29 @@ class ScanTests(unittest.TestCase):
         self.assertEqual([row["symbol"] for row in report["unresolved"]], ["_scan_shadowed"])
         self.assertIn("_scan_replacement", report["unresolved"][0]["reason"])
 
+    def test_context_only_header_has_a_c_import_through_its_public_root(self):
+        for arch in ("arm64", "x86_64"):
+            with self.subTest(arch=arch):
+                out = self.work / f"context-{arch}.json"
+                result = self.scan(self.root, arch, out, "--header", "context-root.h")
+                self.assertEqual(result.returncode, 0, result.stderr)
+                report = json.loads(out.read_text())
+                self.assertEqual(report["unresolved"], [])
+                imports = [row for row in report["imports"] if row["symbol"] == "_scan_context_only"]
+                self.assertEqual(len(imports), 1)
+                row = imports[0]
+                self.assertEqual(row["header"], "usr/include/context-only.h")
+                self.assertEqual(row["public_root"], "usr/include/context-root.h")
+                self.assertTrue(row["relocations"])
+
+    def test_import_registration_rejects_changes_to_reentrant_root(self):
+        out = self.work / "scan.json"
+        result = self.scan(self.root, "arm64", out, "--header", "reentrant-root.h")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("registering transitive headers changes the declaration inventory of "
+                      "usr/include/reentrant-root.h", result.stderr)
+        self.assertFalse(out.exists())
+
     def test_unguarded_transitive_declarations_cannot_change_the_context(self):
         path = self.root / "usr/include/details.h"
         original = hashlib.sha256(path.read_bytes()).hexdigest()
