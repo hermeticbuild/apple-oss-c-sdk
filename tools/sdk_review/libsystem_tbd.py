@@ -199,15 +199,20 @@ def parse_library(library, format_version):
     return name, targets
 
 
-def parse_v5(data, format_version=5):
+def v5_libraries(data):
     document = read_json(data)
     object_fields(document, {"tapi_tbd_version", "main_library", "libraries"}, "TBD v5",
                   {"tapi_tbd_version", "main_library"})
     require(type(document["tapi_tbd_version"]) is int and document["tapi_tbd_version"] == 5,
             "expected tapi_tbd_version 5")
-    main, slices = parse_library(document["main_library"], format_version)
+    return [document["main_library"], *rows(document, "libraries")]
+
+
+def parse_v5(data, format_version=5):
+    primary, *children = v5_libraries(data)
+    main, slices = parse_library(primary, format_version)
     contents = {main: slices}
-    for library in rows(document, "libraries"):
+    for library in children:
         name, slices = parse_library(library, format_version)
         require(name not in contents, f"duplicate library {name!r}")
         contents[name] = slices
@@ -223,8 +228,7 @@ def v4_targets(flow):
     return set(items)
 
 
-def v4_slices(document):
-    """Project target groups before TextAPI coalesces flags by symbol spelling."""
+def v4_sections(document):
     headers = list(V4_SECTION.finditer(document))
     require(headers and not document[:headers[0].start()].strip(), "malformed TBD v4 document")
     sections = {}
@@ -235,6 +239,12 @@ def v4_slices(document):
         sections[key] = document[header.end():end]
     require({"tbd-version", "targets", "install-name"} <= sections.keys(), "incomplete TBD v4 document")
     require(sections["tbd-version"].strip() == "4", "expected tbd-version 4")
+    return sections
+
+
+def v4_slices(document):
+    """Project target groups before TextAPI coalesces flags by symbol spelling."""
+    sections = v4_sections(document)
     targets = v4_targets(sections.pop("targets"))
     # The v5 writer drops undefineds for two-level stubs. Temporarily force the
     # writer to carry these rows, then remove the synthetic flag after reading.
@@ -297,24 +307,29 @@ def run_reader(reader, arguments, *, compare=False):
     return result.stdout
 
 
+def v4_documents(data):
+    delimiters = list(V4_START.finditer(data))
+    require(delimiters and not data[:delimiters[0].start()].strip(),
+            "expected canonical multi-document TBD v4 or JSON TBD v5")
+    for index, delimiter in enumerate(delimiters):
+        end = delimiters[index + 1].start() if index + 1 < len(delimiters) else len(data)
+        document = data[delimiter.end():end]
+        terminators = list(V4_END.finditer(document))
+        if terminators:
+            require(len(terminators) == 1 and not document[terminators[0].end():].strip(),
+                    f"v4 document {index + 1} has data after its terminator")
+            document = document[:terminators[0].start()]
+        yield document
+
+
 def read_stub(data, reader):
     if data.lstrip().startswith("{"):
         return parse_v5(data)
 
-    delimiters = list(V4_START.finditer(data))
-    require(delimiters and not data[:delimiters[0].start()].strip(),
-            "expected canonical multi-document TBD v4 or JSON TBD v5")
     main = None
     libraries = {}
     with tempfile.TemporaryDirectory(prefix="libsystem-tbd-") as temporary:
-        for index, delimiter in enumerate(delimiters):
-            end = delimiters[index + 1].start() if index + 1 < len(delimiters) else len(data)
-            document = data[delimiter.end():end]
-            terminators = list(V4_END.finditer(document))
-            if terminators:
-                require(len(terminators) == 1 and not document[terminators[0].end():].strip(),
-                        f"v4 document {index + 1} has data after its terminator")
-                document = document[:terminators[0].start()]
+        for index, document in enumerate(v4_documents(data)):
             name = None
             slices = {}
             for target, projected, forced_flat in v4_slices(document):
@@ -337,3 +352,35 @@ def read_stub(data, reader):
             if index == 0:
                 main = name
     return Stub(main, libraries, 4)
+
+
+def read_install_names(data, reader):
+    """Read provider identities without applying libSystem's target or symbol scope."""
+    def v5_names(text):
+        names = []
+        for library in v5_libraries(text):
+            require(isinstance(library, dict), "TBD v5 library must be an object")
+            name = scalar(library, "install_names", "name", None, required=True)
+            names.append(string(name, "install name"))
+        return names
+
+    if data.lstrip().startswith("{"):
+        names = v5_names(data)
+    else:
+        names = []
+        with tempfile.TemporaryDirectory(prefix="libsystem-tbd-identities-") as temporary:
+            for index, document in enumerate(v4_documents(data)):
+                targets = v4_sections(document)["targets"].strip()
+                first = re.match(r"\[\s*([a-zA-Z0-9_]+)-", targets)
+                require(first, "expected a canonical TBD v4 targets sequence")
+                # The V4 identity is library-wide. Convert one slice of each
+                # separate document to avoid dropping children of other slices.
+                path = Path(temporary) / f"document-{index + 1}.tbd"
+                path.write_text("--- !tapi-tbd\n" + document.strip() + "\n...\n", encoding="utf-8")
+                converted = run_reader(reader, ["-extract", "-arch", first[1],
+                                                "--filetype=tbd-v5", path])
+                identities = v5_names(converted)
+                require(len(identities) == 1, "TBD v4 document has multiple install names")
+                names.extend(identities)
+    require(len(names) == len(set(names)), "duplicate TBD install name")
+    return names
