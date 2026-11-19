@@ -1,0 +1,23 @@
+{
+  "install_name": "/usr/lib/system/libExampleChild.dylib",
+  "current_version": "7.0",
+  "compatibility_version": "1.0",
+  "slices": {
+    "arm64": {
+      "reexports": [],
+      "exports": {
+        "_example_call": "text.global",
+        "_example_thread": "data.thread_local",
+        "_example_value": "data.global"
+      }
+    },
+    "x86_64": {
+      "reexports": [],
+      "exports": {
+        "_example_call": "text.global",
+        "_example_thread": "data.thread_local",
+        "_example_value": "data.global"
+      }
+    }
+  }
+}
