@@ -261,3 +261,30 @@ three recognized framework locations. The tar fetch passed with each
 location individually, with multiple matches and with the composed archive.
 Missing requested frameworks and missing required standalone files failed.
 Host and pkg behavior matched the original. The branch is local by request.
+
+### Kernel-generated clients and the Objective-C composition
+
+XNU's pinned NetName MIG definitions and the public install rule establish
+four additional client entry points. The generator reads the four reviewed
+XNU inputs through the optional `xnu_source` field. All four bind through
+libSystem on arm64 and x86_64 at 11.0 and 26.5. The generated client code
+and observed `libsystem_kernel` definitions qualify the same names. Local
+branch `cerisier/libsystem-netname`, `139d5a0`, worktree
+`/tmp/libsystem-netname`, supplied the rule. The integration is `e1a778f`.
+
+Two complete offline packages matched, including stub
+`5b23b4a5050f208a66a1b9c40872eb66a3b327876ab3451f6d780f3eb2d88998`.
+Effective coverage is now 2,845/8,960 and 2,871/9,500 (arm64 and x86_64),
+with zero extra names. The installed-path survey remains at 23 and 22 missing
+bindings since the standalone C installation excludes the NetName headers.
+The scratch `netname-coverage.json` report is alongside the scalar reports.
+
+After fixing archive selection, LLVM's Intel link required Foundation's
+reexport of `/usr/lib/libobjc.A.dylib`, and compiler-rt's TSan build required
+the public ObjC synchronization header. The current composition selects the
+two existing SDK Gen libobjc stub paths and nine pinned ObjC runtime headers
+as separate layers, plus SDK Gen libc++ stubs and qualified frameworks.
+Archive SHA-256 is `6dc80a49940bc48ea32b45130c3636ad68aa94254ef83677f87ba0f319a080c4`.
+The Intel bootstrap, hermetic-llvm e2e and rules_rs runs against that archive
+write `netname-bootstrap-intel.log`, `netname-e2e.log` and
+`netname-rules-rs.log` under `/tmp/libsystem-fortify-qual.1isE94`.
