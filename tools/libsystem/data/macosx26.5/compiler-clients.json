@@ -155,6 +155,34 @@
       "defines": [
         "-DTAKE_PAIRED_TRIG_ADDRESSES"
       ]
+    },
+    {
+      "fixture": "libm_scalar_pi.c",
+      "installed_header_client": true,
+      "provider": "/usr/lib/system/libsystem_m.dylib",
+      "text_exports": [
+        "___cospi",
+        "___cospif",
+        "___tanpi",
+        "___tanpif"
+      ],
+      "source": [
+        "recipes/libm/scalar_pi.md",
+        "https://github.com/apple-oss-distributions/clang/blob/8204159ac8569f29fddc48862412243c2b79ce8c/src/tools/clang/include/clang/Basic/Builtins.def#L1181-L1190",
+        "https://docs.huihoo.com/apple/wwdc/2013/session_713__accelerate_framework.pdf"
+      ],
+      "slices": {
+        "arm64": {
+          "observed_arch": "arm64e",
+          "image_uuid": "A7E0863C-101A-31A0-922B-ED9B02626151",
+          "additional_imports": []
+        },
+        "x86_64": {
+          "observed_arch": "x86_64",
+          "image_uuid": "A0E06486-747D-3935-8EF2-D89AA45FFE13",
+          "additional_imports": []
+        }
+      }
     }
   ]
 }
