@@ -30,6 +30,26 @@ can be a control, and a passing syntax probe provides no link or runtime
 evidence. Use the paired linker on the affected consumers before claiming
 ABI or deployment compatibility.
 
+## Qualify typed malloc backdeployment
+
+Use the Apple Clang from the Xcode installation that supplied `APPLE_SDK`.
+Upstream LLVM lacks `-ftyped-memory-operations`. Use the verified LLVM bundle
+for `llvm-nm`.
+
+```sh
+make -f tools/sdk_review/libsystem-headers.mk malloc-backdeploy \
+  APPLE_CLANG="$(xcrun --find clang)" APPLE_SDK="$APPLE_SDK" \
+  LLVM="$LLVM" C_INSTALL="$C_INSTALL" WORK="$WORK"
+```
+
+On arm64 and x86_64, the probe checks behavior with typed operations enabled
+and disabled. At macOS 13.0 it checks weak typed imports and strong untyped
+fallbacks, and inspects the LLVM IR for null-guarded dispatch. It also checks
+that the direct typed call is rejected at 13.0 and accepted at 14.0. At 14.0,
+enabled clients import the typed functions strongly. Keep the object and IR
+files in `WORK` with the other review evidence. These checks cover code
+generation and do not execute on an older runtime.
+
 ## Inspect logging macro lowering
 
 The same logging macro can emit different imports after a header change.

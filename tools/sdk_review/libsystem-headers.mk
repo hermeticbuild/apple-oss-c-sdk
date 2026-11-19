@@ -25,6 +25,12 @@ paths: inputs
 semantics: inputs
 	$(PYTHON) -m tools.sdk_review.compare_c_interfaces --clang "$(CLANG)" --installation "$(C_INSTALL)" --sdk "$(APPLE_SDK)" --out "$(WORK)/semantics.json"
 
+.PHONY: malloc-backdeploy
+malloc-backdeploy: inputs
+	@test -x "$(APPLE_CLANG)" || { echo "Set APPLE_CLANG to Xcode's Apple Clang executable" >&2; exit 2; }
+	$(PYTHON) -m tools.sdk_review.verify_malloc_backdeploy --apple-clang "$(APPLE_CLANG)" \
+		--llvm-nm "$(LLVM)/bin/llvm-nm" --installation "$(C_INSTALL)" --sdk "$(APPLE_SDK)" --work "$(WORK)"
+
 discovery: inputs
 	$(PYTHON) -m tools.qualify_headers.trace_includes --report-only --probe "$(DISCOVERY)" --clang "$(CLANG)" --sysroot "$(C_INSTALL)" --out "$(WORK)/discovery-generated.json"
 	$(PYTHON) -m tools.qualify_headers.trace_includes --report-only --probe "$(DISCOVERY)" --clang "$(CLANG)" --sysroot "$(APPLE_SDK)" --out "$(WORK)/discovery-reference.json"
