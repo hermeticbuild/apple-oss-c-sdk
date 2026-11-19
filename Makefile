@@ -20,6 +20,7 @@ test:
 		--fixture tests/installed_headers/fenv_abi.c \
 		--fixture tests/installed_headers/stdatomic_init.c \
 		$(if $(filter-out macosx26.5,$(SDK)),,--fixture tests/installed_headers/macos_26_5_availability.c) \
+		--fixture tests/installed_headers/complex_abi.c \
 		--fixture tests/installed_headers/target_conditionals.c
 	$(PYTHON) tests/installed_headers/check_fenv_runtime.py
 
