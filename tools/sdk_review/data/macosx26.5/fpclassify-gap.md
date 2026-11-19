@@ -1,6 +1,17 @@
 # macOS 26.5 arm64 fpclassify linkage gap
 
-**Status** Open. A C client compiled against the generated `math.h` with
+**C client fixed.** On macOS arm64 the installed C header now inlines
+Apple's integer implementation from the pinned
+[ARM fpclassify.c](https://github.com/apple-oss-distributions/Libm/blob/17a5f9daa3f5679f7536b26f133b40cc078753c3/Source/ARM/fpclassify.c)
+for binary64. This preserves the original float dispatch. Apple OSS
+supplies the algorithm; using it inside the public C header is our
+reviewed derivation. The macro evaluates its argument once and handles a
+signaling NaN without raising `FE_INVALID`. A tested alternative based on
+`__builtin_fpclassify` raised that flag. Reopen this packaging choice if
+Apple publishes a matching arm64 public header. The original Apple header's
+linker spelling is a separate provenance question.
+
+**Baseline.** A C client compiled against the previous generated `math.h` with
 `fpclassify(double)` or `fpclassify(long double)` imports `___fpclassify`
 on macOS arm64. Both linkers report that symbol undefined against SDK
 26.5 build 25F70. The SDK header emits `___fpclassifyd` for both input
@@ -50,15 +61,16 @@ native arm64 and Rosetta x86_64.
   Query with `gh api -X GET search/code -f q='__fpclassifyd org:apple-oss-distributions'`.
   [Libsystem](https://github.com/apple-oss-distributions/Libsystem/tree/c23b51183e46e613375dc7639fb4bf11fbf59ba8)
 
-Reopen when an Apple OSS input supplies the macOS arm64 mapping. The SDK
-and the successful runtime results establish the mismatch for review.
+The original ARM source does provide an implementation of binary64
+classification. It inspects the exponent and significand as integers.
+The build preserves its body, renames the helper and gives it internal
+linkage. The generated TBD needs no additional entry.
 
 ## Reproduce
 
 From the repository root, set `LLVM` to the verified LLVM bundle,
 `C_INSTALL` to the generated 26.5 C install, and `APPLE_SDK` to the
-matching Xcode SDK. Compile each type separately so the arm64 double
-failure does not prevent the float link.
+matching Xcode SDK. Compile each type separately to inspect its imports.
 
 ```sh
 WORK=$(mktemp -d)
