@@ -1,0 +1,15 @@
+{
+  "tapi_tbd_version": 5,
+  "main_library": {
+    "target_info": [{"target": "arm64-macos"}, {"target": "x86_64-macos"}],
+    "install_names": [{"name": "/usr/lib/libSystem.B.dylib"}],
+    "reexported_libraries": [{"names": ["/usr/lib/system/libProviderFixture.dylib"]}]
+  },
+  "libraries": [
+    {
+      "target_info": [{"target": "arm64-macos"}, {"target": "x86_64-macos"}],
+      "install_names": [{"name": "/usr/lib/system/libProviderFixture.dylib"}],
+      "exported_symbols": [{"text": {"global": ["_missing", "_moved"]}}]
+    }
+  ]
+}
