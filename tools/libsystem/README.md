@@ -20,6 +20,10 @@ calls that ThreadSanitizer intercepts. The build checks the pinned provider
 sources and compiles the interceptor declarations. The public C installation
 does not include the private lock header. [Source and binding evidence](data/macosx26.5/sanitizer-tsan-locks.json)
 
+With both `libc` and `libplatform` in the sanitizer source mapping, the
+builder also compiles the public ucontext and POSIX realpath clients and the
+out-of-line fileno interceptor. [TSan inputs and runtime checks](tsan_public.md)
+
 Start by preparing the [official LLVM bundle](../toolchain/README.md). Set `LLVM` to its verified directory and run the following from the repository root. Fixture names and records are independently authored. The first runnable build lock targets the fixture; the macOS 26.5 production lock and reviewed component evidence are pending.
 
 ```sh

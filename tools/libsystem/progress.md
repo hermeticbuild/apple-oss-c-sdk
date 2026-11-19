@@ -361,3 +361,28 @@ The maintainer left libxpc open. The local public-documentation census
 identified 147 macOS C functions, 146 absent from both candidates. It is
 an investigation record (`/tmp/xpc-docs-audit.Ugcp2q/results.json`).
 The XPC provider and standalone public headers remain open for review.
+
+### Consumer gates take priority
+
+The maintainer requested that the macOS LLVM self-bootstrap, hermetic-llvm
+e2e and rules_rs pass before further export-parity work. The Libnotify
+exploration and the local research input generator are parked on separate
+branches. The broad header scans have resumable checkpoints. Libxpc stays
+open. Resume parity decisions only after the three consumer gates.
+
+The TSan repro qualified five remaining consumer imports and the public
+makecontext companion exercised by the runtime fixture. Apple Libc and
+libplatform headers compile as supplied, using POSIX and X/Open feature
+profiles where applicable. The fileno interceptor uses the explicit
+declaration from compiler-rt. Source commit 1b58d02, integration d999129.
+Native and Rosetta runtime receipts live under
+`/tmp/libsystem-tsan-public-qual.HzhduL`. The scratch e2e archive with the
+six additional bindings has SHA-256
+`1dcb8b49737a223fb9974160aca649ef2085a5ee0834579f3a5e6ff9dfca050e`.
+
+Darwin's UBSan target requests both `-lc++` and `-lc++abi`.
+The tested hermetic-llvm source-header setting selects the pinned headers
+and retains the Apple system runtime. The first link failed when
+`usr/lib/libc++abi.tbd` was absent. The composition now includes the SDK
+Gen dynamic stub for `/usr/lib/libc++abi.dylib` alongside the system libc++
+stub. Both belong to the consumer composition.

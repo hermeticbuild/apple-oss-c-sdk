@@ -14,7 +14,7 @@ from tools.toolchain.official_llvm import PIN, projection, read_lock
 from .emit import ARCHES, fields, resolve
 from .expected_undefined import filter_demands, policy_for, verify_header
 from .libc_aliases import FILES as ALIAS_FILES, REVISION as LIBC_REVISION, install_aliases
-from . import commoncrypto, compiler_clients, fortify, libc_compiler_abi, libunwind_abi, netname, sanitizer_abi, stack_probe
+from . import commoncrypto, compiler_clients, fortify, libc_compiler_abi, libunwind_abi, netname, sanitizer_abi, stack_probe, tsan_public
 from .compat_links import install_compat_links
 
 
@@ -133,13 +133,21 @@ def build(args):
         if "sanitizer_sources" in lock:
             sources = lock["sanitizer_sources"]
             required = {"compiler-rt", "dyld", "libmalloc", "xnu"}
-            if "libplatform" in sources:
+            if "libc" in sources:
+                required.update(("libc", "libplatform"))
+            elif "libplatform" in sources:
                 required.add("libplatform")
             fields(sources, required, "sanitizer sources")
             roots = {key: relative_file(args.lock.parent, path) for key, path in sources.items()}
             receipt["sanitizer_abi"] = sanitizer_abi.install(
-                lock["sdk"], roots, args.llvm.resolve(), work / "sanitizer-abi", images, inventories,
+                lock["sdk"], {k: v for k, v in roots.items() if k != "libc"},
+                args.llvm.resolve(), work / "sanitizer-abi", images, inventories,
                 minimum=lock["minimum"])
+            if "libc" in roots:
+                receipt["tsan_public"] = tsan_public.install(
+                    lock["sdk"], {k: roots[k] for k in ("libc", "libplatform", "compiler-rt")},
+                    args.llvm.resolve(), args.c_install.resolve(), work / "tsan-public", images, inventories,
+                    minimum=lock["minimum"])
         policy = policy_for(lock["sdk"])
         if policy:
             verify_header(policy, args.c_install, manifest)
