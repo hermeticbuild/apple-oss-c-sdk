@@ -501,3 +501,22 @@ while the candidate had one unresolved import, `_close$NOCANCEL` from
 Rust std's file-descriptor cleanup. The pinned XNU macOS syscall maps give
 that alias on both CPUs. The two-level unwind checks themselves matched.
 The candidate and control logs are in `accepted-unwind-links`.
+
+### Rust std non-cancelable close
+
+The XNU syscall generator emits `_close$NOCANCEL` as an assembler alias
+of `___close_nocancel` for both macOS CPUs. The restricted source recipe
+and the complete pinned XNU checkout produced identical close assembly and
+Mach-O objects at minima 11.0 and 26.5. The two strong definitions share
+an address in each object and in both deployed kernel images on 25F84.
+Enable the recipe with `"close_nocancel": true` in the XNU release lock.
+
+At both minima on both CPUs, the previous package failed on the close
+relocation and the updated package matched the Xcode 25F70 bind through
+libSystem, dependency versions and deployment metadata. The new TBD adds
+one strong kernel export per slice. Two complete offline packages matched,
+including manifest and symlinks. The previous lock also reproduced its
+earlier package. All 46 producer tests passed. The new TBD SHA-256 is
+`68d32af65624ce050a2cddba300010b1bebdfe6d36eb5d9e3d3416842144f6f0`.
+Inputs, packages, test log and paired-link reports are under
+`/tmp/xnu-close-qual.7LUZ35`.

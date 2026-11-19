@@ -14,8 +14,8 @@ from tools.toolchain.official_llvm import PIN, projection, read_lock
 from .emit import ARCHES, fields, resolve
 from .expected_undefined import filter_demands, policy_for, verify_header
 from .libc_aliases import FILES as ALIAS_FILES, REVISION as LIBC_REVISION, install_aliases
-from . import asan_dispatch, commoncrypto, compiler_clients, fortify, libc_compiler_abi, libunwind_abi, netname
-from . import sanitizer_abi, sanitizer_inode32, stack_probe, tsan_public
+from . import asan_dispatch, close_nocancel, commoncrypto, compiler_clients, fortify, libc_compiler_abi
+from . import libunwind_abi, netname, sanitizer_abi, sanitizer_inode32, stack_probe, tsan_public
 from .compat_links import install_compat_links
 
 
@@ -55,6 +55,10 @@ def build(args):
         lock_fields.add("libsystem_source")
     if "xnu_source" in lock:
         lock_fields.add("xnu_source")
+        if "close_nocancel" in lock:
+            if not isinstance(lock["close_nocancel"], bool):
+                raise ValueError("close_nocancel must be a boolean")
+            lock_fields.add("close_nocancel")
     for component in ("libunwind_source", "commoncrypto_source"):
         if component in lock:
             lock_fields.add(component)
@@ -125,9 +129,12 @@ def build(args):
                 work / "compiler-clients", images, inventories)
             receipt["stack_probe"] = stack_probe.install(lock["sdk"], images, minimum=lock["minimum"])
         if "xnu_source" in lock:
-            receipt["netname"] = netname.install(
-                lock["sdk"], relative_file(args.lock.parent, lock["xnu_source"]), images, inventories,
-                minimum=lock["minimum"])
+            xnu = relative_file(args.lock.parent, lock["xnu_source"])
+            receipt["netname"] = netname.install(lock["sdk"], xnu, images, inventories, minimum=lock["minimum"])
+            if lock.get("close_nocancel"):
+                receipt["close_nocancel"] = close_nocancel.install(
+                    lock["sdk"], xnu, args.llvm.resolve(), args.c_install.resolve(), lock["minimum"],
+                    work / "close-nocancel", images, inventories)
         if "libunwind_source" in lock:
             receipt["libunwind_abi"] = libunwind_abi.install(
                 lock["sdk"], relative_file(args.lock.parent, lock["libunwind_source"]), args.llvm.resolve(),

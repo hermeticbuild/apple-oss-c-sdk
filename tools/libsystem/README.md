@@ -1,11 +1,18 @@
 # libSystem tools
 
 The macOS 26.5 release lock can specify `xnu_source`, a directory under its
-input root containing [four pinned XNU files](data/macosx26.5/netname.json).
+input root containing the [NetName inputs](data/macosx26.5/netname.json).
 The generator derives the four Mach NetName client spellings from Apple's
 `netname.defs` and assigns their qualified definitions to libsystem_kernel
 on both client architectures. Its public-header and target-build rules are
-verified by digest. The standalone C installation keeps its existing scope.
+verified by digest.
+
+Set `"close_nocancel": true` with `xnu_source` to expose the Rust std
+import `_close$NOCANCEL` from the kernel component. The builder runs XNU's
+`create-syscalls.pl` with Perl and assembles its output with the pinned
+LLVM. Both `_close$NOCANCEL` and `___close_nocancel` must be strong
+text definitions at the same address on each architecture.
+[Additional source inputs](data/macosx26.5/close-nocancel.json)
 
 The optional `sanitizer_sources` lock mapping names source directories for
 `compiler-rt`, `dyld`, `libmalloc` and `xnu`. The generator verifies the
