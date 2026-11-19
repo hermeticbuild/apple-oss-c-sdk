@@ -198,3 +198,48 @@ Integrated local branches (the repository has no remote) are
 `cerisier/libsystem-stack-probe-rule` (11029ca, /tmp/libsystem-stack-probe-rule),
 `cerisier/libsystem-compat-links` (51811d3, /tmp/libsystem-compat-links) and
 `cerisier/libm-paired-trig` (a5d1213, /tmp/libsystem-paired-trig).
+
+### Scalar pi repair and the original 45 headers
+
+The SDK 25F70 byte audit originally compared 761 installed files. The
+current 767-file installation has all 45 original divergent paths plus
+`os/log.h`, `pthread/introspection.h` and `sys/syscall.h`. Of the 767,
+715 are byte-identical and four have no reference counterpart. Header
+qualification uses behavior and provenance. Qualifying a source-derived
+repair can preserve a byte difference.
+
+On the latest header tree all 364 standalone compile checks passed. The
+paired interface suite ran 56 probes on each target at minimum 14.0.
+Three probes differed on each target, down from eleven before repairs:
+the open modern logging macro, the deferred ARM32 compact-unwind constant
+and the approved public XNU syscall-number difference. The additional
+arm64 `fpclassify` client-link issue has a [separate receipt](../sdk_review/data/macosx26.5/fpclassify-gap.md).
+Corentin chose to keep the arm64 `_FE_DFL_DISABLE_DENORMS_ENV` C and binding
+gap open pending independently sourced public interface evidence.
+
+The [four scalar pi functions](../../recipes/libm/scalar_pi.md) closed four
+actual linker gaps on each CPU with no extra bindings. Source branch
+`cerisier/libm-scalar-pi`, commit `6d15796`, is at `/tmp/libsystem-scalar-pi`;
+integration commits are `c546c5b` and `6fe97e5`.
+
+| Latest candidate at minima 11.0 and 26.5 | arm64 | x86_64 |
+| --- | ---: | ---: |
+| Effective bindings matching the reference | 2,841 / 8,960 | 2,867 / 9,500 |
+| Missing effective linker names | 6,119 | 6,633 |
+| Surveyed C names binding through libSystem | 2,640 / 3,112 | 2,664 / 3,133 |
+| Subset declared at a path we install | 2,640 / 2,663 | 2,664 / 2,686 |
+
+Stub SHA-256 is `33afec02408b439fc98b1056aa54adff3e8a3b24a60d2cb9670095ba8a0a828e`.
+Two full package builds matched. The local reports are
+`/tmp/libsystem-fortify-qual.1isE94/scalar-coverage.json` and
+`scalar-semantics.json`. The approved stack-probe decision still matched
+both raw rows. The raw review now reports all 20,388 Catalyst-only rows
+outside the client scope. Real client linkage resolves the reference's
+ordinary versus subtype slice differences.
+
+The SDK archive selector fix allowed Bazel to begin bootstrap compilation
+with the preceding candidate. All six LLVM binary import replays on that
+composition matched. A newly built Stage 2 executable, hermetic-llvm e2e
+and rules_rs on the latest digest are still qualification gates. Corentin
+left netname header scope to the maintainer. Use XNU's public MIG source
+to qualify the four stub entries while retaining the minimal C package.
