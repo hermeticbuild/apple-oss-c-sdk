@@ -697,3 +697,17 @@ discovery and denies access to the SDK interface directories. The
 libSystem generation and packaging check retains its full SDK-read denial.
 Revisit tool selection if generation must run on a host without working
 Apple developer tools. [Operator instructions](README.md)
+
+**Native Stage 1 compiler.** Replaying Bazel's full compiler link with
+LLD tracing and a separate output directory produced a byte-identical
+unstripped executable (SHA-256
+`960622f0bd0a3b85867c7d24758cebd9f1fb7c3dd351740bbdb20dc5b2759afc`).
+The linker opened the candidate `libSystem.B.tbd` and the composition's
+libc++, Objective-C, Foundation and CoreFoundation stubs. Bazel's stripped
+executable matched the running Stage 1 Clang byte for byte (SHA-256
+`3d749c9abc624fe9f3256222cb64d8e2dd7c17b7b3a633f7d3d8856d96f4b091`).
+At 21:07 UTC that compiler compiled LLVM's `Option.cpp` for arm64 with the
+same composed sysroot. The output was LLVM bitcode. Receipts are
+`close-native-stage1-link/{replay.params,link.trace,hashes}` and
+`close-stage1-observed-arm64.json` under the consumer qualification
+directory. Stage 2 completion and execution are separate gates.
