@@ -18,6 +18,8 @@ For macOS 26.5 the offline producer keeps three Apple Libc declarations out of t
 
 A 26.5 release lock can set `libc_alias_source` to a relative directory containing the pinned Libc project inputs. The producer verifies `xcodescripts/libc.xcconfig` and `xcodescripts/alias.list`, then emits the public names in the libsystem_c symbol reexports for both targets. The provider receipt keeps the forwarded implementation name and image. The local runtime probes take `--libc-source` to check the same mapping on each deployed slice. [Apple's linker rule](https://github.com/apple-oss-distributions/Libc/blob/4e34d0559e3a1b081afeb8604d9e204a1f31321d/xcodescripts/libc.xcconfig#L85) · [Apple's 22 aliases](https://github.com/apple-oss-distributions/Libc/blob/4e34d0559e3a1b081afeb8604d9e204a1f31321d/xcodescripts/alias.list)
 
+Use `libc_source` instead of the alias-only lock field to include the compiler's stack-protector ABI. The source tree must also contain `sys/OpenBSD/stack_protector.c` and `Libc.xcodeproj/project.pbxproj`. The offline build verifies both files and compiles a protected stack frame at O0 and O2 on each architecture. The receipt records the object hashes and the imported function and data names. [Apple implementation](https://github.com/apple-oss-distributions/Libc/blob/4e34d0559e3a1b081afeb8604d9e204a1f31321d/sys/OpenBSD/stack_protector.c) · [Compiler fixture](fixtures/stack_protector.c)
+
 ## Extract macOS deployment directives
 
 Use the macOS 26.5 locked source tree and a C header installation.

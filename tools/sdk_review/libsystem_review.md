@@ -125,3 +125,13 @@ Run the synthetic suite with the verified reader:
 ```sh
 LIBSYSTEM_TEST_LLVM="$LLVM" python3 -m unittest tools.sdk_review.test_libsystem
 ```
+
+## Replay the libSystem imports of an existing consumer
+
+Use a previously linked thin Mach-O as an early workload check. The command collects the executable's two-level libSystem imports with pinned llvm-nm, preserves weak references, and compiles an object referring to those names. It links the same object against each sysroot and compares imports and load commands. The default minimum comes from the binary. Use `--minimum` to investigate another deployment target. Exit 1 reports missing names or a binding difference. Exit 2 reports an invalid input or tool failure. Rebuilding and executing the actual consumer remains a separate release gate.
+
+```sh
+python3 -m tools.sdk_review.verify_consumer_imports --llvm "$LLVM" \
+  --binary "$STAGE2_LLVM" --arch x86_64 --sdk-version 26.5 \
+  --reference "$APPLE_SDK" --candidate "$CANDIDATE" --out "$WORK/stage2-imports.json"
+```

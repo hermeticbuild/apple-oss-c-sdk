@@ -14,6 +14,7 @@ from tools.toolchain.official_llvm import PIN, projection, read_lock
 from .emit import ARCHES, fields, resolve
 from .expected_undefined import filter_demands, policy_for, verify_header
 from .libc_aliases import FILES as ALIAS_FILES, REVISION as LIBC_REVISION, install_aliases
+from . import libc_compiler_abi
 
 
 def digest(path):
@@ -50,6 +51,8 @@ def build(args):
     lock_fields = {"schema", "sdk", "minimum", "headers", "sources", "manifest_sha256"}
     if "libc_alias_source" in lock:
         lock_fields.add("libc_alias_source")
+    elif "libc_source" in lock:
+        lock_fields.add("libc_source")
     fields(lock, lock_fields, "release lock")
     if lock["schema"] != 1 or not isinstance(lock["headers"], list) or not lock["headers"] or len(lock["headers"]) != len(set(lock["headers"])):
         raise ValueError("invalid release schema or header list")
@@ -80,8 +83,8 @@ def build(args):
         inventories = {}
         receipt = {"sdk": lock["sdk"], "lock_sha256": digest(args.lock), "toolchain_lock_sha256": digest(PIN),
                    "images": lock["sources"], "scan_sha256": {}}
-        if "libc_alias_source" in lock:
-            source = relative_file(args.lock.parent, lock["libc_alias_source"])
+        if "libc_alias_source" in lock or "libc_source" in lock:
+            source = relative_file(args.lock.parent, lock.get("libc_source", lock.get("libc_alias_source")))
             install_aliases(source, lock["sdk"], images)
             receipt["libc_alias_source"] = {"commit": LIBC_REVISION, "files": ALIAS_FILES}
         for arch in ARCHES:
@@ -96,6 +99,9 @@ def build(args):
                 raise ValueError(f"{arch}: unresolved header scan: {scan['unresolved']}")
             inventories[arch] = scan["imports"]
             receipt["scan_sha256"][arch] = digest(path)
+        if "libc_source" in lock:
+            receipt["libc_compiler_abi"] = libc_compiler_abi.install(
+                source, args.llvm.resolve(), lock["minimum"], work / "stack-protector", images, inventories)
         policy = policy_for(lock["sdk"])
         if policy:
             verify_header(policy, args.c_install, manifest)
