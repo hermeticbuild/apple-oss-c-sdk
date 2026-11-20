@@ -961,6 +961,8 @@ On host macOS 26.5.2, both arm64 and Rosetta x86_64 executed and passed all
 skipped per CPU. Both CPUs passed the separate header-order checks,
 sanitizer/stdlib contract builds and LCOV step. Both also executed and
 passed all 39 macOS rules_rs tests with test-result caching disabled.
-The LLVM Stage 2 rebuild is tracked separately. Archive, invocation logs,
-action graphs and header digests are under
+The maintainer confirmed the compiler gate is `//tools:clang` with
+`--//toolchain:bootstrap_stage=stage1_from_source`. The Stage 2 invocation
+was stopped and the Stage 1 build started on the same archive. Archive,
+invocation logs, action graphs and header digests are under
 `/tmp/macos-sdk-consumer-regate.7GpmOg`.

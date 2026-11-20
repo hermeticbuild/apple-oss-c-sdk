@@ -166,6 +166,6 @@ Use a previously linked thin Mach-O as an early workload check. The command coll
 
 ```sh
 python3 -m tools.sdk_review.verify_consumer_imports --llvm "$LLVM" \
-  --binary "$STAGE2_LLVM" --arch x86_64 --sdk-version 26.5 \
-  --reference "$APPLE_SDK" --candidate "$CANDIDATE" --out "$WORK/stage2-imports.json"
+  --binary "$STAGE1_CLANG" --arch x86_64 --sdk-version 26.5 \
+  --reference "$APPLE_SDK" --candidate "$CANDIDATE" --out "$WORK/stage1-imports.json"
 ```

@@ -50,16 +50,18 @@ export BAZEL_MACOS_FRAMEWORKS=CoreFoundation,Foundation
 
 cd "$HERMETIC_LLVM"
 for cpu in arm64 x86_64; do
-  bootstrap=(--config=release --extra_execution_platforms=@platforms//host
+  bootstrap=(-c opt --extra_toolchains=//toolchain:all
+             --extra_execution_platforms=@platforms//host
+             --//toolchain:bootstrap_stage=stage1_from_source
              "--platforms=//platforms:macos_$cpu" --//config:macos_libcxx_headers=llvm
              "${sdk_flags[@]}")
-  bazel build "${bootstrap[@]}" //toolchain/bootstrap/stage2:llvm || exit 1
+  bazel build "${bootstrap[@]}" //tools:clang || exit 1
   bazel aquery "${bootstrap[@]}" --output=text --include_commandline \
-    'inputs(".*llvm/lib/IR/LLVMContext[.]cpp$", mnemonic("CppCompile", deps(//toolchain/bootstrap/stage2:llvm)))' \
+    'inputs(".*llvm/lib/IR/LLVMContext[.]cpp$", mnemonic("CppCompile", deps(//tools:clang)))' \
     > "$REPORTS/bootstrap-$cpu.actions" || exit 1
   grep -Fx "action 'Compiling llvm/lib/IR/LLVMContext.cpp'" "$REPORTS/bootstrap-$cpu.actions" || exit 1
   mkdir -p "$REPORTS/$cpu/bin"
-  cp -L bazel-bin/toolchain/bootstrap/stage2/llvm "$REPORTS/$cpu/bin/clang"
+  cp -L "bazel-out/macos_$cpu-opt/bin/toolchain/bootstrap/stage1/clang" "$REPORTS/$cpu/bin/clang"
   resource=$("$LLVM/bin/clang" --no-default-config -print-resource-dir) || exit 1
   /usr/bin/arch "-$cpu" "$REPORTS/$cpu/bin/clang" --no-default-config \
     -target "$cpu-apple-macos11" -nostdinc -isysroot "$SDK" \
@@ -105,18 +107,19 @@ for cpu in arm64 x86_64; do
 done
 ```
 
-Check the bootstrap action
-for each target. A Stage 2 C++ compile must execute
-`stage1_macos_aarch64/bin/clang++` on the macOS host. The action that builds
-Stage 1 uses the minimal Darwin compiler. Both must pass the archive's
-extracted sysroot. Hash its `usr/lib/libSystem.B.tbd` against the composition
-receipt, inspect the produced Mach-O architecture, and use the resulting
-Clang to compile and run a client on the corresponding architecture.
+The bootstrap gate is `//tools:clang` with `stage1_from_source`. The alias
+selects the Stage 1 Clang target, which the minimal Darwin compiler builds
+from source. Inspect a C++ compile and the compiler link in that target's
+action graph. Both use the extracted sysroot. Hash its
+`usr/lib/libSystem.B.tbd` against the composition receipt, inspect the
+produced Mach-O architecture, and run the resulting Clang on the
+corresponding architecture. Stage 2, ThinLTO, and FDO belong to the separate
+LLVM release pipeline.
 
-To establish which stubs linked Stage 1 itself, use the native compiler
-link's Bazel response file from the execution root. Identify the matching
-configuration by comparing the built `llvm.stripped` with the Stage 1
-`bin/clang++` in the Stage 2 action. Copy the response file to the report
+To establish which stubs linked Stage 1 itself, use the compiler link's
+Bazel response file from the execution root. Use the action graph to map
+the selected Clang artifact to its `llvm.stripped` input and the preceding
+link action. Copy the response file to the report
 directory, insert `-Wl,-t`, and redirect its `-o` to a fresh directory,
 retaining the filename `llvm`. Run it from the execution root with the
 original link driver. Require the replay to match the unstripped Bazel

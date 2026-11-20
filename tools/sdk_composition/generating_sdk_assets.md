@@ -422,7 +422,7 @@ running under Rosetta. This result covers that smoke test on the Mac host.
 For release qualification, compare reproducibly generated artifacts, check
 the coverage report per library and framework, inspect the include and link
 traces for any path outside the declared inputs, and exercise normal and weak
-linking at the claimed deployment minimum. Run [the LLVM build](../llvm_build/README.md)
-through Stage 2 and the macOS suites in hermetic-llvm
+linking at the claimed deployment minimum. Run the [Stage 1 Clang build](../llvm_build/qualify_libsystem.md)
+with `//tools:clang` and the macOS suites in hermetic-llvm
 and rules_rs against the same candidate archive. Publish the tested target and
 deployment matrix so coverage and runtime support can be assessed separately.
