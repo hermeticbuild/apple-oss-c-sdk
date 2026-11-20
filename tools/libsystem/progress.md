@@ -943,3 +943,24 @@ preserves specialized error/fault calls. The historical images verify five
 logging names. Independent source prototypes for the two dedicated sinks
 are still missing. The arm64 denormals object remains qualification only.
 [Logging and header decisions](../sdk_review/data/macosx26.5/tested-header-repairs.md)
+
+### Consumer rerun on the binary16 and Blocks artifact digests
+
+The normalized qualification archive SHA-256 is
+`bc517de4dca06afdff84fba988438dc1d9c9b27fd9a4014a7cb41abebb778b7b`.
+It pairs C manifest `fb3e9f75` with libSystem `3fff4841` and the framework
+and external library layers from the prior consumer qualification. The
+three Bazel repositories materialized the exact libSystem and verified
+every extracted C header against the manifest. The two hermetic-llvm
+repositories extracted 766 header paths and the rules_rs repository
+extracted all 767 with IOKit enabled. C++ test actions and the PyO3
+extension link use the verified SDK path.
+
+On host macOS 26.5.2, both arm64 and Rosetta x86_64 executed and passed all
+36 applicable hermetic-llvm rules_cc tests, with 45 incompatible targets
+skipped per CPU. Both CPUs passed the separate header-order checks,
+sanitizer/stdlib contract builds and LCOV step. Both also executed and
+passed all 39 macOS rules_rs tests with test-result caching disabled.
+The LLVM Stage 2 rebuild is tracked separately. Archive, invocation logs,
+action graphs and header digests are under
+`/tmp/macos-sdk-consumer-regate.7GpmOg`.
