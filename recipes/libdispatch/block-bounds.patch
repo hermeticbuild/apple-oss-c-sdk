@@ -1,5 +1,19 @@
---- Block.h
-+++ Block.h
+Annotate the Blocks runtime pointer bounds.
+
+Source: libdispatch-1542.100.32 (701f4d1a24ae9c6863901bbbb22624b7d1b87321),
+src/BlocksRuntime/Block.h. Scope: macOS SDK 26.5, arm64 and x86_64.
+
+The pinned licensed header needs a single-pointer boundary for raw copy
+and release under Clang bounds safety. Use Clang's documented annotations
+and forge operation in the typed wrappers, retaining the upstream notice.
+The fixture checks valid single-pointer copy and rejection of unsafe raw
+release. Ordinary C clients emitted identical objects.
+
+Evidence: https://clang.llvm.org/docs/BoundsSafety.html
+recipes/libdispatch/block-bounds.md and tests/installed_headers/block_pointer_bounds.c.
+
+--- a/usr/include/Block.h
++++ b/usr/include/Block.h
 @@ -33,6 +33,23 @@
  #   endif
  #endif

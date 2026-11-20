@@ -32,6 +32,14 @@ includes `source-lock.json` beside `header-manifest.tsv`.
 
 Run the cache and checkout tests with `python3 -m unittest discover -s tools/sources`.
 
+The optional Objective-C layer has its own lock and checkout under
+`build/sources/macosx26.5-objc4`. It never enters the standalone C installation.
+
+```sh
+python3 -m tools.sources.locked_sources prepare --sdk macosx26.5 --profile objc4
+make install-objc4 SDK=macosx26.5 OUT="$OBJC4_INSTALL"
+```
+
 ## Add a version
 
 1. Find the intended Apple [source release](https://opensource.apple.com/releases/)

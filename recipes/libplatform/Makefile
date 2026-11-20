@@ -10,3 +10,6 @@ stage-libplatform:
 		sources/libplatform/include/libkern/OSSpinLockDeprecated.h)
 	$(call copy-headers,libplatform,os,sources/libplatform/include/os/lock.h sources/libplatform/include/os/os_sync_wait_on_address.h)
 	$(call copy-headers,libplatform,.,sources/libplatform/include/setjmp.h sources/libplatform/include/ucontext.h)
+	@# Retain the reviewed source headers at their matching SDK paths.
+	$(call copy-headers,libplatform,os,sources/libplatform/include/os/security_config.h)
+	$(call copy-headers,libplatform,.,sources/libplatform/include/string_x86.h sources/libplatform/include/timingsafe.h)

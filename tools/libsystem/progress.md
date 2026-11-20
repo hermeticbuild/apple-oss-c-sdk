@@ -24,7 +24,7 @@ Implementation started against the approved plan at `bb2ecc9`. The two-architect
 ## 2026-11-19 · Header inventory and first repairs · macOS 26.5 / 25F70
 
 - The initial manifest contained 765 headers. The census passed 1,454 of 1,530 direct include contexts. The shipping profile passed 350 of 350 probes on each side. The semantic comparison found 11 cases passing only in the reference on both targets. The joined review contained 3,474 paths, 211 with open findings and two approved eventlink contexts. These counts describe the installation **before** repairs. Read each finding's cause and evidence before treating it as a missing public API. [Backlog runner](../sdk_review/libsystem-headers.mk) · [Semantic fixtures](../sdk_review/fixtures/c_interfaces/)
-- **Availability decision.** Corentin approved extending the public Apple DSL for macOS SDK 26.5. The pinned input ends at 14.3; the baseline advertised `140300` as its maximum even for the 26.5 installation. Stage the original DSL with the reviewed macOS version rows and run Apple's generator. Check the original DSL digest before staging; revisit this supplement when the pin or SDK changes. The two public outputs affected within this recipe are `AvailabilityVersions.h` and `AvailabilityInternal.h`. The SDK is used only for comparison. [Input and public release sources](../../recipes/availability_versions/macosx26.5.dsl) · [Targeted fixture](../../tests/installed_headers/macos_26_5_availability.c)
+- **Availability decision.** Corentin approved extending the public Apple DSL for macOS SDK 26.5. The pinned input ends at 14.3; the baseline advertised `140300` as its maximum even for the 26.5 installation. Stage the original DSL with the reviewed macOS version rows and run Apple's generator. The C installer verifies the source lock before staging the DSL. Revisit the patch when the pin or SDK changes. The two public outputs affected within this recipe are `AvailabilityVersions.h` and `AvailabilityInternal.h`. The SDK is used only for comparison. [Input and public release sources](../../recipes/availability_versions/macos-versions-26.5.patch) · [Targeted fixture](../../tests/installed_headers/macos_26_5_availability.c)
 - **Mach dispatch header.** The census found one path passing only in the reference under the same standalone include context, `mach/machine/asm.h`. Follow XNU's architecture-specific public `INSTALL_MD_GEN_LIST` and its `VPATH` to install both child headers. The headers and the two sampled assembled objects matched the reference bytes. [XNU recipe](../../recipes/xnu/asm_headers.py)
 - **Platform macros.** The local CarbonHeaders adaptation overrode Apple's `TARGET_OS_UNIX` value for macOS. Restoring the value in the upstream template fixed the platform-branch probe on both targets. The independently missing `TARGET_ABI_USES_IOS_VALUES` macro remains under review.
 - **C11 complex constructors.** The existing C99 Libm header failed the C11 `CMPLX` consumer on arm64 and x86_64. Corentin approved deriving the three C11 constructors from §7.3.9.3 and Clang's complex builtin. Verify result types, signed zero, static initializers and single evaluation. [C11 committee draft](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf)
@@ -980,3 +980,40 @@ targets and the denormals object adds one on arm64. This compares
 effective bindings for explicit linker spellings. Deployment annotations
 and numerical behavior have separate client tests. The full local report
 is `/tmp/macos-sdk-release-assessment.F1y6wl/effective-bindings.json`.
+
+### Proposed recipe-based libSystem generation
+
+Start with each C installation recipe. Keep its selected headers, libSystem
+export rules and exceptions beside the recipe. Generate temporary header
+lists for `clang-installapi` and run it for arm64 and x86_64 under the needed
+C feature profiles. Use explicit symbol selection only for mixed headers,
+expected-undefined declarations, or other documented exceptions. Where a
+symbol has no installed declaration, derive it from the upstream export or
+assembly rule. A private build-only header can express an exact Mach-O name
+with an asm label, as tested with `dyld_stub_binder`. Keep explicit linker
+directives and forwarding rules where they affect a client link.
+
+Test a flat TBD with the real `/usr/lib/libSystem.B.dylib` install name.
+Only include names clients can bind through libSystem, with their target and
+symbol kind. Retain a hybrid option that folds `libsystem_*` children into the
+umbrella and keeps the other child names if qualification shows a reason to
+preserve them. For that option, use `llvm-readtapi -merge` for the architecture
+slices of each install name and embed the retained child documents in the
+umbrella's v5 `libraries` array. Make should regenerate the intermediates.
+The prepared 40-file export snapshot is useful as a regression baseline.
+
+Among 231 installed headers with observed provider matches, folding the
+`libsystem_*` children left one observed mixed header. XNU's `mach/mach.h`
+has 14 names in the folded group and `_slot_name` in libmacho. The libdispatch
+recipe also spans two groups, with `dispatch/` going to libdispatch and
+`Block.h` to libsystem_blocks. Individually linked libraries such as libiconv,
+libbsm and libipsec stay separate. These findings cover the observed names.
+[Separate-library binding evidence](../sdk_review/sdk_header_linkage.md)
+
+The flat and structured candidates and Apple's 26.5 stub gave identical
+import bindings and dylib load commands for the sampled C client on both
+architectures. Both generated variants ran on the Apple Silicon host, with
+x86_64 under Rosetta. See `/tmp/libsystem-flat-example.fAeuof`. When revisiting
+this proposal, generate the whole recipe-based candidate and compare its
+bindings, availability, and exceptions against the tested candidate and the
+official SDK. The reference SDK is used for qualification.

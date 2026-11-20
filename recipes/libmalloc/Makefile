@@ -11,10 +11,9 @@ stage-libmalloc:
 		sources/libmalloc/include/malloc/_ptrcheck.h \
 		sources/libmalloc/include/malloc/malloc.h)
 ifeq ($(SDK),macosx26.5)
-	# Apple's tests/malloc_type_backdeploy.c selects this public SDK branch.
-	/usr/bin/unifdef -x2 -D__APPLE_BLEACH_SDK__ -o "$(STAGE)/libmalloc/dst/$(malloc_type_dst)" \
-		"$(SOURCE_ROOT)/$(malloc_type_header)"
-	$(call header-record,libmalloc,$(malloc_type_dst),derived:sources/$(malloc_type_header),recipes/libmalloc/Makefile,select public SDK backdeployment branch,sources/$(malloc_type_header) sources/libmalloc/tests/malloc_type_backdeploy.c recipes/libmalloc/Makefile)
+	install -m 644 "$(SOURCE_ROOT)/$(malloc_type_header)" "$(STAGE)/libmalloc/dst/$(malloc_type_dst)"
+	$(call apply-recipe-patch,$(STAGE)/libmalloc/dst,recipes/libmalloc/malloc-type-backdeployment-26.5.patch)
+	$(call header-record,libmalloc,$(malloc_type_dst),derived:sources/$(malloc_type_header),recipes/libmalloc/Makefile,select public SDK backdeployment branch,sources/$(malloc_type_header) sources/libmalloc/tests/malloc_type_backdeploy.c recipes/libmalloc/malloc-type-backdeployment-26.5.patch)
 else
 	$(call copy-headers,libmalloc,malloc,sources/$(malloc_type_header))
 endif

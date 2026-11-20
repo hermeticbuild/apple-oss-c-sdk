@@ -15,7 +15,10 @@ ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_PROBE = Path(__file__).with_name("fixtures") / "sdk_discovery.c"
 TARGETS = ("arm64", "x86_64")
 COMBINED = "__combined__"
-ROOT_FLAGS = {"ucontext.h": ("-D_XOPEN_SOURCE=700",)}
+ROOT_FLAGS = {
+    "string_x86.h": ("-include", "string.h"),
+    "ucontext.h": ("-D_XOPEN_SOURCE=700",),
+}
 COMPILER_ENV = {"PATH": "/usr/bin:/bin", "LC_ALL": "C"}
 
 
@@ -182,6 +185,7 @@ def main() -> int:
     version = subprocess.check_output([str(clang), "--no-default-config", "--version"], text=True, env=COMPILER_ENV).splitlines()[0]
     sdk_settings = sysroot / "SDKSettings.json"
     sdk = json.loads(sdk_settings.read_text()) if sdk_settings.is_file() else {}
+    roots = header_roots(probe)
     manifest = {
         "schema": 2,
         "compiler": version,
@@ -189,7 +193,7 @@ def main() -> int:
         "resource_headers_sha256": digest_tree(resource),
         "sdk": {key: sdk[key] for key in ("CanonicalName", "Version") if key in sdk},
         "target": "macos14.0",
-        "root_flags": {header: list(flags) for header, flags in ROOT_FLAGS.items()},
+        "root_flags": {header: list(ROOT_FLAGS[header]) for header in roots if header in ROOT_FLAGS},
         "roots": str(probe.relative_to(ROOT)),
         "probe_sha256": hashlib.sha256(probe.read_bytes()).hexdigest(),
         "targets": {},
@@ -198,7 +202,6 @@ def main() -> int:
     if source_lock.is_file():
         manifest["source_lock_sha256"] = hashlib.sha256(source_lock.read_bytes()).hexdigest()
     errors = []
-    roots = header_roots(probe)
     with tempfile.TemporaryDirectory(prefix="apple-c-probe-") as temporary:
         depfile = Path(temporary) / "probe.d"
         for arch in TARGETS:

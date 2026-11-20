@@ -5,16 +5,16 @@
 // TargetConditionals.h, and CoreFoundation/CoreFoundation.h.
 // ucontext.h requires _XOPEN_SOURCE; _DARWIN_C_SOURCE retains Darwin extensions.
 //
-// Header-inclusion coverage (237 unique roots, not API conformance):
+// Header-inclusion coverage (244 unique roots, not API conformance):
 // Inventory editions are fixed here; newer C/POSIX editions are not counted.
 //   ISO C11 (WG14 N1570, 7.1.2): 27/29; absent: threads.h, uchar.h.
 //   ANSI C89 (subset of C11): 15/15.
 //   POSIX.1-2017 Issue 7 (Base Definitions, Ch. 13): 79/82;
 //     absent: mqueue.h, stropts.h, trace.h. 24 POSIX roots overlap C11.
-//   macOS/BSD, frameworks, and other extensions: 155 additional roots.
+//   macOS/BSD, frameworks, and other extensions: 162 additional roots.
 // The five absent standard roots are absent from both the macOS 26.5 SDK and
 // our pinned Clang resource headers; POSIX counts include optional facilities.
-// See COVERAGE_GAPS.md for roots included here but missing from our installation.
+// See tools/sdk_review/README.md for how to report missing paths.
 // Clang resource headers remain compiler-owned; the counts classify requested
 // include names, irrespective of whether Clang or the sysroot provides them.
 // LLVM libunwind headers are a separately pinned runtime layer and are checked
@@ -244,15 +244,20 @@
 #include <netinet/ip.h>
 #include <netinet/udp.h>
 #include <nameser.h>
+#include <notify.h>
+#include <notify_keys.h>
 #include <os/lock.h>
 #if defined(APPLE_C_PROBE_PROVISIONAL_SOURCES)
 #include <os/arch/arm64.h>
 #endif
 #include <os/proc.h>
 #include <os/os_sync_wait_on_address.h>
+#include <os/security_config.h>
+#include <os/signpost.h>
 #include <paths.h>
 #include <pthread_impl.h>
 #include <pthread_spis.h>
+#include <removefile.h>
 #include <resolv.h>
 // Legacy rpcsvc interfaces are checked individually; they share generated
 // identifiers with each other and with unrelated headers.
@@ -284,6 +289,9 @@
 #include <servers/netname_defs.h>
 #include <servers/nm_defs.h>
 #include <simd/simd.h>
+// The Intel declarations use size_t and __BEGIN_DECLS from the C headers.
+// The individual trace pre-includes string.h for this root.
+#include <string_x86.h>
 #include <sys/acl.h>
 #include <sys/attr.h>
 #include <sys/clonefile.h>
@@ -297,6 +305,7 @@
 #include <sys/syscall.h>
 #include <sys/timex.h>
 #include <sysexits.h>
+#include <timingsafe.h>
 #include <ucontext.h>
 #include <vis.h>
 #include <xlocale.h>

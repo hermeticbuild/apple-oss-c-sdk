@@ -10,9 +10,12 @@ finished installation.
 
 Each producer owns its Makefile, patches, templates, flags, and generator
 scripts. Makefiles call Apple's pinned install rules where possible.
-Compatibility edits run inside the producer stage. CarbonHeaders drops its
-three legacy availability headers there, since AvailabilityVersions supplies
-those paths. AvailabilityVersions adds the xros aliases to its own output.
+Apply each compatibility patch to the producer's staged files before recording
+provenance. A patch preamble records the pinned source, affected SDK and targets,
+reason for the edit, and supporting evidence. CarbonHeaders patches its headers
+after Apple's install rule. AvailabilityVersions patches a staged copy of the
+DSL before generation and adds the xros aliases to its output. XNU uses that same
+staged DSL. Apple's source checkouts remain clean.
 
 A stage has a `dst/usr/include` tree and a tab-separated `records` file.
 Every file has one record with its installed path, owner, origin, selection,
@@ -55,6 +58,6 @@ compiler-rt. Apple omits this header from the public userspace install
 list. Apple SDK Gen 0.0.4 copies the same pinned XNU source directly.
 
 The syslog recipe copies `asl.h` from the pinned syslog project's public
-header phase. Python is local to
-XNU, Libm, CarbonHeaders, AvailabilityVersions, and dyld. Audit and
-qualification tools live under `tools/`.
+header phase. The XNU recipe uses Python to read its public install lists and
+run its upstream preprocessing and generators. Audit and qualification tools
+live under `tools/`.

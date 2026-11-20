@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Prepare and verify the selected Apple OSS checkouts for one SDK."""
 
+from __future__ import annotations
+
 import argparse
 import fcntl
 import hashlib
@@ -22,15 +24,20 @@ CHECKOUT_SETTINGS = {
 }
 
 
-def read_lock(sdk: str) -> tuple[bytes, dict]:
+def read_lock(sdk: str, profile: str | None = None) -> tuple[bytes, dict]:
     if not re.fullmatch(r"[a-z][a-z0-9]*[0-9](?:\.[0-9]+)+", sdk):
         raise ValueError(f"invalid SDK name: {sdk}")
-    path = ROOT / "locks" / f"{sdk}.json"
+    if profile not in (None, "objc4"):
+        raise ValueError(f"unsupported source profile: {profile}")
+    suffix = f"-{profile}" if profile else ""
+    path = ROOT / "locks" / f"{sdk}{suffix}.json"
     data = path.read_bytes()
     lock = json.loads(data)
     target = lock["sdk"]
     if lock["schema"] != 1 or target["canonical_name"] != sdk:
         raise ValueError(f"source lock does not identify SDK {sdk}")
+    if lock.get("profile") != profile:
+        raise ValueError(f"source lock does not identify profile {profile}")
     if target["platform"] != "macosx" or sdk != target["platform"] + target["version"]:
         raise ValueError(f"the header recipes do not support SDK {sdk}")
     projects = lock["projects"]
@@ -115,6 +122,7 @@ def main() -> int:
     for name in ("prepare", "verify"):
         command = commands.add_parser(name)
         command.add_argument("--sdk", required=True)
+        command.add_argument("--profile", choices=["objc4"])
         command.add_argument("--source-root", type=Path)
     commands.choices["prepare"].add_argument("--cache", type=Path, default=ROOT / "build/source-cache")
     commands.choices["prepare"].add_argument("--offline", action="store_true")
@@ -122,8 +130,9 @@ def main() -> int:
                                            help="write the verified source lock to a new file")
     args = parser.parse_args()
     try:
-        lock_bytes, projects = read_lock(args.sdk)
-        root = (args.source_root or ROOT / "build/sources" / args.sdk).absolute()
+        lock_bytes, projects = read_lock(args.sdk, args.profile)
+        directory = f"{args.sdk}-{args.profile}" if args.profile else args.sdk
+        root = (args.source_root or ROOT / "build/sources" / directory).absolute()
         if args.command == "prepare":
             prepare(root, args.cache.resolve(), projects, args.offline)
             print(f"{args.sdk}: prepared {len(projects)} projects at {root}")

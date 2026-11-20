@@ -16,7 +16,7 @@ from pathlib import Path
 
 from tools.header_manifest import read_header_manifest
 
-from tools.qualify_headers.trace_includes import current_probe_path, digest_tree
+from tools.qualify_headers.trace_includes import DEFAULT_PROBE, current_probe_path, digest_tree
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -213,9 +213,9 @@ def public_install_provenance(source: dict[str, str]) -> bool:
         return True
     for repo in ("Libnotify", "libdispatch", "libpthread", "removefile", "copyfile",
                  "libresolv", "syslog"):
+        project = f"{repo}/{repo}.xcodeproj/project.pbxproj"
         if (source["origin"].startswith(f"sources/{repo}/") and
-                source["selection"] ==
-                f"{repo}/{repo}.xcodeproj/project.pbxproj:Public"):
+                source["selection"] in (f"sources/{project}", f"{project}:Public")):
             return True
     return (origin.startswith("sources/xnu/") and
             bool(re.fullmatch(r"[^:]+/Makefile:INSTALL_(?:MI|MD)_LIST",
@@ -228,7 +228,7 @@ def audit(sdk: Path, installation: Path, resource: Path,
           scope_rules: dict[str, dict[str, str]] | None = None,
           generated_closure: set[str] | None = None,
           extra_rules: dict[str, dict[str, str]] | None = None,
-          notes: dict[str, dict[str, str]] | None = None) -> dict:
+          notes: dict[str, dict[str, str]] | None = None, *, discovery_only: bool = False) -> dict:
     sdk, installation, resource = sdk.resolve(), installation.resolve(), resource.resolve()
     settings = sdk / "SDKSettings.json"
     metadata = json.loads(settings.read_text()) if settings.is_file() else {}
@@ -303,6 +303,7 @@ def audit(sdk: Path, installation: Path, resource: Path,
             missing.append(name)
         if closure is not None:
             record["in_probe_closure"] = name in closure
+        required_by_probe = not discovery_only and closure is not None and name in closure
         if lookup_candidates is not None and name in lookup_candidates:
             record["probe_lookup_candidate"] = True
         matches = [rule for rule in rules if fnmatch.fnmatchcase(name, rule["pattern"])]
@@ -312,13 +313,13 @@ def audit(sdk: Path, installation: Path, resource: Path,
             rule = matches[0]
             matched_rules[rule["pattern"]] += 1
             rule_paths.setdefault(rule["pattern"], []).append(name)
-            if rule["decision"] == "omit" and (present or name in (closure or set())):
+            if rule["decision"] == "omit" and (present or required_by_probe):
                 raise ValueError(f"cannot omit installed or probe-reached header: {name}")
             record.update(decision=rule["decision"], reason=rule["reason"],
                           decision_source="manual", evidence=rule["evidence"],
                           decision_rule=rule["pattern"], review_status="pending")
         elif present:
-            probed = closure is not None and name in closure
+            probed = required_by_probe
             listed = bool(source and public_install_provenance(source))
             record.update(decision="include",
                           reason=("pinned Apple OSS install manifest lists this public macOS header"
@@ -334,7 +335,7 @@ def audit(sdk: Path, installation: Path, resource: Path,
                 record.update(reason=notes[name]["reason"],
                               evidence=notes[name]["evidence"],
                               review_status="pending")
-        elif closure is not None and name in closure:
+        elif required_by_probe:
             note = notes.get(name)
             if note:
                 used_notes.add(name)
@@ -550,6 +551,7 @@ def main() -> None:
     extra = ledger(args.extra_approvals, "installation-only-decisions.tsv")
     reference = json.loads(args.reference.read_text()) if args.reference else None
     generated = json.loads(args.generated_probe.read_text()) if args.generated_probe else None
+    discovery_only = False
     source_lock = installation / "source-lock.json"
     lock_digest = None
     if source_lock.is_file():
@@ -572,6 +574,9 @@ def main() -> None:
             parser.error("reference probe path is not a checked-in repository file")
         if reference["probe_sha256"] != hashlib.sha256(probe.read_bytes()).hexdigest():
             parser.error("checked-in C probe differs from reference")
+        discovery_only = probe == DEFAULT_PROBE
+        if discovery_only and args.require_decisions:
+            parser.error("release gate requires a shipping probe reference")
     if generated:
         if not reference:
             parser.error("--generated-probe requires --reference")
@@ -592,7 +597,8 @@ def main() -> None:
                    decision_rules(decisions) if decisions else [], baseline,
                    scope_approvals(scope) if scope else None, generated_closure,
                    extra_approvals(extra) if extra else None,
-                   review_notes(notes, canonical) if notes else None)
+                   review_notes(notes, canonical) if notes else None,
+                   discovery_only=discovery_only)
     if baseline_sdk:
         report["baseline_sdk"] = baseline_sdk
     if reference:
@@ -600,6 +606,7 @@ def main() -> None:
             "sdk": reference.get("sdk", {}),
             "probe_sha256": reference["probe_sha256"],
             "target": reference["target"],
+            "discovery_only": discovery_only,
             "compiler": reference["compiler"],
             "compiler_binary_sha256": reference["compiler_binary_sha256"],
             "resource_headers_sha256": reference["resource_headers_sha256"],

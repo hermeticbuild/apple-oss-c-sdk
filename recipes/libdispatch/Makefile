@@ -14,8 +14,8 @@ stage-libdispatch:
 	$(call copy-headers,libdispatch,dispatch,$(addprefix sources/libdispatch/dispatch/,$(dispatch_headers)))
 	@# BlocksRuntime's CMake install is non-Darwin. Retain the explicit compatibility copy.
 ifeq ($(SDK),macosx26.5)
-	patch -s -F 0 -o "$(dispatch_root)/usr/include/Block.h" \
-		"$(SOURCE_ROOT)/libdispatch/src/BlocksRuntime/Block.h" < recipes/libdispatch/block-bounds.patch
+	install -m 644 "$(SOURCE_ROOT)/libdispatch/src/BlocksRuntime/Block.h" "$(dispatch_root)/usr/include/"
+	$(call apply-recipe-patch,$(dispatch_root),recipes/libdispatch/block-bounds.patch)
 	$(call header-record,libdispatch,usr/include/Block.h,derived:sources/libdispatch/src/BlocksRuntime/Block.h,recipes/libdispatch/Makefile,annotate block copy and release for Clang bounds checking,sources/libdispatch/src/BlocksRuntime/Block.h recipes/libdispatch/Makefile recipes/libdispatch/block-bounds.patch recipes/libdispatch/block-bounds.md)
 else
 	$(call copy-headers,libdispatch,.,sources/libdispatch/src/BlocksRuntime/Block.h)

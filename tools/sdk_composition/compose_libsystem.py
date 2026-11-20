@@ -18,25 +18,13 @@ import tempfile
 
 from tools.header_manifest import read_header_manifest
 from tools.sdk_review.libsystem_tbd import read_install_names, read_json, read_stub
+from tools.sources.locked_sources import read_lock
 
 
 STUB = Path("usr/lib/libSystem.B.tbd")
 ALIAS = Path("usr/lib/libSystem.tbd")
 SYSTEM_INSTALL_NAME = "/usr/lib/libSystem.B.dylib"
 FRAMEWORKS = Path("System/Library/Frameworks")
-OBJC4_REVISION = "ebfe77e64331034c867285a95d3ac205203291d5"
-# Qualified subset of the Public headers in objc.xcodeproj/project.pbxproj.
-OBJC4_PUBLIC_HEADERS = {
-    "NSObjCRuntime.h": "7d8a9708e620c9cf1900bb2fd5206fc4e9861c3d0334a22af657dcdeab144fc8",
-    "NSObject.h": "1b64bbe77a3840e3795222d160889d30052eb0a087d860d99e274a561b784e14",
-    "message.h": "5c4fab7d5b0bc58e44a8767c0ec697f18ac45883ee552630949507a897635adc",
-    "objc-api.h": "f1566ea8f5bb56cee97e5a33796e306a9813570363a61af6c64636bd7b43701e",
-    "objc-auto.h": "182b9e9f3bc00d6677f58fd7684a424a346fe1ee501020af1e2b47ddc27c68da",
-    "objc-exception.h": "5429560c15ba502830a03cd2f0014151e1e0abdecd0a0367851e1ab79803b98f",
-    "objc-sync.h": "31b032f2be170af8bc172a12419dd625b12fe074ead7e99d63bc526c36850e1e",
-    "objc.h": "3e2df4da5c0cf68323e571f00291d84f6c6d06ae769d3a3e93d4a99b0d229f6c",
-    "runtime.h": "027d72cf0995dc1688d4fe0d1013ce1c81e0d7aadb9a18cff858e5f6c6d3592c",
-}
 MACHO_MAGIC = {
     b"\xfe\xed\xfa\xce", b"\xce\xfa\xed\xfe", b"\xfe\xed\xfa\xcf", b"\xcf\xfa\xed\xfe",
     b"\xca\xfe\xba\xbe", b"\xbe\xba\xfe\xca", b"\xca\xfe\xba\xbf", b"\xbf\xba\xfe\xca",
@@ -179,15 +167,23 @@ def c_install(plan, root):
         plan.file(source.relative_to(root), source, root, "c-install", digest(source))
 
 
-def objc4_headers(plan, root):
-    runtime = root / "runtime"
-    if runtime.is_symlink() or not runtime.is_dir():
-        raise ValueError(f"objc4 source requires a real runtime directory: {runtime}")
-    for name, sha256 in OBJC4_PUBLIC_HEADERS.items():
-        source = runtime / name
-        if source.is_symlink() or not source.is_file():
-            raise ValueError(f"objc4 public header must be a regular file: {source}")
-        plan.file(Path("usr/include/objc") / name, source, root, "objc4-public-headers", sha256)
+def objc4_headers(plan, root, sdk):
+    expected_lock, projects = read_lock(sdk, "objc4")
+    lock = root / "source-lock.json"
+    if lock.is_symlink() or lock.read_bytes() != expected_lock:
+        raise ValueError(f"objc4 installation does not match the {sdk} source lock")
+    files, _ = read_header_manifest(root)
+    include = Path("usr/include/objc")
+    for name, record in sorted(files.items()):
+        path = relative_path(name)
+        if (path.parent != include or path.suffix != ".h" or record["owner"] != "objc4"
+                or record["origin"] != f"sources/objc4/runtime/{path.name}"):
+            raise ValueError(f"unexpected objc4 header receipt: {path}")
+        source = root / path
+        if source.is_symlink() or not source.is_file() or source.resolve() != source:
+            raise ValueError(f"objc4 public header must be a regular staged file: {source}")
+        plan.file(path, source, root, "objc4-public-headers", record["sha256"])
+    return projects["objc4"]["commit"]
 
 
 def libsystem_layer(plan, root, expected):
@@ -303,9 +299,11 @@ def compose(args):
         raise ValueError(f"output already exists: {out}")
     plan = Plan()
     c_install(plan, args.c_install.resolve())
-    if args.objc4_source:
-        objc4_headers(plan, args.objc4_source.resolve())
     package = libsystem_layer(plan, args.libsystem.resolve(), args.libsystem_manifest_sha256)
+    objc4_revision = None
+    if args.objc4_install:
+        objc4_revision = objc4_headers(plan, args.objc4_install.resolve(),
+                                     package.get("sdk", "macosx26.5"))
     for name in args.framework:
         framework(plan, args.sdk_gen.resolve(), name)
     for name, source in args.prepared_framework:
@@ -325,8 +323,8 @@ def compose(args):
             "files": receipts,
             "providers": providers(plan, sdk, args.llvm.resolve()),
         }
-        if args.objc4_source:
-            composition["objc4_revision"] = OBJC4_REVISION
+        if objc4_revision:
+            composition["objc4_revision"] = objc4_revision
         manifest = sdk / "composition.json"
         manifest.write_text(json.dumps(composition, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         manifest.chmod(0o644)
@@ -341,8 +339,8 @@ def main():
         parser.add_argument(f"--{name}", required=True, type=Path)
     parser.add_argument("--libsystem-manifest-sha256", required=True,
                         help="expected SHA-256 of the libSystem package's manifest.json")
-    parser.add_argument("--objc4-source", type=Path,
-                        help="objc4-951.7 source containing the qualified public Objective-C headers")
+    parser.add_argument("--objc4-install", type=Path,
+                        help="separate Objective-C runtime headers from make install-objc4")
     parser.add_argument("--sdk-gen", type=Path, help="SDK Gen root containing System/Library/Frameworks")
     parser.add_argument("--framework", action="append", default=[], help="public SDK Gen framework name")
     parser.add_argument("--prepared-framework", nargs=2, action="append", default=[], metavar=("NAME", "DIRECTORY"),

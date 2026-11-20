@@ -2,20 +2,27 @@
 PYTHON ?= python3
 MIG ?= /usr/bin/mig
 SDK ?= macosx26.5
-SOURCE_ROOT ?= $(CURDIR)/build/sources/$(SDK)
+SOURCE_ROOT ?= $(CURDIR)/build/sources/$(SDK)$(if $(install-profile),-$(install-profile))
 export SOURCE_ROOT
 
-.PHONY: install test
-install:
+.PHONY: install install-objc4 check-c-install-tools test
+install: check-c-install-tools
+install-objc4: install-profile := objc4
+
+install install-objc4:
 	@set -eu; \
-		test -x "$(CLANG)" || { echo "Set CLANG to the pinned LLVM Clang executable." >&2; exit 1; }; \
-		test -x "$(MIG)" || { echo "Set MIG to the system MIG executable." >&2; exit 1; }; \
 		test -n "$(OUT)" && test ! -e "$(OUT)" || { echo "Set OUT to a new directory." >&2; exit 1; }; \
 		stage=$$(mktemp -d "$${TMPDIR:-/tmp}/apple-oss-c-recipes.XXXXXX"); \
 		trap 'rm -rf -- "$$stage"' EXIT; \
 		"$(PYTHON)" -m tools.sources.locked_sources verify --sdk "$(SDK)" \
+			$(if $(install-profile),--profile "$(install-profile)") \
 			--source-root "$(SOURCE_ROOT)" --record "$$stage/source-lock.json"; \
-		$(MAKE) build-install STAGE="$$stage" CLANG="$(CLANG)" MIG="$(MIG)" OUT="$(OUT)"
+		$(MAKE) $(if $(install-profile),build-$(install-profile),build-install) \
+			STAGE="$$stage" SOURCE_ROOT="$(SOURCE_ROOT)" CLANG="$(CLANG)" MIG="$(MIG)" OUT="$(OUT)"
+
+check-c-install-tools:
+	@test -x "$(CLANG)" || { echo "Set CLANG to the pinned LLVM Clang executable." >&2; exit 1; }
+	@test -x "$(MIG)" || { echo "Set MIG to the system MIG executable." >&2; exit 1; }
 
 test:
 	@test -x "$(CLANG)" || { echo "Set CLANG to the pinned LLVM Clang executable." >&2; exit 1; }
@@ -51,13 +58,18 @@ define record-installed
 /bin/sh recipes/record-installed.sh "$(STAGE)/$(1)" "$(1)" "$(2)" "$(3)" "$(4)" $(5) >> "$(STAGE)/$(1)/records"
 endef
 
+# Apply package patches only to staged files, with exact hunk context.
+define apply-recipe-patch
+patch -s -f -F 0 -V none -p1 -d "$(1)" < "$(2)"
+endef
+
 define header-record
 @{ printf '%s\t%s\t%s\t%s\t%s' "$(2)" "$(1)" "$(3)" "$(4)" "$(5)"; \
 	for input in $(6); do printf '\t%s' "$$input"; done; printf '\n'; } \
 	>> "$(STAGE)/$(1)/records"
 endef
 
-.PHONY: stage build-install pre-mig
+.PHONY: stage build-install build-objc4 pre-mig
 stage:
 
 include $(wildcard recipes/*/Makefile)
@@ -68,4 +80,7 @@ pre-mig: stage
 build-install: mig-arm64 mig-x86_64
 	diff -rq "$(STAGE)/mig-arm64/dst/usr/include/mach" "$(STAGE)/mig-x86_64/dst/usr/include/mach"
 	SOURCE_LOCK="$(STAGE)/source-lock.json" /bin/sh recipes/merge.sh "$(OUT)" "$(STAGE)"/*/records
+
+build-objc4: stage-objc4
+	SOURCE_LOCK="$(STAGE)/source-lock.json" /bin/sh recipes/merge.sh "$(OUT)" "$(STAGE)/objc4/records"
 endif

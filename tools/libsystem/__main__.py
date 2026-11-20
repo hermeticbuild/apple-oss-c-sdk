@@ -109,8 +109,8 @@ def build(args):
             install_aliases(source, lock["sdk"], images)
             receipt["libc_alias_source"] = {"commit": LIBC_REVISION, "files": ALIAS_FILES}
         roots = set(lock["headers"])
-        has_half_math = (lock["sdk"] == "macosx26.5" and
-                         half_math.RECIPE in manifest.get(half_math.HEADER, {}).get("inputs", []))
+        has_half_math = (lock["sdk"] == "macosx26.5" and not half_math.RECIPE_INPUTS.isdisjoint(
+            manifest.get(half_math.HEADER, {}).get("inputs", [])))
         if has_half_math:
             roots.add("math.h")
         for arch in ARCHES:

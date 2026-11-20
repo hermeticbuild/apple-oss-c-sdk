@@ -76,33 +76,31 @@ qualified framework. Its files receive the `prepared-framework` source label.
 
 ## Objective-C runtime headers
 
-Pass `--objc4-source "$OBJC4_SOURCE"` to add the nine public Objective-C
-headers qualified for the Clang and LLVM clients. Supply a checkout or source
-archive of Apple objc4-951.7 at revision
-`ebfe77e64331034c867285a95d3ac205203291d5`. The
+Use the separate [objc4 install recipe](../../locks/README.md) to stage the
+nine public Objective-C headers qualified for Clang and LLVM clients.
+It uses Apple objc4-951.7 at revision `ebfe77e64331034c867285a95d3ac205203291d5`. The
 [objc Xcode project](https://github.com/apple-oss-distributions/objc4/blob/ebfe77e64331034c867285a95d3ac205203291d5/objc.xcodeproj/project.pbxproj)
 marks these files `Public` and installs them under `usr/include/objc`.
 
-The composer checks each header against its pinned SHA-256 and records the
-revision, source paths and resulting digests in `composition.json`, under
-the `objc4-public-headers` layer. The C install's original header manifest
-retains its C source inventory. Supply the Objective-C runtime's linker
-stub and compatibility alias independently from the selected SDK Gen input.
+Pass the output of `make install-objc4` as `--objc4-install`. The composer
+checks the source lock and staged header digests and records the revision,
+paths and digests in `composition.json` under the `objc4-public-headers`
+layer. Supply the runtime's linker stub and alias separately from SDK Gen.
 
 ```sh
 python3 -m tools.sdk_composition.compose_libsystem \
   --c-install "$C_INSTALL" --libsystem "$PACKAGE" --llvm "$LLVM" \
   --libsystem-manifest-sha256 "$PACKAGE_MANIFEST_SHA256" \
-  --objc4-source "$OBJC4_SOURCE" \
+  --objc4-install "$OBJC4_INSTALL" \
   --external-stub "usr/lib/libobjc.A.tbd=$SDK_GEN/usr/lib/libobjc.A.tbd" \
   --external-stub "usr/lib/libobjc.tbd=$SDK_GEN/usr/lib/libobjc.tbd" \
   --out "$NEW_SDK"
 ```
 
-Run the CLI tests with the pinned source checkout to exercise the full layer.
+Run the CLI tests with the staged output to exercise the full layer.
 
 ```sh
-LIBSYSTEM_TEST_OBJC4="$OBJC4_SOURCE" \
+LIBSYSTEM_TEST_OBJC4="$OBJC4_INSTALL" \
   python3 -m unittest tools.sdk_composition.test_compose_libsystem
 ```
 

@@ -25,7 +25,10 @@ python3 -m tools.sdk_review.audit_sdk_headers \
 ```
 
 The commands above compare the shipping probe. For broader discovery, omit
-`--probe` in both trace commands to use the default discovery fixture.
+`--probe` to use the discovery fixture. A discovery reference records which
+paths were reached and keeps existing scope decisions. Use the shipping fixture
+with `--require-decisions`. Add `--report-only` when tracing discovery against
+the generated installation to record failed roots.
 `audit_sdk_headers.py` inventories the full SDK `usr/include` even when a path
 is outside the probe. Review new paths, unresolved source gaps, and decisions
 that no longer match the SDK. Add `--require-decisions` when every decision must
@@ -48,13 +51,12 @@ manifest. See the [recipe documentation](../../recipes/README.md).
 
 ### Outstanding discovery coverage
 
-The 26.5 discovery trace reached 16 `simd/*` and 11 `xpc/*` paths whose
-first-party public source and install rules were unlocated in the earlier
-Apple OSS review. Its
-[macOS distribution submodule list](https://github.com/apple-oss-distributions/distribution-macOS/blob/main/.gitmodules)
-provided no standalone SIMD or XPC component. Use the discovery trace for the
-exact paths. Clang's resource `tgmath.h` fallback makes the shipping probe
-compile. SDK `tgmath.h` API parity remains open.
+The 26.5 discovery trace reaches 16 `simd/*` and 11 `xpc/*` paths approved
+for omission while a simple public Apple OSS source is unavailable. It also
+reaches all 15 legacy RPC service headers approved for omission. Apple OSS
+Librpcsvc can generate those headers for consumers that need them.
+Clang's resource `tgmath.h` fallback makes the shipping probe compile. SDK
+`tgmath.h` API parity remains open. See the [source findings](data/macosx26.5/header-source-candidates.md).
 
 The broad trace also found seven CoreFoundation framework gaps outside the
 `usr/include` inventory. They are `CFAttributedString.h`, `CFCGTypes.h`,
@@ -72,9 +74,9 @@ least one target even against SDK 26.5: `architecture/alignment.h`,
 Apple's pinned `architecture/Makefile:copyhdrs` still installs all 19 public
 headers.
 
-The two probe files preserve their original bytes for saved closure digests.
-Historical comments in the discovery fixture refer to the earlier audit.
-Generate current review Markdown with `audit_sdk_headers --review-out`.
+Each saved closure records the probe's exact digest. Regenerate discovery
+closures after updating the fixture. Generate current review Markdown with
+`audit_sdk_headers --review-out`.
 
 ## Compare with Apple SDK Gen
 
@@ -86,5 +88,5 @@ CoreFoundation header trees when available.
 ```sh
 python3 -m tools.sdk_review.compare_sdk_gen_headers \
   --c-root "$C_INSTALL" --reference-sdk "$SDK_GEN" --clang "$LLVM_CLANG"
-python3 -m unittest discover -s tools/sdk_review
+python3 -m unittest discover -s tools/sdk_review -t .
 ```

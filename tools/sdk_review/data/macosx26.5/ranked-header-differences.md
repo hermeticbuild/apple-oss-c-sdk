@@ -22,7 +22,7 @@ See the [tested repairs and prototype results](tested-header-repairs.md) for the
 |---|---|---|
 | `math.h` | The Apple OSS umbrella selects architecture-specific Libm headers. On arm64, classifying a double or long double imports an unavailable helper. The reference links. The two headers also expose different extensions, including 13 half-precision entries missing in the installed-header linkage survey. The qualified scalar and paired trigonometric repairs are already in the installation. | Keep the ordinary-C failure first in the backlog. Search for an Apple OSS arm64 mapping, then qualify float, double and long double through compile, link and runtime. Keep the known failure explicit until that evidence exists. Track half-precision declarations separately, requiring signature, availability and provider per entry. [Source search and client links](fpclassify-gap.md) |
 | `os/log.h` | The pinned XNU interface and the public userspace SDK interface differ in macro lowering, sensitive logging and external calls. Substituting the SDK header into our C installation fails on missing `os/trace.h` in all 12 cells. Nine logging names remain in the installed-header linker comparison. | Seek Apple's userspace logging header and install rule, including its trace dependency. Test emitted imports from actual logging calls, format handling and linkage. Keep the existing source gap open. An additional XNU kernel header or nine names added to a stub would leave the macro implementation unqualified. [Logging probe](../../c_interface_review.md#inspect-logging-macro-lowering) |
-| `sys/_symbol_aliasing.h` | The installation has 60 macOS alias selectors. The SDK has 78. The public include route through `sys/cdefs.h` fails to compile a declaration/expression using the 26.5 selector on both CPUs. The XNU recipe reads the original DSL while the availability recipe reads the supplemented DSL. | Give Apple's unchanged `bsd/sys/make_symbol_aliasing.sh` the same staged DSL used for the other 26.5 headers. Record that input in provenance. Scratch regeneration supplied all 78 names and matched every macOS selector expansion across both CPUs at five minima. Keep the separate iOS-version differences outside this macOS repair. [XNU recipe](../../../../recipes/xnu/headers.py) · [Version supplement](../../../../recipes/availability_versions/macosx26.5.dsl) |
+| `sys/_symbol_aliasing.h` | The installation has 60 macOS alias selectors. The SDK has 78. The public include route through `sys/cdefs.h` fails to compile a declaration/expression using the 26.5 selector on both CPUs. The XNU recipe reads the original DSL while the availability recipe reads the supplemented DSL. | Give Apple's unchanged `bsd/sys/make_symbol_aliasing.sh` the same staged DSL used for the other 26.5 headers. Record that input in provenance. Scratch regeneration supplied all 78 names and matched every macOS selector expansion across both CPUs at five minima. Keep the separate iOS-version differences outside this macOS repair. [XNU recipe](../../../../recipes/xnu/headers.py) · [Version supplement](../../../../recipes/availability_versions/macos-versions-26.5.patch) |
 
 ## 2. Concrete source or language-interface differences
 
@@ -141,8 +141,8 @@ int check(int value) { return value; }
 long invoke(ProcPtr fn) { return fn(1); }
 ```
 
-For the alias scratch trial, stage the approved version supplement with
-`recipes/availability_versions/stage_dsl.py`, expose the staged
+For the alias scratch trial, apply the approved version supplement
+`recipes/availability_versions/macos-versions-26.5.patch` to a staged DSL. Expose the staged
 `availability` and `availability.dsl` as `usr/local/libexec/availability.pl`
 and `usr/local/libexec/availability.dsl` under an otherwise empty tool root,
 and pass that root to Apple's `bsd/sys/make_symbol_aliasing.sh`. Include

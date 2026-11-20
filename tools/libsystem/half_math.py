@@ -5,7 +5,8 @@ import re
 
 
 HEADER = "usr/include/math.h"
-RECIPE = "recipes/libm/half_math.h"
+# Older qualified installations recorded the header fragment as the recipe input.
+RECIPE_INPUTS = frozenset({"recipes/libm/math-binary16-26.5.patch", "recipes/libm/half_math.h"})
 PROVIDER = "/usr/lib/system/libsystem_m.dylib"
 # Sorted Mach-O names from libm joined to function types from LLVM libc math.yaml.
 ABI_SHA256 = "3272d6721f36fe10f2d003069afd7be7e49e357745e34aad840eee4d2c59710c"

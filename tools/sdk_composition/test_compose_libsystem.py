@@ -10,6 +10,7 @@ import tempfile
 import unittest
 
 from tools.header_manifest import COLUMNS
+from tools.sources.locked_sources import read_lock
 
 
 PARENT = "/usr/lib/libSystem.B.dylib"
@@ -73,7 +74,7 @@ class ComposeTests(unittest.TestCase):
             "--sdk-gen", self.gen, "--out", self.out, *extra,
         ], text=True, capture_output=True)
 
-    @unittest.skipUnless(os.getenv("LIBSYSTEM_TEST_OBJC4"), "requires the pinned Apple objc4 sources")
+    @unittest.skipUnless(os.getenv("LIBSYSTEM_TEST_OBJC4"), "requires make install-objc4 output")
     def test_objc4_headers_and_external_stubs_have_separate_provenance(self):
         source = Path(os.environ["LIBSYSTEM_TEST_OBJC4"])
         target = self.work / "libobjc.A.tbd"
@@ -81,7 +82,7 @@ class ComposeTests(unittest.TestCase):
         alias = self.work / "libobjc.tbd"
         alias.symlink_to(target.name)
 
-        result = self.compose("--objc4-source", source,
+        result = self.compose("--objc4-install", source,
                               "--external-stub", f"usr/lib/libobjc.tbd={alias}",
                               "--external-stub", f"usr/lib/libobjc.A.tbd={target}")
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -93,11 +94,11 @@ class ComposeTests(unittest.TestCase):
         self.assertEqual(manifest["objc4_revision"], "ebfe77e64331034c867285a95d3ac205203291d5")
         receipts = {}
         for name in OBJC_HEADERS:
-            upstream = (source / "runtime" / name).read_bytes()
+            upstream = (source / "usr/include/objc" / name).read_bytes()
             self.assertEqual((objc / name).read_bytes(), upstream)
             receipts[f"usr/include/objc/{name}"] = {
                 "layer": "objc4-public-headers",
-                "source": f"runtime/{name}",
+                "source": f"usr/include/objc/{name}",
                 "sha256": hashlib.sha256(upstream).hexdigest(),
             }
         self.assertEqual({path: receipt for path, receipt in manifest["files"].items()
@@ -106,22 +107,41 @@ class ComposeTests(unittest.TestCase):
         self.assertEqual((self.out / "usr/lib/libobjc.tbd").readlink(), Path("libobjc.A.tbd"))
         self.assertEqual(manifest["providers"]["/usr/lib/libobjc.A.dylib"], ["usr/lib/libobjc.A.tbd"])
 
-    def test_objc4_header_with_wrong_contents_cannot_be_published(self):
+    def objc4_fixture(self):
         source = self.work / "objc4"
-        for name in OBJC_HEADERS:
-            write(source / "runtime" / name, "unexpected header bytes\n")
+        relative = "usr/include/objc/objc-sync.h"
+        header = source / relative
+        digest = write(header, "original header bytes\n")
+        write(source / "header-manifest.tsv", "\t".join(COLUMNS) + "\n" + "\t".join([
+            relative, digest, "objc4", "sources/objc4/runtime/objc-sync.h",
+            "selection", "copy", "input",
+        ]) + "\n")
+        lock, _ = read_lock("macosx26.5", "objc4")
+        (source / "source-lock.json").write_bytes(lock)
+        return source, header
 
-        result = self.compose("--objc4-source", source)
-        self.assertIn("SDK file differs from its input manifest: usr/include/objc/NSObjCRuntime.h", result.stderr)
+    def test_objc4_header_with_wrong_contents_cannot_be_published(self):
+        source, header = self.objc4_fixture()
+        write(header, "unexpected header bytes\n")
+
+        result = self.compose("--objc4-install", source)
+        self.assertIn("SDK file differs from its input manifest: usr/include/objc/objc-sync.h", result.stderr)
         self.assertFalse(self.out.exists())
 
     def test_objc4_public_header_must_be_a_regular_source_file(self):
-        source = self.work / "objc4"
-        write(source / "runtime" / "other.h", "header bytes\n")
-        (source / "runtime" / "NSObjCRuntime.h").symlink_to("other.h")
+        source, header = self.objc4_fixture()
+        header.rename(header.with_name("other.h"))
+        header.symlink_to("other.h")
 
-        result = self.compose("--objc4-source", source)
-        self.assertIn("objc4 public header must be a regular file", result.stderr)
+        result = self.compose("--objc4-install", source)
+        self.assertIn("objc4 public header must be a regular staged file", result.stderr)
+        self.assertFalse(self.out.exists())
+
+    def test_objc4_layer_requires_the_pinned_source_lock(self):
+        source, _ = self.objc4_fixture()
+        write(source / "source-lock.json", "{}\n")
+        result = self.compose("--objc4-install", source)
+        self.assertIn("objc4 installation does not match the macosx26.5 source lock", result.stderr)
         self.assertFalse(self.out.exists())
 
     def test_prepared_framework_and_versioned_package(self):

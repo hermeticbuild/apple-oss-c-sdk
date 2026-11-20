@@ -48,6 +48,12 @@
       "tag": "Libm-2026",
       "selection": "Standalone Apple release provides the public C math headers and inputs for our arm64 derivation."
     },
+    "Libnotify": {
+      "url": "https://github.com/apple-oss-distributions/Libnotify.git",
+      "commit": "227c145bcf26ec93e18304ba81306a3014d9bd56",
+      "tag": "Libnotify-348.120.4",
+      "selection": "distribution"
+    },
     "architecture": {
       "url": "https://github.com/apple-oss-distributions/architecture.git",
       "commit": "fe869009b9c98d9d9d6cc917dfed6fab24b0b686",
@@ -113,6 +119,12 @@
       "commit": "f709eccad023ec32db53d40146d07805cf3e4ee0",
       "tag": "libunwind-201",
       "selection": "Standalone Apple release supplies mach-o/compact_unwind_encoding.h."
+    },
+    "removefile": {
+      "url": "https://github.com/apple-oss-distributions/removefile.git",
+      "commit": "ff74f69107ce34faea8a8cfd831debd7de5f759d",
+      "tag": "removefile-85.100.6",
+      "selection": "distribution"
     },
     "syslog": {
       "url": "https://github.com/apple-oss-distributions/syslog.git",

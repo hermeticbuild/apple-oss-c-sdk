@@ -1,7 +1,15 @@
 #include <asl.h>
+#include <checkint.h>
+#include <notify.h>
+#include <notify_keys.h>
 #include <os/log.h>
+#include <os/security_config.h>
 #include <pthread/introspection.h>
+#include <removefile.h>
+#include <string.h>
+#include <string_x86.h>
 #include <sys/syscall.h>
+#include <timingsafe.h>
 
 _Static_assert(ASL_LEVEL_NOTICE == 5, "unexpected ASL notice level");
 _Static_assert(sizeof(aslmsg) == sizeof(void *), "unexpected aslmsg ABI");

@@ -146,6 +146,18 @@ class SdkHeaderAuditTest(unittest.TestCase):
             self.assertEqual(entries["probe.h"]["review_status"], "approved")
             self.assertEqual(entries["tcl.h"]["state"], "excluded")
             self.assertEqual(report["installed_out_of_scope"], ["objc/objc.h"])
+            omit = [{"pattern": "probe.h", "decision": "omit", "reason": "optional header",
+                     "evidence": "reviewed path", "reviewed_sdk": "macosx26.5",
+                     "approved_paths_sha256": path_digest(["probe.h"])}]
+            with self.assertRaisesRegex(ValueError, "cannot omit installed or probe-reached header"):
+                audit(sdk, installation, resource, {"probe.h"}, set(), omit, known)
+            discovery = audit(sdk, installation, resource, {"probe.h", "unseen.h"}, set(),
+                              omit, known, discovery_only=True)
+            discovered = {entry["path"]: entry for entry in discovery["entries"]}
+            self.assertEqual(discovery["missing_required"], [])
+            self.assertTrue(discovered["probe.h"]["in_probe_closure"])
+            self.assertEqual(discovered["probe.h"]["review_status"], "approved")
+            self.assertEqual(discovered["unseen.h"]["decision"], "review")
             noted = audit(sdk, installation, resource, {"probe.h"}, set(), [],
                           known, notes={
                               "unseen.h": {"reason": "public source unresolved",
