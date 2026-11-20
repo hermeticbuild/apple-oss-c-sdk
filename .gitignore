@@ -1,3 +1,6 @@
 __pycache__/
 build/
 bazel-*/
+
+# Leftover checkouts from the pre-lock installer.
+/sources/

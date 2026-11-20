@@ -14,7 +14,7 @@ sysroot=$4
 test -d "$sysroot/usr/include" || { echo "MIG sysroot missing: $sysroot" >&2; exit 1; }
 stage=$5
 out="$stage/dst/usr/include"
-xnu="$PWD/sources/xnu"
+xnu="$SOURCE_ROOT/xnu"
 libsyscall="$xnu/libsyscall"
 script="$libsyscall/xcodescripts/mach_install_mig.sh"
 

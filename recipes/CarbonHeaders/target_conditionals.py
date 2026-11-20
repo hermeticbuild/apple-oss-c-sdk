@@ -1,16 +1,17 @@
 """Adapt the pinned CarbonHeaders template to both macOS targets."""
 
+import os
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
+SOURCES = Path(os.environ["SOURCE_ROOT"]).absolute()
 
 
 def target_conditionals() -> bytes:
     # CarbonHeaders/Makefile installs this template with the three CONFIG
     # placeholders set to zero for macOS. The pinned release predates arm64
     # and today's TARGET_OS aliases, so add those from compiler target macros.
-    source = (ROOT / "sources/CarbonHeaders/TargetConditionals.h").read_text()
+    source = (SOURCES / "CarbonHeaders/TargetConditionals.h").read_text()
     for variable in ("CONFIG_EMBEDDED", "CONFIG_IPHONE", "CONFIG_IPHONE_SIMULATOR"):
         source = source.replace(f"@{variable}@", "0")
     arm = "     #elif defined(__arm__) \n"

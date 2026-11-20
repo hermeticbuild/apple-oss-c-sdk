@@ -1,11 +1,11 @@
 # C installation tests
 
-Run from the repository root after initializing the Apple OSS submodules and
-generating the C headers. Supply the same pinned Clang and output directory
-used by `make install`.
+Run from the repository root after preparing the selected Apple OSS
+sources and generating the C headers. Supply the same pinned Clang and output directory
+used by `make install`, including `SOURCE_ROOT` if you overrode it.
 
 ```sh
-make test CLANG="$LLVM_CLANG" OUT="$C_INSTALL"
+make test SDK="$SDK" CLANG="$LLVM_CLANG" OUT="$C_INSTALL"
 ```
 
 - `recipes/` exercises XNU public header selection and stage merging.

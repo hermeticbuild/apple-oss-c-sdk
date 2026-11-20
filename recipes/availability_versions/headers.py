@@ -1,13 +1,14 @@
 """Compatibility adjustment to the Apple AvailabilityVersions output."""
 
+import os
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
+SOURCES = Path(os.environ["SOURCE_ROOT"]).absolute()
 
 
 def add_xros_alias(data: bytes) -> bytes:
-    availability = ROOT / "sources/AvailabilityVersions"
+    availability = SOURCES / "AvailabilityVersions"
     # The pinned DSL declares xros as a visionOS alias, but its API
     # macro generator omits the spelling used by libdispatch.
     dsl = (availability / "availability.dsl").read_text()

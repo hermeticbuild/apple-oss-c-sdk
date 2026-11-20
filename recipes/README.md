@@ -3,7 +3,10 @@
 The root Makefile orders producer staging, the pre-MIG merge, both MIG runs,
 their comparison, and final assembly. Each producer adds a dependency to
 the Make target named `stage` and stages files in its own directory.
-`make install` supplies a fresh work directory and removes it on exit.
+`make install` supplies a fresh work directory and removes it on exit. The selected source tree is passed as `SOURCE_ROOT`.
+Receipts name source inputs as `sources/<project>/...`. The merger resolves
+these logical paths under `SOURCE_ROOT` and copies the selected lock into the
+finished installation.
 
 Each producer owns its Makefile, patches, templates, flags, and generator
 scripts. Makefiles call Apple's pinned install rules where possible.
@@ -43,6 +46,15 @@ from those headers. These definitions add no linker symbols.
 
 The XNU adapter reads public lists from the pinned XNU Makefiles it supports
 and applies Apple's macOS public unifdef flags. The recipe also uses the
-Libsyscall public MIG list and upstream attribute filter. Python is local to
+Libsyscall public MIG list and upstream attribute filter. XNU generates
+`sys/syscall.h` from `bsd/kern/syscalls.master`. The public macOS 26.5
+source leaves syscall number 519 unassigned, while Xcode 26.5 names it
+`SYS_register_uexc_handler`. The installation keeps the public XNU output.
+The recipe also installs the userspace branch of `libkern/os/log.h` for
+compiler-rt. Apple omits this header from the public userspace install
+list. Apple SDK Gen 0.0.4 copies the same pinned XNU source directly.
+
+The syslog recipe copies `asl.h` from the pinned syslog project's public
+header phase. Python is local to
 XNU, Libm, CarbonHeaders, AvailabilityVersions, and dyld. Audit and
 qualification tools live under `tools/`.

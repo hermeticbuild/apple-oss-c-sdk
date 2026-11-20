@@ -1,6 +1,7 @@
 """Exercise the shell merge against real staged files and provenance records."""
 
 import hashlib
+import os
 import subprocess
 import tempfile
 import unittest
@@ -26,9 +27,15 @@ class MergeTest(unittest.TestCase):
 
     def merge(self, output: Path, *receipts: Path, bootstrap: bool = False):
         options = ["--bootstrap"] if bootstrap else []
+        sources = output.parent / "sources"
+        source = sources / SOURCE.removeprefix("sources/")
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_bytes(b"upstream example\n")
+        environment = dict(os.environ, SOURCE_ROOT=str(sources))
+        environment.pop("SOURCE_LOCK", None)
         return subprocess.run(
             ["/bin/sh", "recipes/merge.sh", *options, str(output), *map(str, receipts)],
-            cwd=ROOT, capture_output=True, text=True,
+            cwd=ROOT, capture_output=True, text=True, env=environment,
         )
 
     def test_install_records_the_header_and_its_hash(self):

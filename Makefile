@@ -1,6 +1,9 @@
 .DEFAULT_GOAL := install
 PYTHON ?= python3
 MIG ?= /usr/bin/mig
+SDK ?= macosx26.5
+SOURCE_ROOT ?= $(CURDIR)/build/sources/$(SDK)
+export SOURCE_ROOT
 
 .PHONY: install test
 install:
@@ -10,15 +13,20 @@ install:
 		test -n "$(OUT)" && test ! -e "$(OUT)" || { echo "Set OUT to a new directory." >&2; exit 1; }; \
 		stage=$$(mktemp -d "$${TMPDIR:-/tmp}/apple-oss-c-recipes.XXXXXX"); \
 		trap 'rm -rf -- "$$stage"' EXIT; \
+		"$(PYTHON)" -m tools.sources.locked_sources verify --sdk "$(SDK)" \
+			--source-root "$(SOURCE_ROOT)" --record "$$stage/source-lock.json"; \
 		$(MAKE) build-install STAGE="$$stage" CLANG="$(CLANG)" MIG="$(MIG)" OUT="$(OUT)"
 
 test:
 	@test -x "$(CLANG)" || { echo "Set CLANG to the pinned LLVM Clang executable." >&2; exit 1; }
 	@test -n "$(OUT)" && test -f "$(OUT)/header-manifest.tsv" || { echo "Set OUT to the tree produced by make install." >&2; exit 1; }
+	@cmp -s "locks/$(SDK).json" "$(OUT)/source-lock.json" || { echo "OUT was not built with the $(SDK) source lock." >&2; exit 1; }
+	"$(PYTHON)" -m tools.sources.locked_sources verify --sdk "$(SDK)" --source-root "$(SOURCE_ROOT)"
 	$(PYTHON) -m unittest discover -s tests/recipes
 	$(PYTHON) -m tools.qualify_headers.compile_probes --clang "$(CLANG)" --sysroot "$(OUT)" \
 		--fixture tests/installed_headers/fenv_abi.c \
 		--fixture tests/installed_headers/libm_scalar_pi.c \
+		--fixture tests/installed_headers/darwin_consumer_headers.c \
 		--fixture tests/installed_headers/stdatomic_init.c \
 		$(if $(filter-out macosx26.5,$(SDK)),,--fixture tests/installed_headers/macos_26_5_availability.c) \
 		$(if $(filter-out macosx26.5,$(SDK)),,--fixture tests/installed_headers/libm_half_runtime.c) \
@@ -31,8 +39,8 @@ ifneq ($(strip $(STAGE)),)
 recipe-path = $(or $(2),recipes/$(1)/Makefile)
 define copy-headers
 mkdir -p "$(STAGE)/$(1)/dst/usr/include/$(2)"
-install -m 644 $(3) "$(STAGE)/$(1)/dst/usr/include/$(2)/"
-@for source in $(3); do \
+@set -e; for source in $(3); do \
+	install -m 644 "$$SOURCE_ROOT/$${source#sources/}" "$(STAGE)/$(1)/dst/usr/include/$(2)/"; \
 	path="$(if $(filter .,$(2)),usr/include,usr/include/$(2))/$${source##*/}"; \
 	printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$$path" "$(1)" "$$source" \
 		"$(call recipe-path,$(1),$(4))" copy "$(call recipe-path,$(1),$(4))" "$$source"; \
@@ -59,5 +67,5 @@ pre-mig: stage
 
 build-install: mig-arm64 mig-x86_64
 	diff -rq "$(STAGE)/mig-arm64/dst/usr/include/mach" "$(STAGE)/mig-x86_64/dst/usr/include/mach"
-	/bin/sh recipes/merge.sh "$(OUT)" "$(STAGE)"/*/records
+	SOURCE_LOCK="$(STAGE)/source-lock.json" /bin/sh recipes/merge.sh "$(OUT)" "$(STAGE)"/*/records
 endif

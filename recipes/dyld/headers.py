@@ -1,13 +1,14 @@
 """Guarded compatibility edits to the public dyld headers."""
 
+import os
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
+SOURCES = Path(os.environ["SOURCE_ROOT"]).absolute()
 
 
 def patch(destination: Path) -> None:
-    dyld = ROOT / "sources/dyld/include/mach-o"
+    dyld = SOURCES / "dyld/include/mach-o"
     source = (dyld / "dyld.h").read_bytes()
     before = b"#endif\n\n\n/*\n * The following functions allow you to iterate"
     after = (b"#endif\n\n#ifndef DYLD_EXCLAVEKIT_UNAVAILABLE\n"

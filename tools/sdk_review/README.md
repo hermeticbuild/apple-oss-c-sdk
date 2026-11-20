@@ -30,14 +30,19 @@ The commands above compare the shipping probe. For broader discovery, omit
 is outside the probe. Review new paths, unresolved source gaps, and decisions
 that no longer match the SDK. Add `--require-decisions` when every decision must
 be resolved. Preserve earlier inventories as baselines. The checked-in 26.5
-inventory is a historical full-profile snapshot.
+inventory is a historical full-profile snapshot. The auditor selects default
+decision files by the reference SDK's `CanonicalName`. A version without
+checked-in ledgers starts with no manual approvals. When the installation
+contains a source lock, use a matching SDK and a newly traced installation
+closure if an older trace has no lock digest. Supply explicit ledger
+paths to review changes before checking in a new version's decisions.
 
 | Input | Meaning |
 | --- | --- |
-| [Header decisions](data/sdk-header-decisions.tsv) | Pattern, include or omit decision, reason, evidence, SDK name, and digest of the approved matching paths |
-| [Review notes](data/sdk-review-notes.tsv) | Outstanding source gaps |
-| [Scope approvals](data/sdk-scope-approvals.tsv) | Approved sets outside the package scope |
-| [Installation-only decisions](data/installation-only-decisions.tsv) | Reviewed generated paths absent from the SDK |
+| [Header decisions](data/macosx26.5/sdk-header-decisions.tsv) | Pattern, include or omit decision, reason, evidence, SDK name, and digest of the approved matching paths |
+| [Review notes](data/macosx26.5/sdk-review-notes.tsv) | Outstanding source gaps |
+| [Scope approvals](data/macosx26.5/sdk-scope-approvals.tsv) | Approved sets outside the package scope |
+| [Installation-only decisions](data/macosx26.5/installation-only-decisions.tsv) | Reviewed generated paths absent from the SDK |
 Installed headers record their current source selections in the generated
 manifest. See the [recipe documentation](../../recipes/README.md).
 

@@ -6,6 +6,7 @@ tree, or review what to ship.
 
 | Workflow | Who runs it and when |
 | --- | --- |
+| [Prepare locked sources](../locks/README.md) | An installer preparing the selected version's Apple OSS checkouts |
 | [Resolve pinned Clang](toolchain/README.md) | An installer or maintainer preparing Clang for Make or the C probes |
 | [Check the C installation](qualify_headers/README.md) | A maintainer after changing a recipe or a probe |
 | [Review SDK coverage](sdk_review/README.md) | A maintainer or agent qualifying a new SDK, updating source pins, or investigating a header gap |

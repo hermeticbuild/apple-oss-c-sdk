@@ -20,7 +20,8 @@ ifeq ($(SDK),macosx26.5)
 else
 	$(call copy-headers,libdispatch,.,sources/libdispatch/src/BlocksRuntime/Block.h)
 endif
-	@set -- $(addprefix $(CURDIR)/sources/libdispatch/os/,$(dispatch_os_headers) $(dispatch_os_private)); \
+	@set --; for header in $(dispatch_os_headers) $(dispatch_os_private); do \
+		set -- "$$@" "$(SOURCE_ROOT)/libdispatch/os/$$header"; done; \
 		env -i PATH="$$PATH" DEPLOYMENT_LOCATION=YES DSTROOT="$(dispatch_root)" \
 			OS_PUBLIC_HEADERS_FOLDER_PATH=/usr/include/os \
 			OS_PRIVATE_HEADERS_FOLDER_PATH=/usr/local/include/os \
@@ -29,7 +30,7 @@ endif
 			SCRIPT_INPUT_FILE_7="$$7" SCRIPT_INPUT_FILE_8="$$8" SCRIPT_INPUT_FILE_9="$$9" \
 			SCRIPT_INPUT_FILE_10="$${10}" SCRIPT_INPUT_FILE_11="$${11}" SCRIPT_INPUT_FILE_12="$${12}" \
 			SCRIPT_INPUT_FILE_13="$${13}" SCRIPT_INPUT_FILE_14="$${14}" \
-			/bin/bash -e sources/libdispatch/xcodescripts/install-headers.sh
+			/bin/bash -e "$(SOURCE_ROOT)/libdispatch/xcodescripts/install-headers.sh"
 	@# Apply the public subset of the deployment postprocessing phase.
 	@set -e; for name in workgroup_object.h workgroup_interval.h workgroup_parallel.h; do \
 		file="$(dispatch_root)/usr/include/os/$$name"; \

@@ -7,6 +7,7 @@ if [ "$1" = --bootstrap ]; then bootstrap=true; shift; fi
 out=$1
 shift
 fail() { echo "$*" >&2; exit 1; }
+test -n "${SOURCE_ROOT:-}" || fail "SOURCE_ROOT is required to resolve producer inputs"
 test ! -e "$out" && test ! -L "$out" || fail "output already exists: $out"
 parent=$(dirname "$out")
 mkdir -p "$parent"
@@ -47,7 +48,8 @@ for records do
         for input do
             case "$input" in
                 */../*|*/..|*/./*|*/.) fail "invalid producer input: $input" ;;
-                sources/*|recipes/*) test -f "$input" || fail "missing producer input: $input" ;;
+                sources/*) test -f "$SOURCE_ROOT/${input#sources/}" || fail "missing producer input: $input" ;;
+                recipes/*) test -f "$input" || fail "missing producer input: $input" ;;
                 *) fail "invalid producer input: $input" ;;
             esac
         done
@@ -74,5 +76,8 @@ if ! "$bootstrap"; then
         printf 'path\tsha256\towner\torigin\tselection\ttransform\tinputs...\n'
         cat "$scratch/manifest"
     } > "$tree/header-manifest.tsv"
+    if [ -n "${SOURCE_LOCK:-}" ]; then
+        cp "$SOURCE_LOCK" "$tree/source-lock.json"
+    fi
 fi
 mv "$tree" "$out"

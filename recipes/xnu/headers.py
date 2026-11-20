@@ -2,10 +2,11 @@
 
 import re
 import subprocess
+import os
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
+SOURCES = Path(os.environ["SOURCE_ROOT"]).absolute()
 
 XNU_PUBLIC_MAKE_DIRS = (
     ("bsd/sys", "sys", "INSTALL_MI_LIST"),
@@ -34,7 +35,7 @@ XNU_PUBLIC_MAKE_DIRS = (
 
 
 def xnu_public_make_headers(source_dir: str, list_name: str) -> list[str]:
-    makefile = ROOT / "sources/xnu" / source_dir / "Makefile"
+    makefile = SOURCES / "xnu" / source_dir / "Makefile"
     assignments: dict[str, str] = {}
     lines = makefile.read_text().splitlines()
     index = 0
@@ -75,7 +76,7 @@ def xnu_public_make_headers(source_dir: str, list_name: str) -> list[str]:
 
 
 def libsyscall_public_mach_headers() -> list[str]:
-    script = (ROOT / "sources/xnu/libsyscall/xcodescripts/mach_install_mig.sh").read_text()
+    script = (SOURCES / "xnu/libsyscall/xcodescripts/mach_install_mig.sh").read_text()
     match = re.search(r'^MACH_HDRS="(.*?)"$', script, re.MULTILINE | re.DOTALL)
     if not match:
         raise ValueError("libsyscall public Mach header list missing")
@@ -93,6 +94,10 @@ def public_copies():
                 continue  # The filtered public variant is generated below.
             yield (f"usr/include/{target_dir}/{name}",
                    f"sources/xnu/{source_dir}/{name}", rule)
+    # Apple's public userspace list omits this file, but the XNU header has
+    # a userspace branch used by compiler-rt.
+    yield ("usr/include/os/log.h", "sources/xnu/libkern/os/log.h",
+           "libkern/os/Makefile:userspace exception")
     for name in libsyscall_public_mach_headers():
         yield (f"usr/include/mach/{name}", f"sources/xnu/libsyscall/mach/mach/{name}",
                "xnu/libsyscall/xcodescripts/mach_install_mig.sh:MACH_HDRS")
@@ -110,7 +115,7 @@ def public_copies():
 
 def produce_public(emit) -> None:
     for path, source, rule in public_copies():
-        data = filter_public(ROOT / source)
+        data = filter_public(SOURCES / source.removeprefix("sources/"))
         if not re.sub(rb"/\*.*?\*/|//[^\n]*", b"", data, flags=re.DOTALL).strip():
             continue  # MakeInc.rule omits files that decomment finds empty.
         deps = ("sources/xnu/libsyscall/xcodescripts/mach_install_mig.sh"
@@ -141,16 +146,39 @@ def xnu_public_flags() -> list[str]:
             [f"-U{name}" for name in private] +
             ["-DMODULES_SUPPORTED", "-D_OPEN_SOURCE_", "-D__OPEN_SOURCE__"])
 
-def filter_public(source: Path, extra: tuple[str, ...] = ()) -> bytes:
-    result = subprocess.run(["unifdef", *xnu_public_flags(), *extra, str(source)],
+def unifdef(source: Path, flags: list[str]) -> bytes:
+    result = subprocess.run(["unifdef", *flags, str(source)],
                             capture_output=True, check=False)
     if result.returncode not in (0, 1):
         raise ValueError(f"XNU {source.name} unifdef failed: {result.stderr!r}")
     return result.stdout
 
 
+def filter_public(source: Path, extra: tuple[str, ...] = ()) -> bytes:
+    return unifdef(source, [*xnu_public_flags(), *extra])
+
+
+def produce_syscall_header(emit, temporary: Path) -> None:
+    master = "sources/xnu/bsd/kern/syscalls.master"
+    generator = "sources/xnu/bsd/kern/makesyscalls.sh"
+    work = temporary / "syscall"
+    work.mkdir()
+    # MakeInc.rule first filters the master with SEED_DEFINES. The public
+    # sources supply no seed defines.
+    (work / "bsd.syscalls.master").write_bytes(
+        unifdef(SOURCES / master.removeprefix("sources/"), []))
+    subprocess.run(["sh", str(SOURCES / generator.removeprefix("sources/")),
+                    "bsd.syscalls.master", "header"], cwd=work,
+                   stdout=subprocess.DEVNULL, check=True)
+    emit("xnu", "usr/include/sys/syscall.h", filter_public(work / "syscall.h"),
+         f"generated:{generator}", "bsd/sys/Makefile:INSTALL_MI_GEN_LIST",
+         inputs=(master, generator, "sources/xnu/bsd/sys/Makefile",
+                 "sources/xnu/makedefs/MakeInc.rule", "sources/xnu/makedefs/MakeInc.def"),
+         transform="XNU syscall header generator and macOS public unifdef")
+
+
 def produce_unifdef(emit) -> None:
-    xnu = ROOT / "sources/xnu"
+    xnu = SOURCES / "xnu"
     for name, source, extra in (
         ("sys/cdefs.h", xnu / "bsd/sys/cdefs.h", ()),
         ("device/device_types.h", xnu / "osfmk/device/device_types.h", ("-DIOKIT",)),
@@ -162,12 +190,12 @@ def produce_unifdef(emit) -> None:
             origin = f"generated:{name} via recipes/xnu/headers.py"
             selection = "generated explicit"
         emit("xnu", f"usr/include/{name}", filter_public(source, extra), origin, selection,
-                     inputs=(source.relative_to(ROOT).as_posix(),),
+                     inputs=("sources/" + source.relative_to(SOURCES).as_posix(),),
                      transform="macOS public unifdef")
 
 
 def produce_symbol_headers(emit, temporary: Path, availability: Path, supplement_inputs) -> None:
-    xnu = ROOT / "sources/xnu"
+    xnu = SOURCES / "xnu"
     tool = temporary / "sdk/usr/local/libexec"
     tool.mkdir(parents=True)
     (tool / "availability.pl").symlink_to(availability / "availability")
@@ -204,4 +232,5 @@ if __name__ == "__main__":
 
     produce_public(emit)
     produce_unifdef(emit)
+    produce_syscall_header(emit, stage)
     produce_symbol_headers(emit, stage, Path(sys.argv[2]).resolve(), sys.argv[3:])

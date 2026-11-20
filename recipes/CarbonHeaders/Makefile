@@ -7,7 +7,7 @@ carbon_template = sources/CarbonHeaders/TargetConditionals.h
 stage: stage-CarbonHeaders
 stage-CarbonHeaders:
 	mkdir -p "$(carbon_root)"
-	env -i PATH="$$PATH" $(MAKE) -C sources/CarbonHeaders installhdrs \
+	env -i PATH="$$PATH" $(MAKE) -C "$(SOURCE_ROOT)/CarbonHeaders" installhdrs \
 		DSTROOT="$(carbon_root)" RC_ARCHS="arm64 x86_64"
 	@# AvailabilityVersions supplies these public headers.
 	rm "$(carbon_include)/Availability.h" "$(carbon_include)/AvailabilityInternal.h" \

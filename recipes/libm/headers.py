@@ -1,16 +1,18 @@
 """Libm headers and guarded macOS arm64 derivations."""
 
+import os
 import sys
 from pathlib import Path
 from typing import Callable
 
 
 ROOT = Path(__file__).resolve().parents[2]
+SOURCES = Path(os.environ["SOURCE_ROOT"]).absolute()
 Emit = Callable[[str, bytes, str, str, tuple[str, ...], str], None]
 
 
 def produce(emit: Emit, sdk: str) -> None:
-    complex_source = (ROOT / "sources/Libm/Source/complex.h").read_bytes()
+    complex_source = (SOURCES / "Libm/Source/complex.h").read_bytes()
     old = b"#elif defined(__arm__)\n#define __LIBMLDBL_COMPAT"
     new = b"#elif defined(__arm__) || defined(__arm64__) || defined(__aarch64__)\n#define __LIBMLDBL_COMPAT"
     if complex_source.count(old) != 1:
@@ -46,7 +48,7 @@ def produce(emit: Emit, sdk: str) -> None:
          ("guarded arm64 branch and complex constructors in C11 or full Darwin C"
           if sdk == "macosx26.5" else "guarded arm64 branch and C11 complex constructors"))
 
-    source = ROOT / "sources/Libm/Source/math.h"
+    source = SOURCES / "Libm/Source/math.h"
     text = source.read_text()
     before = "#elif defined(__arm__)\n"
     after = "#elif defined(__arm__) || defined(__arm64__)\n"
@@ -95,7 +97,7 @@ def produce(emit: Emit, sdk: str) -> None:
           "sources/xnu/bsd/sys/cdefs.h", *half_inputs),
          "guarded arm64 branch and macOS scalar math extensions")
 
-    source = ROOT / "sources/Libm/Source/fenv.h"
+    source = SOURCES / "Libm/Source/fenv.h"
     text = source.read_text()
     before = "#elif defined(__arm__)\n#include \"architecture/arm/fenv.h\"\n"
     after = ("#elif defined(__arm64__)\n#include \"architecture/arm64/fenv.h\"\n"
