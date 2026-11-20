@@ -963,6 +963,20 @@ sanitizer/stdlib contract builds and LCOV step. Both also executed and
 passed all 39 macOS rules_rs tests with test-result caching disabled.
 The maintainer confirmed the compiler gate is `//tools:clang` with
 `--//toolchain:bootstrap_stage=stage1_from_source`. The Stage 2 invocation
-was stopped and the Stage 1 build started on the same archive. Archive,
-invocation logs, action graphs and header digests are under
+was stopped, and the local Stage 1 run was then cancelled at the maintainer's
+request. The maintainer separately reported successful Stage 1 testing on
+Intel and arm64. The local evidence records the two test-suite passes.
+Archive, invocation logs, action graphs and header digests are under
 `/tmp/macos-sdk-consumer-regate.7GpmOg`.
+
+The effective link survey was rerun for stub `3fff4841` against Xcode
+26.5 build 25F70, using the existing reference C declaration inventory.
+At minima 11.0, 12.0, 13.0, 14.0, 15.0, 26.0 and 26.5, the reference
+bound 8,960 names on arm64 and 9,500 on x86_64. The candidate bound
+3,129 and 3,163, leaving 5,831 and 6,337 missing with zero extra
+bindings and zero undecoded names. Of references attributed to current
+installed header paths, nine logging bindings remain missing on both
+targets and the denormals object adds one on arm64. This compares
+effective bindings for explicit linker spellings. Deployment annotations
+and numerical behavior have separate client tests. The full local report
+is `/tmp/macos-sdk-release-assessment.F1y6wl/effective-bindings.json`.
