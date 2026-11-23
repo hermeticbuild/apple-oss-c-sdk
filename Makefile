@@ -29,7 +29,7 @@ test:
 	@test -n "$(OUT)" && test -f "$(OUT)/header-manifest.tsv" || { echo "Set OUT to the tree produced by make install." >&2; exit 1; }
 	@cmp -s "locks/$(SDK).json" "$(OUT)/source-lock.json" || { echo "OUT was not built with the $(SDK) source lock." >&2; exit 1; }
 	"$(PYTHON)" -m tools.sources.locked_sources verify --sdk "$(SDK)" --source-root "$(SOURCE_ROOT)"
-	$(PYTHON) -m unittest discover -s tests/recipes
+	C_INSTALL="$(abspath $(OUT))" $(PYTHON) -m unittest discover -s tests/recipes
 	$(PYTHON) -m tools.qualify_headers.compile_probes --clang "$(CLANG)" --sysroot "$(OUT)" \
 		--fixture tests/installed_headers/fenv_abi.c \
 		--fixture tests/installed_headers/libm_scalar_pi.c \

@@ -47,9 +47,13 @@ from those headers. These definitions add no linker symbols.
 · [Clang MXCSR flags](https://github.com/llvm/llvm-project/blob/llvmorg-23.1.2/clang/lib/Headers/xmmintrin.h#L3096-L3104)
 · [Remill fenv mappings](https://github.com/lifting-bits/remill/blob/66c488c9911fd9b368e4d0c9647d74239f8bba8b/tests/X86/Run.cpp#L303-L330)
 
-The XNU adapter reads public lists from the pinned XNU Makefiles it supports
-and applies Apple's macOS public unifdef flags. The recipe also uses the
-Libsyscall public MIG list and upstream attribute filter. XNU generates
+The XNU recipe runs the pinned public install rules for selected components
+through [install.mk](xnu/install.mk). Apple Make selects the headers, resolves
+the Mach assembler inputs through VPATH, and filters public output with
+`unifdef` and a comment-only check. Small Perl and shell helpers supply the
+empty-file check and the Make stamp without compiling host utilities.
+The recipe also uses the Libsyscall public MIG list
+and upstream attribute filter. XNU generates
 `sys/syscall.h` from `bsd/kern/syscalls.master`. The public macOS 26.5
 source leaves syscall number 519 unassigned, while Xcode 26.5 names it
 `SYS_register_uexc_handler`. The installation keeps the public XNU output.
@@ -58,6 +62,4 @@ compiler-rt. Apple omits this header from the public userspace install
 list. Apple SDK Gen 0.0.4 copies the same pinned XNU source directly.
 
 The syslog recipe copies `asl.h` from the pinned syslog project's public
-header phase. The XNU recipe uses Python to read its public install lists and
-run its upstream preprocessing and generators. Audit and qualification tools
-live under `tools/`.
+header phase. Audit and qualification tools live under `tools/`.

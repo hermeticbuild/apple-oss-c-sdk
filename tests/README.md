@@ -8,7 +8,8 @@ used by `make install`, including `SOURCE_ROOT` if you overrode it.
 make test SDK="$SDK" CLANG="$LLVM_CLANG" OUT="$C_INSTALL"
 ```
 
-- `recipes/` exercises XNU public header selection and stage merging.
+- `recipes/` checks installed XNU headers and their source receipts, and
+  exercises stage merging.
 - `installed_headers/` contains focused C fixtures. The [qualification tool](../tools/qualify_headers/README.md)
   compiles them and the shipping probe against the generated headers for both
   arm64 and x86_64.
