@@ -34,6 +34,8 @@ test:
 		--fixture tests/installed_headers/libm_scalar_pi.c \
 		--fixture tests/installed_headers/libm_paired_trig.c \
 		--fixture tests/installed_headers/darwin_consumer_headers.c \
+		--fixture recipes/mDNSResponder/test.c \
+		--fixture recipes/libresolv/test.c \
 		--fixture tests/installed_headers/stdatomic_init.c \
 		$(if $(filter-out macosx26.5,$(SDK)),,--fixture tests/installed_headers/macos_26_5_availability.c) \
 		$(if $(filter-out macosx26.5,$(SDK)),,--fixture tests/installed_headers/libm_half.c) \

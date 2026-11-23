@@ -21,9 +21,9 @@ sha256:e3ba6081bfcd23973dd80fe76b3c28ce8d3a98d9eb9cbc800225a649c5c07184
 
 Set `SDK_GEN` to the extracted `MacOSX.sdk` and `NEW_SDK` to a new output
 directory named `MacOSX.sdk`. The command below composes a smoke SDK.
-For the three consumer gates, build the replacements with the
+For the three consumer gates, build the layers with the
 [framework recipes](../../frameworks/README.md) and include the iconv/charset
-layer described below.
+and resolver stubs.
 
 ```bash
 stubs=()
@@ -49,11 +49,14 @@ inputs for SDK Gen 0.0.4:
 - `SDK_GEN`, the macOS SDK Gen tree with the qualified `libSystem.B.tbd`.
   Its compiler-rt document exposes `___divsc3`, `___divdc3`, and `___divxc3`
   on x86_64. It supplies Foundation and the six SDK Gen stubs listed above.
-- `FRAMEWORKS`, the directory containing all eight replacement frameworks
-  from the [framework recipes](../../frameworks/README.md). Build it with
-  the released CoreFoundation TBD as input. The separate libSystem
-  correction leaves that framework input byte-identical.
+- `FRAMEWORKS`, the directory containing the framework layers from the
+  [framework recipes](../../frameworks/README.md). The CoreFoundation and
+  SystemConfiguration stubs come from their staged headers.
 - `STUBS`, the generated iconv and charset layer described below.
+- `RESOLVER`, the resolver layer built using the same source root as the
+  C installation and Apple's [libresolv InstallAPI settings](../../recipes/libresolv/README.md).
+  Pass `SOURCE_ROOT` to the resolver Make invocation when the C sources are
+  outside `build/sources/macosx26.5`.
 
 Supply these prepared inputs explicitly. The
 [consumer profile](consumer-26.5.json) pins their selected files and symlink
@@ -65,11 +68,13 @@ records the source revisions and corrections behind the prepared assets.
 
 ```bash
 FRAMEWORKS="$PWD/build/frameworks"
+RESOLVER="$PWD/build/resolver"
 make -C frameworks prepare
-make -C frameworks install SDK_GEN="$SDK_GEN" OUT="$FRAMEWORKS"
+make -C frameworks install CLANG="$LLVM/bin/clang" C_INSTALL="$C_INSTALL" OUT="$FRAMEWORKS"
+make -f recipes/libresolv/stubs.mk CLANG="$LLVM/bin/clang" C_INSTALL="$C_INSTALL" OUT="$RESOLVER"
 
 frameworks=()
-for name in CoreFoundation AudioToolbox AudioUnit CoreAudio CoreAudioTypes CoreMIDI IOKit OpenAL; do
+for name in CoreFoundation AudioToolbox AudioUnit CoreAudio CoreAudioTypes CoreMIDI IOKit OpenAL Security SystemConfiguration; do
   frameworks+=(--prepared-framework "$name" "$FRAMEWORKS/$name.framework")
 done
 
@@ -79,6 +84,9 @@ for name in libc++ libc++.1 libc++abi libobjc libobjc.A libz; do
 done
 for name in libiconv libiconv.2 libcharset libcharset.1; do
   stubs+=(--external-stub "usr/lib/$name.tbd=$STUBS/usr/lib/$name.tbd")
+done
+for name in libresolv libresolv.9; do
+  stubs+=(--external-stub "usr/lib/$name.tbd=$RESOLVER/usr/lib/$name.tbd")
 done
 
 python3 -m tools.sdk_composition.compose_sdk \

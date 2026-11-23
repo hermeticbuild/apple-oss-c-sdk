@@ -1,25 +1,25 @@
 # Framework recipes for the macOS consumer SDK
 
-These recipes build the eight replacement frameworks in the qualified
-macOS 26.5 composition. Each recipe lists its source and stages one
-`.framework` directory. The composer takes Foundation directly from the
-SDK Gen release.
+These recipes build the framework layers for the macOS 26.5 composition.
+Each recipe lists its source and stages one `.framework` directory. The
+Security layer supplies the authorization header used by SystemConfiguration.
+The composer takes Foundation directly from the SDK Gen release.
 
-From the repository root, set `SDK_GEN` to the absolute path of the
-`MacOSX.sdk` extracted from Apple SDK Gen 0.0.4. The CoreFoundation recipe
-checks the digest of the input TBD before amending it.
+From the repository root, set `C_INSTALL` to the generated C tree and
+`LLVM` to the pinned LLVM projection containing `bin/clang` and
+`bin/clang-installapi`.
 
 ```sh
 make -C frameworks prepare
-make -C frameworks install SDK_GEN="$SDK_GEN" OUT="$PWD/build/frameworks"
+make -C frameworks install CLANG="$LLVM/bin/clang" C_INSTALL="$C_INSTALL" OUT="$PWD/build/frameworks"
 ```
 
-`prepare` fetches the exact Apple OSS commits into
-`build/framework-sources/{CF,IOAudioFamily,OpenAL}`. Set `SOURCE_ROOT` to
-an absolute directory containing those Git repositories to use existing
-objects. `install` reads those objects and the specified SDK Gen input
-offline. Its output directory must be new. To stage a subset, pass
-`FRAMEWORKS="CoreFoundation OpenAL"`, for example.
+`prepare` fetches the pinned CF, IOAudioFamily, OpenAL, Security and configd
+commits into `build/framework-sources`. Set `SOURCE_ROOT` to an absolute
+directory containing those Git repositories to use existing objects.
+`install` reads the pinned objects offline and writes into a new output
+directory. To stage a subset, pass `FRAMEWORKS="CoreFoundation OpenAL"`,
+for example. SystemConfiguration also stages CoreFoundation and Security.
 
 The recipes use Make, shell, Git, and standard tools. They take no
 official SDK path. Each framework's `provenance.md` identifies its inputs,
@@ -32,12 +32,13 @@ qualified archive.
 make -C frameworks test CLANG="$LLVM/bin/clang" SDK="$NEW_SDK"
 ```
 
-Each replacement framework has a `test.c` beside its recipe. The probes
-check signatures, record layouts, or linkage on arm64 and x86_64.
-CoreAudioTypes and IOKit run compile checks. The other six probes also
-link against their respective frameworks. Use `test-OpenAL`, for example,
-to run a single framework's probe.
+Each framework layer has a `test.c` beside its recipe. The probes check
+signatures, record layouts, or linkage on arm64 and x86_64. CoreAudioTypes,
+IOKit and Security run compile checks. SystemConfiguration compiles its
+reachability header directly and links a separate client of the umbrella.
+Use `test-OpenAL`, for example, to run a single framework's probe.
 
 On a Mac that can run both target architectures, add `RUN=1` to execute
-the linked probes. CoreFoundation and AudioToolbox call their tested APIs.
-The other linked probes exercise dynamic loading and symbol binding.
+the linked probes. CoreFoundation, AudioToolbox and SystemConfiguration
+call their tested APIs. The other linked probes exercise dynamic loading
+and symbol binding.

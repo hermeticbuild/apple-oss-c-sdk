@@ -22,4 +22,13 @@ make test SDK="$SDK" CLANG="$LLVM_CLANG" OUT="$C_INSTALL"
   on other hosts. The compile fixture checks the installed declaration on
   both target architectures.
 
+Run the DNS-SD and resolver link probes against the composed tree.
+On a Mac that can run both target architectures, set `RUN=1` to execute
+the probes. They exercise the DNS-SD name helper and the resolver's
+initialization and cleanup without sending DNS queries.
+
+```sh
+make -C tests/composed_sdk test CLANG="$LLVM_CLANG" SDK="$NEW_SDK" RUN=1
+```
+
 The [Bazel integration workspaces](../e2e/README.md) test the composed SDK archive.

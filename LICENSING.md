@@ -33,9 +33,11 @@ says its libSystem, libobjc, and libc++ stub symbol lists are refreshed from
 an installed Xcode by
 [`extract-darwin-libs.py`](https://github.com/apple-cross-toolchain/apple-sdk-gen/blob/main/tools/extract-darwin-libs.py).
 The [framework recipes](frameworks/README.md) record each replacement's
-Apple OSS, local declaration, and SDK Gen inputs. CoreFoundation combines
-pinned Apple OSS headers and an amendment to SDK Gen's documentation-derived
-framework stub. The generator's Apache 2.0 code license does not by itself establish rights to
+Apple OSS and local declaration inputs. CoreFoundation combines pinned APSL
+headers with a compatibility backport from Swift Corelibs Foundation
+under Apache-2.0 with the Runtime Library Exception. Its stub comes from
+those headers and an Apple OSS runtime declaration. The generator's code
+license does not by itself establish rights to
 redistribute its Xcode-derived export data or documentation-derived content.
 
 Apple's [Xcode and Apple SDKs Agreement](https://www.apple.com/legal/sla/docs/xcode.pdf)

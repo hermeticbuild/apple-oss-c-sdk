@@ -51,28 +51,51 @@ endef
 require-stage:
 	@test -n "$(STAGE)" && test -d "$(STAGE)" || { echo "Run make install to stage frameworks." >&2; exit 1; }
 
+CLANG_INSTALLAPI ?= $(dir $(CLANG))clang-installapi
+INSTALLAPI_MIN ?= 11.0
+
+# InstallAPI can report a header error even when it returns success.
+define installapi
+@set -eu; \
+	test -x "$(CLANG)" && test -x "$(CLANG_INSTALLAPI)" && test -n "$(C_INSTALL)" && test -d "$(C_INSTALL)/usr/include" \
+		|| { echo "Set CLANG to the pinned LLVM projection and C_INSTALL to the generated C tree." >&2; exit 1; }; \
+	resource=$$("$(CLANG)" --no-default-config -print-resource-dir); \
+	diagnostics=$$(mktemp "$${TMPDIR:-/tmp}/installapi.XXXXXX"); \
+	trap 'rm -f -- "$$diagnostics"' EXIT; \
+	if ! "$(CLANG_INSTALLAPI)" -x c -nostdinc -isysroot "$(C_INSTALL)" \
+		-isystem "$$resource/include" -isystem "$(C_INSTALL)/usr/include" \
+		-dynamiclib -target "arm64-apple-macos$(INSTALLAPI_MIN)" -target "x86_64-apple-macos$(INSTALLAPI_MIN)" \
+		$(1) -o "$(2)" 2>"$$diagnostics" || test -s "$$diagnostics"; then \
+		cat "$$diagnostics" >&2; exit 1; \
+	fi
+endef
+
 test-clang = "$(CLANG)" --no-default-config -target "$$cpu-apple-macos14.0" -isysroot "$(SDK)" \
 	-nostdinc -isystem "$$resource/include" -isystem "$(SDK)/usr/include" \
-	-F "$(SDK)/System/Library/Frameworks" -std=c11 -Werror
+	-iframework "$(SDK)/System/Library/Frameworks" -std=c11 -Werror
 
-define test-framework-link
+define test-sdk-link
 @set -eu; \
 	work=$$(mktemp -d "$${TMPDIR:-/tmp}/framework-tests.XXXXXX"); \
 	trap 'rm -rf -- "$$work"' EXIT; \
 	resource=$$("$(CLANG)" --no-default-config -print-resource-dir); \
 	for cpu in arm64 x86_64; do \
-		$(test-clang) $(2) -fuse-ld=lld -nostdlib "$(1)/test.c" \
-			-framework "$(1)" -lSystem -o "$$work/test-$$cpu"; \
+		$(test-clang) -fuse-ld=lld -nostdlib "$(1)" $(2) -lSystem -o "$$work/test-$$cpu"; \
 		if test "$(RUN)" = 1; then "$$work/test-$$cpu"; fi; \
-		echo "$$cpu $(1) link probe passed"; \
+		echo "$$cpu $(@:test-%=%) link probe passed"; \
 	done
 endef
+
+test-framework-link = $(call test-sdk-link,$(1)/test.c,-framework "$(1)" $(2))
+
+# Treat an unsafe-dylib diagnostic as a failed link probe.
+application-extension-link = -fapplication-extension -Wl,-fatal_warnings
 
 define test-framework-headers
 @set -eu; \
 	resource=$$("$(CLANG)" --no-default-config -print-resource-dir); \
 	for cpu in arm64 x86_64; do \
-		$(test-clang) -fsyntax-only "$(1)/test.c"; \
+		$(test-clang) -fsyntax-only "$(1)/$(or $(2),test.c)"; \
 		echo "$$cpu $(1) header probe passed"; \
 	done
 endef

@@ -1,6 +1,10 @@
 # CoreFoundation
 
-Copy the 40 paths in [headers.list](headers.list) verbatim from the pinned
+Generate application-extension-safe linker metadata. The loaded macOS 26.5.2
+CoreFoundation image reports `MH_APP_EXTENSION_SAFE` on arm64 and x86_64.
+The probe links in application-extension mode with linker warnings fatal.
+
+Stage the 40 paths in [headers.list](headers.list) from the pinned
 Apple OSS CF Git objects. The list carries forward the qualified mapping
 in `a717b3ba89aff56cc5b202cbab4df33bad8a0586:inputs/header-sources.tsv`.
 The selected files carry Apple Public Source License notices. Preserve
@@ -9,15 +13,14 @@ inventory.
 [Pinned CF source](https://github.com/apple-oss-distributions/CF/tree/dc54c6bb1c1e5e0b9486c1d26dd5bef110b20bf3)
 · [Project license](https://github.com/apple-oss-distributions/CF/blob/dc54c6bb1c1e5e0b9486c1d26dd5bef110b20bf3/APPLE_LICENSE)
 
-The input framework stub comes from the SDK Gen 0.0.4 macOS 27.0 release.
-Its framework assembler generates the stub from its documentation symbol
-inventory. The recipe adds `_CFRelease` and
-`___CFConstantStringClassReference`, which are defined by Apple's pinned
-`CFRuntime.c`. The checked input and output digests constrain the edit
-to that specific released stub.
-[SDK Gen framework assembler](https://github.com/apple-cross-toolchain/apple-sdk-gen/blob/0.0.4/tools/apple_sdk_gen/assembler/sdk_layout.py#L232-L241)
-· [Apple definitions](https://github.com/apple-oss-distributions/CF/blob/dc54c6bb1c1e5e0b9486c1d26dd5bef110b20bf3/CFRuntime.c)
+[modern-c-api.patch](modern-c-api.patch) brings in the nullability and C
+API used by newer clients from pinned Swift Corelibs Foundation. The patch
+adds `CFErrorDomain`, the assume-nonnull macros, and one-argument `CF_ENUM`.
+Its source and license are recorded with the patch.
 
-The released stub also leaves `CFRetain` unresolved. The bytes reproduced
-by this recipe preserve that existing gap. The
-[link probe](test.c) exercises the two amended exports.
+Clang InstallAPI reads the staged public headers and
+[installapi.h](installapi.h), which declares the compiler's 64-bit
+`CFSTR` reference from Apple's pinned `CFRuntime.c`. The two-architecture
+stub includes `CFRetain` and `CFRelease` from the public headers. The
+[link probe](test.c) exercises both calls, a constant string, a typed
+error domain, and the compatibility macros.

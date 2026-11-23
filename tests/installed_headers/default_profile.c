@@ -152,6 +152,12 @@
 #include <AssertMacros.h>
 #include <device/device_types.h>
 #include <dispatch/dispatch.h>
+#include <dns_sd.h>
+#include <dns.h>
+#include <dns_util.h>
+#include <arpa/nameser.h>
+#include <nameser.h>
+#include <resolv.h>
 #include <hfs/hfs_format.h>
 #include <hfs/hfs_unistr.h>
 #include <libkern/OSAtomic.h>

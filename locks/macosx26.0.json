@@ -114,11 +114,23 @@
       "tag": "libpthread-539",
       "selection": "distribution"
     },
+    "libresolv": {
+      "url": "https://github.com/apple-oss-distributions/libresolv.git",
+      "commit": "e5fc6ec9fdd11f1fa7c7cb9f7f2c06bc9a4f9274",
+      "tag": "libresolv-93",
+      "selection": "distribution"
+    },
     "libunwind": {
       "url": "https://github.com/apple-oss-distributions/libunwind.git",
       "commit": "f709eccad023ec32db53d40146d07805cf3e4ee0",
       "tag": "libunwind-201",
       "selection": "Standalone Apple release supplies mach-o/compact_unwind_encoding.h."
+    },
+    "mDNSResponder": {
+      "url": "https://github.com/apple-oss-distributions/mDNSResponder.git",
+      "commit": "d4658af3f5f291311c6aee4210aa6d39bda82bbe",
+      "tag": "mDNSResponder-2881.0.25",
+      "selection": "distribution"
     },
     "removefile": {
       "url": "https://github.com/apple-oss-distributions/removefile.git",

@@ -2,7 +2,7 @@
 
 SOURCE_ROOT ?= $(abspath ../build/framework-sources)
 OUT ?= $(abspath ../build/frameworks)
-SUPPORTED := CoreFoundation AudioToolbox AudioUnit CoreAudio CoreAudioTypes CoreMIDI IOKit OpenAL
+SUPPORTED := CoreFoundation AudioToolbox AudioUnit CoreAudio CoreAudioTypes CoreMIDI IOKit OpenAL Security SystemConfiguration
 FRAMEWORKS ?= $(SUPPORTED)
 TESTS := $(addprefix test-,$(SUPPORTED))
 
@@ -23,7 +23,7 @@ install:
 
 stage: $(FRAMEWORKS)
 
-prepare: prepare-CF prepare-IOAudioFamily prepare-OpenAL
+prepare: prepare-CF prepare-IOAudioFamily prepare-OpenAL prepare-Security prepare-configd
 
 include common.mk
 include $(addsuffix /Makefile,$(SUPPORTED))
