@@ -11,7 +11,6 @@ import re
 import stat
 import tempfile
 
-from .libsystem import write_json
 from .libsystem_tbd import V4_ROW, rows, run_reader, string, v4_documents, v4_sections, v5_libraries
 
 
@@ -37,6 +36,14 @@ V4_ENCODINGS = {
     "objc-eh-types": "objc_eh_type",
     "objc-ivars": "objc_ivar",
 }
+
+
+def write_json(path, value):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=path.parent,
+                                     delete=False) as output:
+        output.write(json.dumps(value, sort_keys=True, indent=2) + "\n")
+    Path(output.name).replace(path)
 
 
 def inventory(sdk):

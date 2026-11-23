@@ -9,7 +9,6 @@ import tarfile
 import tempfile
 import unittest
 
-from tools.llvm_build.build_llvm import archive_sdk
 from tools.sdk_composition.pack_archive import pack_archive
 
 
@@ -41,7 +40,8 @@ class ArchiveTests(unittest.TestCase):
 
             original = work / "original.tar.zst"
             rebuilt = work / "rebuilt.tar.zst"
-            self.assertEqual(archive_sdk(first, original), archive_sdk(second, rebuilt))
+            self.assertEqual(pack_archive(first, original, "MacOSX.sdk"),
+                             pack_archive(second, rebuilt, "MacOSX.sdk"))
             self.assertEqual(original.read_bytes(), rebuilt.read_bytes())
             raw = subprocess.check_output(["zstd", "-dc", original])
             with tarfile.open(fileobj=io.BytesIO(raw)) as archive:

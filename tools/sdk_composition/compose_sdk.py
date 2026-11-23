@@ -1,154 +1,332 @@
-#!/usr/bin/env python3
-"""Compose standalone Apple OSS C headers with selected SDK Gen link assets.
+"""Compose an SDK from verified C headers and explicitly selected SDK assets.
 
-Only SDKSettings metadata and .tbd files cross from the reference SDK by
-default. Other framework headers must be named explicitly. Reference
-usr/include headers are used only in overlay mode.
+The output records selected files, symlinks and install-name providers in composition.json.
+External aliases require their targets to be selected at the corresponding SDK paths.
 """
 
 import argparse
+from collections import defaultdict
+from dataclasses import dataclass
 import hashlib
 import json
-import shutil
+import os
 from pathlib import Path
+import re
+import shutil
+import stat
+import tempfile
 
-from tools.header_manifest import TSV_NAME, read_header_manifest
-
-def copy_file(source: Path, destination: Path, log: list[tuple[str, str, str]],
-              provenance: str) -> None:
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(source, destination)
-    log.append((str(destination), provenance + ":" + str(source),
-                hashlib.sha256(destination.read_bytes()).hexdigest()))
+from tools.header_manifest import read_header_manifest
+from tools.sdk_review.libsystem_tbd import read_install_names, read_json
+from tools.sources.locked_sources import read_lock
 
 
-def main() -> None:
+STUB = Path("usr/lib/libSystem.B.tbd")
+ALIAS = Path("usr/lib/libSystem.tbd")
+SYSTEM_INSTALL_NAME = "/usr/lib/libSystem.B.dylib"
+# Apple's macOS Libsystem-1356 install script gives these names to the
+# umbrella. SDK Gen emits some of them as standalone reexport stubs.
+# https://github.com/apple-oss-distributions/Libsystem/blob/c23b51183e46e613375dc7639fb4bf11fbf59ba8/xcodescripts/create_dylib_symlinks.sh#L14-L31
+SYSTEM_COMPAT_NAMES = ("c", "dbm", "dl", "gcc_s.1", "info", "m", "poll", "proc", "pthread", "rpcsvc")
+FRAMEWORKS = Path("System/Library/Frameworks")
+MACHO_MAGIC = {
+    b"\xfe\xed\xfa\xce", b"\xce\xfa\xed\xfe", b"\xfe\xed\xfa\xcf", b"\xcf\xfa\xed\xfe",
+    b"\xca\xfe\xba\xbe", b"\xbe\xba\xfe\xca", b"\xca\xfe\xba\xbf", b"\xbf\xba\xfe\xca",
+}
+
+
+def digest(path):
+    sha256 = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            sha256.update(chunk)
+    return sha256.hexdigest()
+
+
+def relative_path(value):
+    path = Path(value)
+    if path.is_absolute() or not path.parts or ".." in path.parts or path.as_posix() != value:
+        raise ValueError(f"expected a canonical SDK-relative path: {value!r}")
+    return path
+
+
+def allowed_path(path):
+    if path.is_relative_to("usr/include/c++") or path.suffix in {".a", ".dylib"}:
+        raise ValueError(f"toolchain or binary asset cannot enter the composed SDK: {path}")
+
+
+@dataclass(frozen=True)
+class File:
+    source: Path
+    source_root: Path
+    layer: str
+    sha256: str | None
+    symlink: str | None
+
+
+class Plan:
+    def __init__(self):
+        self.files = {}
+        self.directories = set()
+
+    def directory(self, path):
+        allowed_path(path)
+        for destination in (path, *path.parents):
+            if destination in self.files:
+                raise ValueError(f"SDK path collision: {destination}")
+            self.directories.add(destination)
+
+    def file(self, destination, source, source_root, layer, sha256=None, *, symlink=None):
+        allowed_path(destination)
+        self.directory(destination.parent)
+        if destination in self.files or destination in self.directories:
+            raise ValueError(f"SDK path collision: {destination}")
+        mode = source.lstat().st_mode
+        if not (stat.S_ISREG(mode) or stat.S_ISLNK(mode)):
+            raise ValueError(f"unsupported SDK file type: {source}")
+        link = os.readlink(source) if stat.S_ISLNK(mode) else None
+        if symlink is not None and link != symlink:
+            raise ValueError(f"{destination} must be a relative alias to {symlink}")
+        if link is not None and Path(link).is_absolute():
+            raise ValueError(f"absolute symlink in SDK source: {source}")
+        try:
+            resolved = source.resolve(strict=True)
+        except (OSError, RuntimeError) as err:
+            raise ValueError(f"invalid SDK input path or symlink {source}: {err}") from err
+        if not resolved.is_relative_to(source_root):
+            raise ValueError(f"SDK source symlink escapes selected input: {source}")
+        self.files[destination] = File(source, source_root, layer, sha256, link)
+
+    def tree(self, destination, source, source_root, layer):
+        self.directory(destination)
+        for path in sorted(source.iterdir()):
+            out = destination / path.name
+            if path.is_dir() and not path.is_symlink():
+                self.tree(out, path, source_root, layer)
+            else:
+                self.file(out, path, source_root, layer)
+
+    def materialize(self, root):
+        receipts = {}
+        for path in sorted(self.directories):
+            dest = root / path
+            dest.mkdir(parents=True, exist_ok=True)
+            dest.chmod(0o755)
+
+        for path, file in sorted(self.files.items()):
+            dest = root / path
+            receipt = {"layer": file.layer, "source": file.source.relative_to(file.source_root).as_posix()}
+            if file.symlink is not None:
+                dest.symlink_to(file.symlink)
+                receipt["symlink"] = file.symlink
+            else:
+                with file.source.open("rb") as stream, dest.open("xb") as output:
+                    prefix = stream.read(8)
+                    if prefix[:4] in MACHO_MAGIC or prefix in {b"!<arch>\n", b"!<thin>\n"}:
+                        raise ValueError(f"binary or archive in SDK input: {path}")
+                    output.write(prefix)
+                    shutil.copyfileobj(stream, output)
+                dest.chmod(0o644)
+                receipt["sha256"] = digest(dest)
+            receipts[path.as_posix()] = receipt
+
+        for path, file in sorted(self.files.items()):
+            dest = root / path
+            if dest.is_symlink():
+                try:
+                    resolved = dest.resolve(strict=True)
+                except (OSError, RuntimeError) as err:
+                    raise ValueError(f"SDK symlink has no selected target: {path}") from err
+                if not resolved.is_relative_to(root):
+                    raise ValueError(f"SDK symlink escapes composed SDK: {path}")
+                target = resolved.relative_to(root)
+                source_target = file.source.resolve(strict=True)
+                if resolved.is_dir():
+                    # Framework version aliases must keep pointing within the
+                    # selected framework. Header installs list individual files.
+                    if file.layer not in {"sdk-gen-framework", "prepared-framework"} or not target.is_relative_to(
+                            FRAMEWORKS / path.parts[len(FRAMEWORKS.parts)]):
+                        raise ValueError(f"SDK directory alias escapes its selected framework: {path}")
+                elif (target not in self.files or self.files[target].layer != file.layer or
+                      self.files[target].source.resolve() != source_target):
+                    raise ValueError(f"SDK symlink target differs from selected source: {path}")
+                if path.suffix == ".tbd" and (not resolved.is_file() or target.suffix != ".tbd"):
+                    raise ValueError(f"TBD alias does not resolve to a selected TBD: {path}")
+            if file.sha256 is not None:
+                if not dest.is_file() or digest(dest) != file.sha256:
+                    raise ValueError(f"SDK file differs from its input manifest: {path}")
+        return receipts
+
+
+def c_install(plan, root):
+    files, metadata = read_header_manifest(root)
+    for name, receipt in sorted(files.items()):
+        path = relative_path(name)
+        if not path.is_relative_to("usr/include") or path == Path("usr/include"):
+            raise ValueError(f"C header manifest path outside usr/include: {path}")
+        plan.file(path, root / path, root, "c-install", receipt["sha256"])
+    for source in sorted(metadata):
+        if source.is_symlink():
+            raise ValueError(f"C installation manifest is a symlink: {source}")
+        plan.file(source.relative_to(root), source, root, "c-install", digest(source))
+
+
+def objc4_headers(plan, root, sdk):
+    expected_lock, projects = read_lock(sdk, "objc4")
+    lock = root / "source-lock.json"
+    if lock.is_symlink() or lock.read_bytes() != expected_lock:
+        raise ValueError(f"objc4 installation does not match the {sdk} source lock")
+    files, _ = read_header_manifest(root)
+    include = Path("usr/include/objc")
+    for name, record in sorted(files.items()):
+        path = relative_path(name)
+        if (path.parent != include or path.suffix != ".h" or record["owner"] != "objc4"
+                or record["origin"] != f"sources/objc4/runtime/{path.name}"):
+            raise ValueError(f"unexpected objc4 header receipt: {path}")
+        source = root / path
+        if source.is_symlink() or not source.is_file() or source.resolve() != source:
+            raise ValueError(f"objc4 public header must be a regular staged file: {source}")
+        plan.file(path, source, root, "objc4-public-headers", record["sha256"])
+    return projects["objc4"]["commit"]
+
+
+def sdk_settings(sdk, receipts):
+    settings = {"CanonicalName": "macosx26.5", "Version": "26.5", "MaximumDeploymentTarget": "26.5",
+                "SupportedTargets": {"macosx": {"Archs": ["arm64", "x86_64"], "LLVMTargetTripleVendor": "apple",
+                                                 "LLVMTargetTripleSys": "macosx"}}}
+    path = sdk / "SDKSettings.json"
+    path.write_text(json.dumps(settings, indent=2, sort_keys=True) + "\n")
+    receipts[path.name] = {"layer": "sdk-settings", "source": "c-install:macosx26.5", "sha256": digest(path)}
+
+
+def framework(plan, sdk_gen, name, *, prepared=None):
+    if not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.+-]*", name):
+        raise ValueError(f"invalid SDK Gen framework name: {name}")
+    relative = FRAMEWORKS / f"{name}.framework"
+    source = prepared if prepared is not None else sdk_gen / relative
+    if (source.name != relative.name or source.is_symlink() or not source.is_dir()
+            or (prepared is None and not source.resolve().is_relative_to(sdk_gen))):
+        raise ValueError(f"missing or escaped framework: {relative}")
+    source = source.resolve()
+    plan.tree(relative, source, source, "prepared-framework" if prepared is not None else "sdk-gen-framework")
+
+
+def external_stub(plan, spec):
+    destination, separator, source = spec.partition("=")
+    if not separator or not source:
+        raise ValueError("--external-stub requires SDK/relative/path.tbd=/source/path.tbd")
+    path = relative_path(destination)
+    source = Path(source).absolute()
+    if not path.is_relative_to("usr/lib") or path.suffix != ".tbd":
+        raise ValueError(f"external stub destination must be a .tbd under usr/lib: {path}")
+    if source.suffix != ".tbd" or not source.is_file():
+        raise ValueError(f"external stub source must resolve to a regular .tbd file: {source}")
+    source_root = source.parent.resolve()
+    plan.file(path, source_root / source.name, source_root, "external-stub")
+
+
+def sdk_gen_libsystem(plan, root):
+    links = root / STUB.parent
+    if (root / STUB).is_symlink() or not (root / STUB).is_file():
+        raise ValueError("SDK Gen must supply a regular libSystem.B.tbd")
+    plan.file(STUB, root / STUB, root, "sdk-gen-libsystem")
+    plan.file(ALIAS, root / ALIAS, root, "sdk-gen-libsystem", symlink=STUB.name)
+    for path in sorted(links.glob("*.tbd")):
+        if path != root / ALIAS and path.is_symlink() and path.resolve() == root / STUB:
+            plan.file(path.relative_to(root), path, root, "sdk-gen-libsystem")
+    for name in SYSTEM_COMPAT_NAMES:
+        path = STUB.parent / f"lib{name}.tbd"
+        if path not in plan.files:
+            plan.file(path, root / ALIAS, root, "sdk-gen-libsystem")
+
+
+def providers(plan, root, llvm):
+    reader = llvm / "bin/llvm-readtapi"
+    umbrella = (root / STUB).read_text(encoding="utf-8")
+    system_names = read_install_names(umbrella, reader)
+    if not system_names or system_names[0] != SYSTEM_INSTALL_NAME:
+        raise ValueError("SDK Gen libSystem umbrella has the wrong install name")
+    locations = defaultdict(list, {name: [STUB.as_posix()] for name in system_names})
+    for path in sorted(plan.files):
+        source = root / path
+        if path == STUB or source.is_symlink():
+            continue
+        content = source.read_bytes()
+        start = content.lstrip()
+        if (path.suffix != ".tbd" and not start.startswith(b"--- !tapi-tbd") and
+                not (start.startswith(b"{") and b'"tapi_tbd_version"' in content)):
+            continue
+        try:
+            names = read_install_names(content.decode("utf-8"), reader)
+        except (ValueError, OSError) as err:
+            raise ValueError(f"cannot account for TBD providers in {path}: {err}") from err
+        for name in names:
+            if name in system_names:
+                raise ValueError(f"{path} shadows SDK Gen libSystem install name {name} in {STUB}")
+            locations[name].append(path.as_posix())
+    return locations
+
+
+def compose(args):
+    out = args.out.parent.resolve() / args.out.name
+    if os.path.lexists(out):
+        raise ValueError(f"output already exists: {out}")
+    plan = Plan()
+    c_root = args.c_install.resolve()
+    c_install(plan, c_root)
+    expected_lock, _ = read_lock("macosx26.5")
+    if (c_root / "source-lock.json").read_bytes() != expected_lock:
+        raise ValueError("composition requires the pinned macosx26.5 C installation")
+    sdk_gen = args.sdk_gen.resolve()
+    sdk_gen_libsystem(plan, sdk_gen)
+    objc4_revision = None
+    if args.objc4_install:
+        objc4_revision = objc4_headers(plan, args.objc4_install.resolve(), "macosx26.5")
+    for name in args.framework:
+        framework(plan, sdk_gen, name)
+    for name, source in args.prepared_framework:
+        framework(plan, None, name, prepared=Path(source))
+    for spec in args.external_stub:
+        external_stub(plan, spec)
+
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix=".compose-sdk-", dir=out.parent) as temporary:
+        sdk = Path(temporary) / "SDK"
+        sdk.mkdir()
+        receipts = plan.materialize(sdk)
+        sdk_settings(sdk, receipts)
+        composition = {
+            "schema": 1,
+            "files": receipts,
+            "sdk_gen": read_json((sdk_gen / "SDKSettings.json").read_bytes())["CanonicalName"],
+            "providers": providers(plan, sdk, args.llvm.resolve()),
+        }
+        if objc4_revision:
+            composition["objc4_revision"] = objc4_revision
+        manifest = sdk / "composition.json"
+        manifest.write_text(json.dumps(composition, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        manifest.chmod(0o644)
+        if os.path.lexists(out):
+            raise ValueError(f"output already exists: {out}")
+        sdk.rename(out)
+
+
+def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--c-root", required=True, type=Path)
-    parser.add_argument("--reference-sdk", required=True, type=Path)
-    parser.add_argument("--libcxx-headers", required=True, type=Path)
-    parser.add_argument("--libcxx-archive", required=True, type=Path)
-    parser.add_argument("--corefoundation-tbd-override", type=Path,
-                        help="optional external CoreFoundation link-stub amendment")
-    parser.add_argument("--corefoundation-c-root", type=Path,
-                        help="full Apple OSS C installation supplying CoreFoundation headers")
-    parser.add_argument("--overlay-reference", action="store_true",
-                        help="secondary proof: overlay C headers onto the full reference SDK")
-    parser.add_argument("--framework-header", action="append", default=[],
-                        help="non-C framework name whose generated headers are needed")
-    parser.add_argument("--out", required=True, type=Path)
+    for name in ("c-install", "llvm", "out", "sdk-gen"):
+        parser.add_argument(f"--{name}", required=True, type=Path)
+    parser.add_argument("--objc4-install", type=Path,
+                        help="separate Objective-C runtime headers from make install-objc4")
+    parser.add_argument("--framework", action="append", default=[], help="public SDK Gen framework name")
+    parser.add_argument("--prepared-framework", nargs=2, action="append", default=[], metavar=("NAME", "DIRECTORY"),
+                        help="select a previously qualified framework layer and record its files separately")
+    parser.add_argument("--external-stub", action="append", default=[], metavar="DESTINATION=SOURCE",
+                        help="select one .tbd or relative alias at a path below usr/lib")
     args = parser.parse_args()
-
-    c_root = args.c_root.resolve()
-    base = args.reference_sdk.resolve()
-    out = args.out.absolute()
-    if out.exists():
-        parser.error("output already exists")
-    for path in (c_root, base, args.libcxx_headers):
-        if not path.is_dir():
-            parser.error(f"directory not found: {path}")
-    if not args.libcxx_archive.is_file():
-        parser.error("libc++ archive not found")
-    if args.overlay_reference:
-        # Exclude the reference's C++ headers so only the supplied LLVM libc++
-        # headers can satisfy C++ includes in the secondary composition.
-        def ignore_reference_cxx(directory: str, names: list[str]) -> set[str]:
-            if Path(directory) == base / "usr/include":
-                return {"c++"} & set(names)
-            return set()
-
-        shutil.copytree(base, out, symlinks=True, ignore=ignore_reference_cxx)
-        shutil.copytree(c_root, out, symlinks=True, dirs_exist_ok=True)
-    else:
-        shutil.copytree(c_root, out, symlinks=True)
-    # The owner index covers the standalone C installation only. The composed
-    # provenance below also covers CoreFoundation headers.
-    c_manifest = out / TSV_NAME
-    if c_manifest.is_file():
-        c_manifest.rename(out / "c-header-manifest.tsv")
-    c_owner_index = out / "header-owners.json"
-    if c_owner_index.is_file():
-        c_owner_index.rename(out / "c-header-owners.json")
-    log: list[tuple[str, str, str]] = []
-    for name in ("SDKSettings.json", "SDKSettings.plist"):
-        if (base / name).is_file():
-            copy_file(base / name, out / name, log, "sdk-gen-metadata")
-
-    for relative_root in ("usr/lib", "System/Library/Frameworks"):
-        for source in sorted((base / relative_root).rglob("*.tbd")):
-            relative = source.relative_to(base)
-            copy_file(source, out / relative, log, "sdk-gen-tbd")
-
-    if args.overlay_reference and args.framework_header:
-        parser.error("--framework-header is for restricted composition only")
-    if args.corefoundation_c_root and "CoreFoundation" in args.framework_header:
-        parser.error("choose one CoreFoundation header source")
-    for name in args.framework_header:
-        relative = Path("System/Library/Frameworks") / f"{name}.framework/Headers"
-        if not (base / relative).is_dir():
-            parser.error(f"framework headers not found: {relative}")
-        for source in sorted((base / relative).rglob("*")):
-            if source.is_file():
-                copy_file(source, out / source.relative_to(base), log,
-                          "sdk-gen-framework-header")
-
-    if args.corefoundation_c_root:
-        cf_root = args.corefoundation_c_root.resolve()
-        relative = Path("System/Library/Frameworks/CoreFoundation.framework/Headers")
-        source = cf_root / relative
-        if not source.is_dir():
-            parser.error(f"Apple OSS CoreFoundation headers not found: {source}")
-        cf_manifest = json.loads((cf_root / "header-provenance.json").read_text())
-        expected = {name for name in cf_manifest["files"]
-                    if name.startswith(relative.as_posix() + "/")}
-        present = {path.relative_to(cf_root).as_posix()
-                   for path in source.rglob("*") if path.is_file() or path.is_symlink()}
-        if not expected or present != expected:
-            parser.error("CoreFoundation file set differs from provenance")
-        if any(path.is_symlink() for path in source.rglob("*")):
-            parser.error("CoreFoundation source contains a symlink")
-        shutil.copytree(source, out / relative, dirs_exist_ok=True)
-
-    # hermetic-llvm's osx extension requests both public and private glob
-    # patterns for each default framework. SDK Gen has no private framework
-    # trees; a non-header marker lets bsdtar match those empty patterns.
-    for name in ("CoreFoundation", "Foundation", "Kernel", "OSLog", "Security",
-                 "SystemConfiguration"):
-        for category in ("Frameworks", "PrivateFrameworks"):
-            framework = (out / "System/Library" / category /
-                         f"{name}.framework")
-            if not framework.exists():
-                framework.mkdir(parents=True)
-                (framework / ".empty-for-bsdtar").write_text("")
-
-    if args.corefoundation_tbd_override:
-        if not args.corefoundation_tbd_override.is_file():
-            parser.error("CoreFoundation TBD override not found")
-        copy_file(args.corefoundation_tbd_override,
-                  out / "System/Library/Frameworks/CoreFoundation.framework/CoreFoundation.tbd",
-                  log, "external-tbd-amendment")
-
-    c_provenance = out / "header-provenance.json"
-    c_files, _ = read_header_manifest(c_root)
-    provenance = {"schema": 2, "files": c_files}
-    if args.corefoundation_c_root:
-        for relative, record in cf_manifest["files"].items():
-            if relative.startswith("System/Library/Frameworks/CoreFoundation.framework/Headers/"):
-                copied = out / relative
-                if not copied.is_file() or hashlib.sha256(copied.read_bytes()).hexdigest() != record["sha256"]:
-                    parser.error(f"CoreFoundation differs from provenance: {relative}")
-                provenance["files"][relative] = record
-    c_provenance.write_text(json.dumps(provenance, indent=2, sort_keys=True) + "\n")
-    shutil.copytree(args.libcxx_headers, out / "usr/include/c++/v1")
-    copy_file(args.libcxx_archive,
-              out / "usr/lib/libc++_llvm23_full.a", log, "hermetic-llvm-libcxx")
-
-    manifest = out.parent / (out.name + ".composition.tsv")
-    with manifest.open("w") as stream:
-        stream.write("destination\tprovenance\tsha256\n")
-        for destination, provenance, digest in log:
-            stream.write(f"{destination}\t{provenance}\t{digest}\n")
-    print(f"{out}: {len(log)} copied SDK Gen link assets and LLVM runtime files")
+    try:
+        compose(args)
+    except (OSError, ValueError, KeyError) as err:
+        parser.exit(1, f"compose-sdk: {err}\n")
 
 
 if __name__ == "__main__":

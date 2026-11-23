@@ -11,7 +11,7 @@ lookup and qualification receipts in a local work directory.
       --sdk "$APPLE_SDK" --c-install "$C_INSTALL" --llvm "$LLVM" \
       --lookup "$WORK/unistd-sdk-lookup.json" --out "$WORK/unistd-qualification.json"
 
-The [review policy](../libsystem/data/macosx26.5/expected-undefined.json) pins
+The [review policy](data/macosx26.5/expected-undefined.json) pins
 the SDK build, installed header bytes and selected Libc source revision. The
 qualification checks the header digest on each side and verifies complete
 SDK-wide lookup coverage with all three raw names, including explicit

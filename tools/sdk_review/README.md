@@ -5,6 +5,40 @@ or investigating a scope gap. It reads the SDK and the generated installation
 and writes review reports. The Make installer has no dependency on the SDK
 or these ledgers.
 
+## Agent workflow
+
+Start with a fresh installation and a reference SDK matching the lock's
+version and build. Use the pinned LLVM tools and an empty report directory.
+
+```sh
+make -f tools/sdk_review/headers.mk -j3 header-backlog \
+  SDK=macosx26.5 LLVM="$LLVM" C_INSTALL="$C_INSTALL" APPLE_SDK="$SDK" WORK="$WORK"
+```
+
+Read `header-backlog.json` for path decisions, failed inclusion contexts,
+and semantic differences. Read `discovery-reference.json` and
+`discovery-generated.json` separately for optional roots. A completed backlog
+with open findings exits nonzero; distinguish open findings from failed tools
+or stale inputs. Keep the previous inventory and decisions when changing pins.
+
+1. Reproduce one affected root or client. Record both architectures, feature
+   flags, deployment target, source lock, compiler, and the reference result.
+2. Trace the installed path to its manifest receipt and Apple's pinned rule.
+   A link failure also needs the exact Mach-O spelling and its provider; use
+   [TBD lookup](lookup_tbd_symbols.md) and [compare client links](diagnose_links.md).
+3. Fix the owning recipe or document the proposed omission. Keep local patches
+   and their source evidence beside the recipe. Treat an SDK Gen framework or
+   link asset issue as a composition finding.
+4. Ask Corentin before adopting an unproven private or public source, making
+   a local departure from an upstream rule, guessing ABI or availability,
+   changing package scope or an approved omission, or weakening a test.
+   Give the path or gap ID, reproducer, evidence, recommendation, and effect
+   of leaving the gap open. Keep working on unrelated gaps.
+5. Rerun the failing case on both applicable targets, regenerate the affected
+   reports, and record the result or accepted exception in the existing ledger.
+   Keep the reason and reopening condition. Passing consumer builds do not
+   close unexplained header differences.
+
 ## Compare coverage with an official SDK
 
 Set `LLVM_CLANG` to the pinned Clang, `SDK` to the reference macOS SDK, and

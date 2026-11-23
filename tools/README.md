@@ -11,7 +11,7 @@ tree, or review what to ship.
 | [Check the C installation](qualify_headers/README.md) | A maintainer after changing a recipe or a probe |
 | [Review SDK coverage](sdk_review/README.md) | A maintainer or agent qualifying a new SDK, updating source pins, or investigating a header gap |
 | [Compose an SDK](sdk_composition/README.md) | A maintainer assembling a sysroot from generated headers and separate link assets |
-| [Build LLVM against a test SDK](llvm_build/README.md) | A maintainer after changes affecting cross-compilation or SDK composition |
+| [Qualify on macOS](llvm_build/qualify_sdk.md) | A maintainer running Stage 1 Clang, hermetic-llvm e2e, and rules_rs against the same SDK archive |
 | [Run the tests](../tests/README.md) | A contributor validating a generated C installation with `make test` |
 
 `header_manifest.py` is the shared manifest reader used by SDK review, LLVM

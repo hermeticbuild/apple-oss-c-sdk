@@ -90,7 +90,7 @@ platforms, compiler modes or every declaration in the containing header.
 
 ## Evidence and replay
 
-The [linker census](../../../libsystem/progress.md) accounts for the 13
+The [linker census at 05d69d0](https://github.com/hermeticbuild/apple-oss-c-sdk/blob/05d69d063ccc4217644538095afff62fd299f5a5/tools/libsystem/progress.md) accounts for the 13
 half-precision math names, nine logging names, and one arm64 environment
 object. The header compilation survey below measures a separate property.
 

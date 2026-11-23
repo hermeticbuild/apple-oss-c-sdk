@@ -9,6 +9,49 @@ import subprocess
 from tempfile import TemporaryDirectory
 
 
+def run(tool, flags, cwd):
+    argv = [str(tool), *map(str, flags)]
+    process = subprocess.run(argv, cwd=cwd, env={"LC_ALL": "C"},
+                             text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if process.returncode:
+        raise ValueError(f"{tool.name} exited {process.returncode}: {process.stderr.strip()}")
+    return process.stdout
+
+
+def read_object(tools, cwd, path, symbol, kind):
+    undefined = {}
+    nm = run(tools / "llvm-nm", ("-m", "-u", path), cwd)
+    for line in nm.splitlines():
+        match = re.fullmatch(r"\s*\(undefined\) (weak )?external (.+)", line)
+        if not match:
+            raise ValueError(f"unrecognized llvm-nm undefined symbol: {line}")
+        weak, name = match.groups()
+        if name in undefined:
+            raise ValueError(f"duplicate llvm-nm undefined symbol: {name}")
+        undefined[name] = bool(weak)
+    if set(undefined) != {symbol}:
+        return None, f"expected one undefined symbol {symbol!r}, saw {sorted(undefined)}"
+
+    relocations = []
+    section = None
+    objdump = run(tools / "llvm-objdump", ("-r", path), cwd)
+    for line in objdump.splitlines():
+        record = re.fullmatch(r"RELOCATION RECORDS FOR \[(.+)\]:", line)
+        if record:
+            section = record[1]
+        match = re.fullmatch(r"([0-9a-f]+)\s+(\S+)\s+(.+)", line)
+        if section and match and (match[3] == symbol or
+                                 (match[2] == "X86_64_RELOC_TLV" and match[3] == f"{symbol}@TLVP")):
+            relocations.append({"section": section, "offset": int(match[1], 16), "type": match[2]})
+    if not relocations:
+        return None, "missing client relocation"
+    tls_types = {"X86_64_RELOC_TLV", "ARM64_RELOC_TLVP_LOAD_PAGEOFF12", "ARM64_RELOC_TLVP_LOAD_PAGE21"}
+    tls_relocation = any(entry["type"] in tls_types for entry in relocations)
+    if tls_relocation != (kind == "tls"):
+        return None, "TLS classification disagrees with client relocation"
+    return {"weak_import": undefined[symbol], "relocations": relocations}, None
+
+
 def inspect(binary, tools):
     def output(name, *args):
         return subprocess.check_output([tools / name, *args, binary], text=True)

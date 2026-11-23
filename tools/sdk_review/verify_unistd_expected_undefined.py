@@ -9,13 +9,11 @@ from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 
 from tools.header_manifest import read_header_manifest
-from tools.libsystem.scan import read_object, run
-from tools.sdk_review.verify_libsystem_links import link
+from tools.sdk_review.verify_libsystem_links import link, read_object, run
 from tools.toolchain.official_llvm import PIN, projection, read_lock, sha256
 
 
-TOOLS = Path(__file__).resolve().parents[1]
-POLICY = TOOLS / "libsystem/data/macosx26.5/expected-undefined.json"
+POLICY = Path(__file__).with_name("data") / "macosx26.5/expected-undefined.json"
 FIXTURE = Path(__file__).with_name("libsystem_fixtures") / "unistd_expected_undefined.c"
 ARCHES = ("arm64", "x86_64")
 HEADER = "usr/include/unistd.h"

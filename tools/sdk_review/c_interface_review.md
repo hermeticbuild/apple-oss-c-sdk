@@ -56,7 +56,7 @@ Upstream LLVM lacks `-ftyped-memory-operations`. Use the verified LLVM bundle
 for `llvm-nm`.
 
 ```sh
-make -f tools/sdk_review/libsystem-headers.mk malloc-backdeploy \
+make -f tools/sdk_review/headers.mk malloc-backdeploy \
   APPLE_CLANG="$(xcrun --find clang)" APPLE_SDK="$APPLE_SDK" \
   LLVM="$LLVM" C_INSTALL="$C_INSTALL" WORK="$WORK"
 ```

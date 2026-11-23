@@ -8,7 +8,7 @@ import subprocess
 import tarfile
 import tempfile
 
-from tools.sdk_composition.compose_libsystem import Plan, c_install, digest
+from tools.sdk_composition.compose_sdk import Plan, c_install, digest
 from tools.toolchain import official_llvm
 
 

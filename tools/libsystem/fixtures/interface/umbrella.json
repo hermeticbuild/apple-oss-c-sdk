@@ -1,9 +1,0 @@
-{
-  "install_name": "/usr/lib/libSystem.B.dylib",
-  "current_version": "7.0",
-  "compatibility_version": "1.0",
-  "slices": {
-    "arm64": {"reexports": ["/usr/lib/system/libExampleChild.dylib"], "exports": {}},
-    "x86_64": {"reexports": ["/usr/lib/system/libExampleChild.dylib"], "exports": {}}
-  }
-}

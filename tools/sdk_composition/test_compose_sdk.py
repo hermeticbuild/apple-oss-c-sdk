@@ -46,7 +46,6 @@ class ComposeTests(unittest.TestCase):
         self.addCleanup(temp.cleanup)
         self.work = Path(temp.name)
         self.c = self.work / "c-install"
-        self.package = self.work / "package"
         self.gen = self.work / "sdk-gen"
         self.out = self.work / "out.sdk"
         self.framework = self.gen / FRAMEWORK
@@ -55,24 +54,39 @@ class ComposeTests(unittest.TestCase):
             "usr/include/fixture.h", digest, "fixture", "source", "selection", "copy", "input",
         ]) + "\n")
         write(self.c / "uninstalled-scratch.txt", "outside the manifest\n")
-        digest = write(self.package / "usr/lib/libSystem.B.tbd", tbd(PARENT, CHILD))
-        (self.package / "usr/lib/libSystem.tbd").symlink_to("libSystem.B.tbd")
-        self.manifest_sha256 = write(self.package / "manifest.json", json.dumps({"tbd_sha256": digest}))
-
-    def declare_compat_alias(self, path, target):
-        manifest = self.package / "manifest.json"
-        record = json.loads(manifest.read_text())
-        record["symlinks"] = {"usr/lib/libSystem.tbd": "libSystem.B.tbd", path: target}
-        self.manifest_sha256 = write(manifest, json.dumps(record))
+        lock, _ = read_lock("macosx26.5")
+        (self.c / "source-lock.json").write_bytes(lock)
+        write(self.gen / "SDKSettings.json", '{"CanonicalName":"macosx27.0"}')
+        write(self.gen / "usr/lib/libSystem.B.tbd", tbd(PARENT, CHILD))
+        (self.gen / "usr/lib/libSystem.tbd").symlink_to("libSystem.B.tbd")
 
     def compose(self, *extra):
         return subprocess.run([
-            sys.executable, "-m", "tools.sdk_composition.compose_libsystem",
-            "--c-install", self.c, "--libsystem", self.package,
-            "--libsystem-manifest-sha256", self.manifest_sha256,
+            sys.executable, "-m", "tools.sdk_composition.compose_sdk",
+            "--c-install", self.c,
             "--llvm", os.getenv("LIBSYSTEM_TEST_LLVM", str(self.work)),
             "--sdk-gen", self.gen, "--out", self.out, *extra,
         ], text=True, capture_output=True)
+
+    @unittest.skipUnless(os.getenv("LIBSYSTEM_TEST_LLVM"), "requires the official llvm-readtapi")
+    def test_sdk_gen_umbrella_is_preserved(self):
+        write(self.gen / "usr/include/unselected.h", "#error reference C header\n")
+        data = f"""--- !tapi-tbd
+tbd-version: 4
+targets: [ arm64-macos, x86_64-macos ]
+install-name: '{PARENT}'
+...
+"""
+        write(self.gen / "usr/lib/libSystem.B.tbd", data)
+        result = self.compose()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual((self.out / "usr/lib/libSystem.B.tbd").read_text(), data)
+        self.assertEqual((self.out / "usr/lib/libSystem.tbd").readlink(), Path("libSystem.B.tbd"))
+        self.assertFalse((self.out / "usr/include/unselected.h").exists())
+        manifest = json.loads((self.out / "composition.json").read_text())
+        self.assertEqual(manifest["sdk_gen"], "macosx27.0")
+        self.assertEqual(manifest["providers"][PARENT], ["usr/lib/libSystem.B.tbd"])
+        self.assertEqual(json.loads((self.out / "SDKSettings.json").read_text())["Version"], "26.5")
 
     @unittest.skipUnless(os.getenv("LIBSYSTEM_TEST_OBJC4"), "requires make install-objc4 output")
     def test_objc4_headers_and_external_stubs_have_separate_provenance(self):
@@ -144,19 +158,9 @@ class ComposeTests(unittest.TestCase):
         self.assertIn("objc4 installation does not match the macosx26.5 source lock", result.stderr)
         self.assertFalse(self.out.exists())
 
-    def test_prepared_framework_and_versioned_package(self):
-        header = self.framework / "Headers/Example.h"
-        write(header, "typedef int example;\n")
-        path = self.package / "manifest.json"
-        record = json.loads(path.read_text())
-        record.update(sdk="macosx26.5", c_header_manifest_sha256="0" * 64)
-        self.manifest_sha256 = write(path, json.dumps(record))
-        args = ("--prepared-framework", "Example", self.framework)
-        self.assertIn("selected C installation differs", self.compose(*args).stderr)
-        self.assertFalse(self.out.exists())
-        record["c_header_manifest_sha256"] = hashlib.sha256((self.c / "header-manifest.tsv").read_bytes()).hexdigest()
-        self.manifest_sha256 = write(path, json.dumps(record))
-        result = self.compose(*args)
+    def test_prepared_framework(self):
+        write(self.framework / "Headers/Example.h", "typedef int example;\n")
+        result = self.compose("--prepared-framework", "Example", self.framework)
         self.assertEqual(result.returncode, 0, result.stderr)
         settings = json.loads((self.out / "SDKSettings.json").read_text())
         self.assertEqual(settings["Version"], "26.5")
@@ -172,7 +176,6 @@ class ComposeTests(unittest.TestCase):
         (self.framework / "Headers").symlink_to("Versions/Current/Headers")
         (self.framework / "Example.tbd").symlink_to("Versions/Current/Example.tbd")
         write(self.gen / "System/Library/Frameworks/Unselected.framework/unused.h", "\n")
-        write(self.gen / "usr/lib/libSystem.B.tbd", tbd(PARENT))
         write(self.gen / "usr/include/c++/v1/vector", "\n")
         external = self.work / "support" / "libexample.tbd"
         write(external, tbd("/usr/lib/libexample.dylib"))
@@ -193,7 +196,6 @@ class ComposeTests(unittest.TestCase):
         self.assertFalse((self.out / "System/Library/Frameworks/Unselected.framework").exists())
 
         manifest = json.loads((self.out / "composition.json").read_text())
-        self.assertEqual(manifest["libsystem_manifest_sha256"], self.manifest_sha256)
         self.assertNotIn("objc4_revision", manifest)
         self.assertEqual(manifest["providers"], {
             PARENT: ["usr/lib/libSystem.B.tbd"], CHILD: ["usr/lib/libSystem.B.tbd"],
@@ -201,12 +203,12 @@ class ComposeTests(unittest.TestCase):
             "/usr/lib/libexample.dylib": ["usr/lib/libexample.tbd"],
         })
 
-    def test_renamed_external_stub_with_embedded_child_shadows_generated_provider(self):
+    def test_renamed_external_stub_with_embedded_child_shadows_sdk_gen_provider(self):
         external = self.work / "moved.tbd"
         write(external, tbd("/usr/lib/libUnrelated.dylib", CHILD))
         result = self.compose("--external-stub", f"usr/lib/renamed.tbd={external}")
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn(f"usr/lib/renamed.tbd shadows generated libSystem install name {CHILD}",
+        self.assertIn(f"usr/lib/renamed.tbd shadows SDK Gen libSystem install name {CHILD}",
                       result.stderr)
         self.assertFalse(self.out.exists())
 
@@ -230,7 +232,7 @@ install-name: '{CHILD}'
 """)
         result = self.compose("--framework", "Example")
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn(f"ArbitraryName.tbd shadows generated libSystem install name {CHILD}",
+        self.assertIn(f"ArbitraryName.tbd shadows SDK Gen libSystem install name {CHILD}",
                       result.stderr)
         self.assertFalse(self.out.exists())
 
@@ -264,61 +266,18 @@ install-name: '{CHILD}'
         self.assertIn("SDK path collision: usr/lib/libSystem.tbd", result.stderr)
         self.assertFalse(self.out.exists())
 
-    def test_generated_stub_has_to_match_the_pinned_package_receipt(self):
-        write(self.package / "usr/lib/libSystem.B.tbd", tbd(PARENT))
-        result = self.compose()
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("SDK file differs from its input manifest: usr/lib/libSystem.B.tbd",
-                      result.stderr)
-        self.assertFalse(self.out.exists())
-
-    def test_generated_compatibility_alias_keeps_its_declared_relative_target(self):
-        path = "usr/lib/libm.tbd"
-        self.declare_compat_alias(path, "libSystem.tbd")
-        (self.package / path).symlink_to("libSystem.tbd")
+    def test_sdk_gen_compatibility_alias_keeps_its_relative_target(self):
+        alias = Path("usr/lib/libm.tbd")
+        (self.gen / alias).symlink_to("libSystem.tbd")
+        write(self.gen / "usr/lib/libdl.tbd", tbd("/usr/lib/libdl.dylib"))
 
         result = self.compose()
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(os.readlink(self.out / path), "libSystem.tbd")
+        self.assertEqual(os.readlink(self.out / alias), "libSystem.tbd")
+        self.assertEqual(os.readlink(self.out / "usr/lib/libdl.tbd"), "libSystem.B.tbd")
         manifest = json.loads((self.out / "composition.json").read_text())
-        self.assertEqual(manifest["files"][path]["symlink"], "libSystem.tbd")
-        self.assertEqual(manifest["providers"][PARENT], ["usr/lib/libSystem.B.tbd"])
-
-    def test_legacy_package_rejects_an_undeclared_compatibility_alias(self):
-        (self.package / "usr/lib/libm.tbd").symlink_to("libSystem.tbd")
-
-        result = self.compose()
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("unexpected generated libSystem payload", result.stderr)
-        self.assertFalse(self.out.exists())
-
-    def test_generated_compatibility_alias_rejects_a_different_link_to_the_same_stub(self):
-        path = "usr/lib/libm.tbd"
-        self.declare_compat_alias(path, "libSystem.tbd")
-        (self.package / path).symlink_to("libSystem.B.tbd")
-
-        result = self.compose()
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn(f"generated {path} must be a relative alias to libSystem.tbd", result.stderr)
-        self.assertFalse(self.out.exists())
-
-    def test_generated_compatibility_alias_manifest_cannot_escape_usr_lib(self):
-        self.declare_compat_alias("usr/lib/../libm.tbd", "libSystem.tbd")
-
-        result = self.compose()
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("expected a canonical SDK-relative path", result.stderr)
-        self.assertFalse(self.out.exists())
-
-    def test_generated_compatibility_alias_manifest_rejects_escaping_target(self):
-        path = "usr/lib/libm.tbd"
-        self.declare_compat_alias(path, "../../libSystem.tbd")
-        (self.package / path).symlink_to("../../libSystem.tbd")
-
-        result = self.compose()
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn(f"unexpected declared libSystem symlink target for {path}", result.stderr)
-        self.assertFalse(self.out.exists())
+        self.assertEqual(manifest["files"][alias.as_posix()]["symlink"], "libSystem.tbd")
+        self.assertNotIn("/usr/lib/libdl.dylib", manifest["providers"])
 
     def test_named_framework_cannot_embed_a_static_archive(self):
         write(self.framework / "toolchain.a", "!<arch>\n")
