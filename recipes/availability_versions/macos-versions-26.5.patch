@@ -10,7 +10,7 @@ release references accompany the added rows below. Both Apple generators
 consume this staged DSL.
 
 Evidence: tests/installed_headers/macos_26_5_availability.c and
-tools/sdk_review/data/macosx26.5/ranked-header-differences.md.
+.agents/skills/review-macos-c-sdk/scripts/sdk_review/headers/data/macosx26.5/ranked-header-differences.md.
 
 --- a/availability.dsl
 +++ b/availability.dsl

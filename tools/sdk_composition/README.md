@@ -36,64 +36,62 @@ python3 -m tools.sdk_composition.compose_sdk \
   "${stubs[@]}" --out "$NEW_SDK"
 ```
 
-Use `--framework NAME` to select an unmodified SDK Gen framework, or
-`--prepared-framework NAME DIRECTORY` to use a separately prepared one.
-The earlier consumer proof used Apple OSS CoreFoundation headers and an
-amended stub, plus the SDK Gen macOS C audio profile for AudioToolbox,
-AudioUnit, CoreAudio, CoreAudioTypes, CoreMIDI, IOKit, and OpenAL. The stock
-27.0 CoreFoundation and AudioToolbox umbrellas fail C inclusion; the smoke
-archive alone does not qualify these consumers.
-The composer rejects a framework or stub that shadows an SDK Gen libSystem provider.
+Use `--framework NAME` to take a framework from SDK Gen. Use
+`--prepared-framework NAME DIRECTORY` to take a specific prepared framework.
+The composer rejects a framework or stub that shadows an SDK Gen libSystem
+provider.
 
-For consumer qualification with SDK Gen 0.0.4, restrict `___divsc3`,
-`___divdc3` and `___divxc3` to `x86_64-macos` in the
-`/usr/lib/system/libcompiler_rt.dylib` document inside `usr/lib/libSystem.B.tbd`.
-Apply this correction to a local SDK Gen input before composing. Runtime
-symbol lookup on macOS 26.5.2 found all three on Intel and none on arm64,
-which agrees with the SDK 26.5 target groups. The hermetic-llvm
-`libomp_test` exercises the arm64 fallback to LLVM's static builtins.
+## Consumer archive
 
-### Prepare the consumer framework inputs
+The SDK used by Stage 1 and both consumer suites requires these prepared
+inputs for SDK Gen 0.0.4:
 
-- **CoreFoundation:** Use the 40 `CoreFoundation.framework/Headers/` rows
-  in `git show a717b3ba89aff56cc5b202cbab4df33bad8a0586:inputs/header-sources.tsv`.
-  Each `CF:PATH` names a file to copy verbatim from Apple OSS CF commit
-  `dc54c6bb1c1e5e0b9486c1d26dd5bef110b20bf3` into the prepared framework's
-  `Headers/`. Copy SDK Gen's `CoreFoundation.tbd` (SHA-256
-  `2762fd6c1d1ca0b834460550df1b08bb6cf2218cf74525f443e7029861246fa1`),
-  then restore `_CFRelease` and `___CFConstantStringClassReference` in its
-  public symbol list. Both are defined in the pinned CF `CFRuntime.c`.
-  The amended stub tested here has SHA-256
-  `af6c182cb111f52124b56c037390acbe8a5b78f071c675507b6a035d8969b56c`.
-- **Audio and IOKit:** Use the Apple SDK Gen checkout with the macOS C audio
-  profile changes. The 0.0.4 archive does not contain those repairs. Generate
-  the profile as documented in that checkout, or use its
-  `install_macos_audio_profile` helper to stage just the seven frameworks.
-  Use `tools/tests/check_macos_audio_profile.py` from that checkout to check
-  the composed SDK. This profile still requires a separate source checkout.
+- `SDK_GEN`, the macOS SDK Gen tree with the qualified `libSystem.B.tbd`.
+  Its compiler-rt document exposes `___divsc3`, `___divdc3`, and `___divxc3`
+  on x86_64. It supplies Foundation and the six SDK Gen stubs listed above.
+- `CF_FRAMEWORK`, the prepared `CoreFoundation.framework` with 40 Apple OSS
+  headers and the qualified stub.
+- `AUDIO_FRAMEWORKS`, the directory containing the seven prepared audio and
+  IOKit frameworks listed below. These come from the local SDK Gen
+  macOS C audio profile.
+- `STUBS`, the generated iconv and charset layer described below.
 
-For the consumer archive, keep SDK Gen Foundation and the stubs selected
-above. Add the prepared framework directories and the iconv stubs:
+Supply these prepared inputs explicitly. The
+[consumer profile](consumer-26.5.json) pins their selected files and symlink
+targets from the passing archive. `--verify-consumer-inputs` checks every
+selected framework and both stub groups before publishing. C and Objective-C
+headers are checked through their own source locks and manifests. The
+[qualification evidence](../../.agents/skills/review-macos-c-sdk/composition-gaps.md)
+records the source revisions and corrections behind the prepared assets.
 
 ```bash
 frameworks=(--prepared-framework CoreFoundation "$CF_FRAMEWORK")
 for name in AudioToolbox AudioUnit CoreAudio CoreAudioTypes CoreMIDI IOKit OpenAL; do
   frameworks+=(--prepared-framework "$name" "$AUDIO_FRAMEWORKS/$name.framework")
 done
+
+stubs=()
+for name in libc++ libc++.1 libc++abi libobjc libobjc.A libz; do
+  stubs+=(--external-stub "usr/lib/$name.tbd=$SDK_GEN/usr/lib/$name.tbd")
+done
 for name in libiconv libiconv.2 libcharset libcharset.1; do
   stubs+=(--external-stub "usr/lib/$name.tbd=$STUBS/usr/lib/$name.tbd")
 done
+
 python3 -m tools.sdk_composition.compose_sdk \
   --c-install "$C_INSTALL" --objc4-install "$OBJC4_INSTALL" \
   --sdk-gen "$SDK_GEN" --llvm "$LLVM" --framework Foundation \
-  "${frameworks[@]}" "${stubs[@]}" --out "$NEW_SDK"
+  --verify-consumer-inputs "${frameworks[@]}" "${stubs[@]}" --out "$NEW_SDK"
 ```
 
-Keep the SDK Gen pin, hashes for prepared inputs, and `composition.json` with
-the archive. Run the [three macOS gates](../llvm_build/qualify_sdk.md)
-against that archive on both architectures.
+For [Bazel validation](../../e2e/README.md), use `NEW_SDK="$PWD/build/sdk/MacOSX.sdk"`
+and run `make sdk-archive`.
 
 ## Packing release archives
+
+Run `make sdk-archive` from the repository root to pack that tree into
+`build/sdk/MacOSX.sdk.tar.zst`. Pass `SDK_TREE="$NEW_SDK"` to pack another
+composed tree into the same output path.
 
 Run the packer on the composed SDK. Each command prints
 the SHA-256 of the compressed archive. The output directory must already exist

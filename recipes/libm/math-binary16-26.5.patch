@@ -8,7 +8,7 @@ and 15.0 OTA images establish the 15.0 export boundary on both architectures.
 The 26.5 comparison verifies weak imports before 15.0 and strong imports
 afterwards. Use the pinned Apple availability macros for that boundary.
 
-Evidence: recipes/libm/half_math.md and tests/installed_headers/libm_half_runtime.c.
+Evidence: recipes/libm/half_math.md and tests/installed_headers/libm_half.c.
 
 --- a/usr/include/math.h
 +++ b/usr/include/math.h

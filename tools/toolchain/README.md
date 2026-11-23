@@ -1,6 +1,6 @@
 # LLVM toolchains for SDK generation
 
-## Official LLVM 23.1.2 for libSystem
+## Official LLVM 23.1.2 for composition and SDK review
 
 The [release lock](data/llvm-official-macos-arm64.json) pins the Apple Silicon
 host archive, its GitHub build attestation, and the digests of the selected
@@ -56,7 +56,7 @@ and its header manifest. The InstallAPI export and client object must agree on
 bootstrap check. Use `--work-dir` with an existing directory to retain the
 inputs and outputs under a fresh child directory.
 
-## Historical minimal prebuilt
+## Minimal prebuilt Clang for header installation
 
 `resolve_clang.py` compares hermetic-llvm's minimal toolchain release and host
 archive digest against [the checked-in pin](data/llvm-minimal-prebuilt.json),

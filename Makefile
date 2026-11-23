@@ -28,18 +28,26 @@ test:
 	@test -x "$(CLANG)" || { echo "Set CLANG to the pinned LLVM Clang executable." >&2; exit 1; }
 	@test -n "$(OUT)" && test -f "$(OUT)/header-manifest.tsv" || { echo "Set OUT to the tree produced by make install." >&2; exit 1; }
 	@cmp -s "locks/$(SDK).json" "$(OUT)/source-lock.json" || { echo "OUT was not built with the $(SDK) source lock." >&2; exit 1; }
-	"$(PYTHON)" -m tools.sources.locked_sources verify --sdk "$(SDK)" --source-root "$(SOURCE_ROOT)"
 	C_INSTALL="$(abspath $(OUT))" $(PYTHON) -m unittest discover -s tests/recipes
-	$(PYTHON) -m tools.qualify_headers.compile_probes --clang "$(CLANG)" --sysroot "$(OUT)" \
+	$(PYTHON) tests/installed_headers/compile_probes.py --clang "$(CLANG)" --sysroot "$(OUT)" \
 		--fixture tests/installed_headers/fenv_abi.c \
 		--fixture tests/installed_headers/libm_scalar_pi.c \
+		--fixture tests/installed_headers/libm_paired_trig.c \
 		--fixture tests/installed_headers/darwin_consumer_headers.c \
 		--fixture tests/installed_headers/stdatomic_init.c \
 		$(if $(filter-out macosx26.5,$(SDK)),,--fixture tests/installed_headers/macos_26_5_availability.c) \
-		$(if $(filter-out macosx26.5,$(SDK)),,--fixture tests/installed_headers/libm_half_runtime.c) \
+		$(if $(filter-out macosx26.5,$(SDK)),,--fixture tests/installed_headers/libm_half.c) \
 		--fixture tests/installed_headers/complex_abi.c \
 		--fixture tests/installed_headers/target_conditionals.c
 	$(PYTHON) tests/installed_headers/check_fenv_runtime.py
+
+SDK_TREE ?= $(CURDIR)/build/sdk/MacOSX.sdk
+
+.PHONY: sdk-archive
+sdk-archive:
+	mkdir -p build/sdk
+	"$(PYTHON)" -m tools.sdk_composition.pack_archive --source "$(SDK_TREE)" \
+		--root-name MacOSX.sdk --output build/sdk/MacOSX.sdk.tar.zst
 
 ifneq ($(strip $(STAGE)),)
 # Each copy writes its full receipt as it stages the file.

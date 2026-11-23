@@ -68,6 +68,14 @@ class ComposeTests(unittest.TestCase):
             "--sdk-gen", self.gen, "--out", self.out, *extra,
         ], text=True, capture_output=True)
 
+    def test_consumer_profile_rejects_unqualified_assets(self):
+        objc4, _ = self.objc4_fixture()
+        result = self.compose("--objc4-install", objc4, "--verify-consumer-inputs")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("consumer assets differ from the qualified profile", result.stderr)
+        self.assertIn("sdk-gen-libsystem", result.stderr)
+        self.assertFalse(self.out.exists())
+
     @unittest.skipUnless(os.getenv("LIBSYSTEM_TEST_LLVM"), "requires the official llvm-readtapi")
     def test_sdk_gen_umbrella_is_preserved(self):
         write(self.gen / "usr/include/unselected.h", "#error reference C header\n")

@@ -13,8 +13,5 @@ patch uses Clang's documented pointer annotations and forge operation. The
 ordinary compiler path still evaluates the argument once and emits the same
 calls. [Clang bounds safety](https://clang.llvm.org/docs/BoundsSafety.html)
 
-For qualification, compile the fixture in Apple Clang C11 with `-fblocks
--fbounds-safety -Werror`. The default case must compile. Adding
-`-DTEST_UNSAFE_RAW_RELEASE` must diagnose the unsafe conversion. Run each
-case against the installation and separately against the reference SDK for
-arm64 and x86_64. [Qualification fixture](../../tests/installed_headers/block_pointer_bounds.c)
+Use the [pointer bounds procedure](../../.agents/skills/review-macos-c-sdk/scripts/sdk_review/headers/c_interface_review.md#qualify-blockh-pointer-bounds)
+for the positive and negative Apple Clang checks.

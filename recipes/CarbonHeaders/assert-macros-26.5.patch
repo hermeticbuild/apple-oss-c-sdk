@@ -7,7 +7,7 @@ The header's own compatibility comment announces the upcoming default.
 A client function named check collides with the old macro default. Retain
 the documented explicit opt-in and opt-out and match the 26.5 comparison.
 
-Evidence: tools/sdk_review/data/macosx26.5/tested-header-repairs.md.
+Evidence: .agents/skills/review-macos-c-sdk/scripts/sdk_review/headers/data/macosx26.5/tested-header-repairs.md.
 
 --- a/usr/include/AssertMacros.h
 +++ b/usr/include/AssertMacros.h

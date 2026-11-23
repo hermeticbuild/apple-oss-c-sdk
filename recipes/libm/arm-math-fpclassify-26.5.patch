@@ -8,7 +8,7 @@ the reference arm64 link and runtime. Use the pinned Apple integer
 implementation, retaining its notice. This also preserves the observed
 signaling-NaN behavior without raising FE_INVALID.
 
-Evidence: tools/sdk_review/data/macosx26.5/fpclassify-gap.md
+Evidence: .agents/skills/review-macos-c-sdk/scripts/sdk_review/headers/data/macosx26.5/fpclassify-gap.md
 records the Apple source, strict links and runtime tests.
 
 --- a/usr/include/architecture/arm/math.h

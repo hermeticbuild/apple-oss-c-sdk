@@ -9,8 +9,8 @@ including the headers that declare them. A direct Clang include reproduces
 the unknown uintptr_t error on both targets. The existing patch supplies
 the prerequisites while retaining the image layout.
 
-Evidence: tools/sdk_review/fixtures/c_interfaces/dyld_images_layout.c and
-tools/sdk_review/data/macosx26.5/ranked-header-differences.md.
+Evidence: .agents/skills/review-macos-c-sdk/scripts/sdk_review/headers/fixtures/c_interfaces/dyld_images_layout.c and
+.agents/skills/review-macos-c-sdk/scripts/sdk_review/headers/data/macosx26.5/ranked-header-differences.md.
 
 --- a/usr/include/mach-o/dyld_images.h
 +++ b/usr/include/mach-o/dyld_images.h

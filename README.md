@@ -3,7 +3,7 @@
 This repository builds a standalone C header tree for macOS arm64 and x86_64
 cross-compilation from locked Apple OSS sources and local compatibility
 recipes. Each qualified Apple install command contributes its public headers.
-The SDK coverage probes under `tools/` measure the result. Clang resource
+The installed-header tests and SDK review probe measure the result. Clang resource
 headers, libc++, the libunwind runtime, libraries, and frameworks come from
 separate toolchain inputs.
 The retained Apple OSS `libunwind` source supplies only
@@ -47,9 +47,17 @@ make test SDK="$SDK" CLANG="$LLVM_CLANG" OUT=/tmp/apple-oss-c-headers
 
 See [the tests](tests/README.md) for the checks and host requirements.
 
-## Tools
+## Test a composed SDK
 
-[Tools by workflow](tools/README.md) lists the C checks, SDK review, pinned Clang resolver, and LLVM build proof.
+Assemble the SDK using the [composition recipe](tools/sdk_composition/README.md).
+Run `make sdk-archive` to provide the archive for the
+[Bazel integration workspaces](e2e/README.md).
+
+## Review SDK coverage
+
+Use the [local SDK review skill](.agents/skills/review-macos-c-sdk/SKILL.md)
+to compare against an official SDK, review a source-lock update, or investigate
+a header or linkage gap.
 
 This is a local qualification prototype. See [licensing](LICENSING.md) for
 outstanding redistribution questions.

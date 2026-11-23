@@ -7,7 +7,7 @@ Local compatibility derivation using the existing Apple typedefs. Using void
 keeps valid no-argument calls and makes the compiler reject extra arguments.
 The paired C11 probes agree with the reference SDK on both architectures.
 
-Evidence: tools/sdk_review/data/macosx26.5/tested-header-repairs.md.
+Evidence: .agents/skills/review-macos-c-sdk/scripts/sdk_review/headers/data/macosx26.5/tested-header-repairs.md.
 
 --- a/usr/include/MacTypes.h
 +++ b/usr/include/MacTypes.h

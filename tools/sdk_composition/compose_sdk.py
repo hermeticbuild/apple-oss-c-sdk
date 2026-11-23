@@ -17,7 +17,7 @@ import stat
 import tempfile
 
 from tools.header_manifest import read_header_manifest
-from tools.sdk_review.libsystem_tbd import read_install_names, read_json
+from tools.sdk_composition.tbd import read_install_names, read_json
 from tools.sources.locked_sources import read_lock
 
 
@@ -29,6 +29,7 @@ SYSTEM_INSTALL_NAME = "/usr/lib/libSystem.B.dylib"
 # https://github.com/apple-oss-distributions/Libsystem/blob/c23b51183e46e613375dc7639fb4bf11fbf59ba8/xcodescripts/create_dylib_symlinks.sh#L14-L31
 SYSTEM_COMPAT_NAMES = ("c", "dbm", "dl", "gcc_s.1", "info", "m", "poll", "proc", "pthread", "rpcsvc")
 FRAMEWORKS = Path("System/Library/Frameworks")
+CONSUMER_PROFILE = Path(__file__).with_name("consumer-26.5.json")
 MACHO_MAGIC = {
     b"\xfe\xed\xfa\xce", b"\xce\xfa\xed\xfe", b"\xfe\xed\xfa\xcf", b"\xcf\xfa\xed\xfe",
     b"\xca\xfe\xba\xbe", b"\xbe\xba\xfe\xca", b"\xca\xfe\xba\xbf", b"\xbf\xba\xfe\xca",
@@ -267,6 +268,36 @@ def providers(plan, root, llvm):
     return locations
 
 
+def consumer_assets(files):
+    groups = defaultdict(list)
+    for path, receipt in sorted(files.items()):
+        layer = receipt["layer"]
+        if layer in ("sdk-gen-framework", "prepared-framework"):
+            group = Path(path).parts[len(FRAMEWORKS.parts)]
+        elif layer in ("sdk-gen-libsystem", "external-stub"):
+            group = layer
+        else:
+            continue
+        kind = "symlink" if "symlink" in receipt else "sha256"
+        groups[group].append([path, layer, kind, receipt[kind]])
+    return {
+        group: hashlib.sha256(json.dumps(rows, separators=(",", ":")).encode()).hexdigest()
+        for group, rows in groups.items()
+    }
+
+
+def verify_consumer_inputs(composition):
+    profile = read_json(CONSUMER_PROFILE.read_bytes())
+    if composition["sdk_gen"] != profile["sdk_gen"] or not composition.get("objc4_revision"):
+        raise ValueError("consumer profile requires the pinned SDK Gen version and objc4 layer")
+    actual = consumer_assets(composition["files"])
+    expected = profile["asset_sha256"]
+    mismatches = sorted(name for name in actual.keys() | expected.keys()
+                        if actual.get(name) != expected.get(name))
+    if mismatches:
+        raise ValueError("consumer assets differ from the qualified profile: " + ", ".join(mismatches))
+
+
 def compose(args):
     out = args.out.parent.resolve() / args.out.name
     if os.path.lexists(out):
@@ -303,6 +334,8 @@ def compose(args):
         }
         if objc4_revision:
             composition["objc4_revision"] = objc4_revision
+        if args.verify_consumer_inputs:
+            verify_consumer_inputs(composition)
         manifest = sdk / "composition.json"
         manifest.write_text(json.dumps(composition, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         manifest.chmod(0o644)
@@ -317,6 +350,8 @@ def main():
         parser.add_argument(f"--{name}", required=True, type=Path)
     parser.add_argument("--objc4-install", type=Path,
                         help="separate Objective-C runtime headers from make install-objc4")
+    parser.add_argument("--verify-consumer-inputs", action="store_true",
+                        help="require the assets from the qualified macOS 26.5 consumer archive")
     parser.add_argument("--framework", action="append", default=[], help="public SDK Gen framework name")
     parser.add_argument("--prepared-framework", nargs=2, action="append", default=[], metavar=("NAME", "DIRECTORY"),
                         help="select a previously qualified framework layer and record its files separately")

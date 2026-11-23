@@ -7,7 +7,7 @@ The 26.5 comparison exposes these macros in full Darwin modes before C11,
 while strict C99 and restricted POSIX modes hide them. Use the public Darwin
 namespace level from XNU sys/cdefs.h. The existing builtin bodies are retained.
 
-Evidence: tools/sdk_review/data/macosx26.5/tested-header-repairs.md
+Evidence: .agents/skills/review-macos-c-sdk/scripts/sdk_review/headers/data/macosx26.5/tested-header-repairs.md
 records visibility checks across both targets and C dialects.
 
 --- a/usr/include/complex.h

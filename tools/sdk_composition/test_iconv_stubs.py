@@ -7,7 +7,7 @@ import tempfile
 import unittest
 
 from tools.sdk_composition.iconv_stubs import generate, REVISION
-from tools.sdk_review.libsystem_tbd import read_stub
+from tools.sdk_composition.tbd import read_stub
 from tools.toolchain import official_llvm
 
 

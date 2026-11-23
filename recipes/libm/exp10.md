@@ -14,7 +14,7 @@ arm64 and x86_64 with C linkage and the macOS 10.9 availability annotation.
 
 ## Qualification
 
-The [consumer fixture](../../tools/sdk_review/fixtures/c_interfaces/darwin_exp10.c)
+The [consumer fixture](../../.agents/skills/review-macos-c-sdk/scripts/sdk_review/headers/fixtures/c_interfaces/darwin_exp10.c)
 checks both function types and verifies that a runtime argument of `3`
 produces `1000` at both precisions. Clang 23.1.2 and Apple Clang 21.0.0
 (`clang-2100.1.1.101`) gave these results.

@@ -10,7 +10,7 @@ The fixture checks valid single-pointer copy and rejection of unsafe raw
 release. Ordinary C clients emitted identical objects.
 
 Evidence: https://clang.llvm.org/docs/BoundsSafety.html
-recipes/libdispatch/block-bounds.md and tests/installed_headers/block_pointer_bounds.c.
+recipes/libdispatch/block-bounds.md and .agents/skills/review-macos-c-sdk/scripts/sdk_review/headers/fixtures/c_codegen/block_pointer_bounds.c.
 
 --- a/usr/include/Block.h
 +++ b/usr/include/Block.h

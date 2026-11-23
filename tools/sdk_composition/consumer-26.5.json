@@ -1,0 +1,17 @@
+{
+  "asset_sha256": {
+    "AudioToolbox.framework": "c8c28852af02aefc72b29aca46e2b7dde617a16da76598898926d5a99671b49a",
+    "AudioUnit.framework": "84e6f60da3ca4432bf65e262a9fe23642b23d0604e89555472beb31ea51307b5",
+    "CoreAudio.framework": "0a9e27cf44ffb98ba7aa84345aaa8ddb1972f5f3f6bc4ce7f81277eae6899641",
+    "CoreAudioTypes.framework": "283f1c10622b23aca13c1964cfc9ab06cf58bce8ce24bb313b4f9930775fb1ed",
+    "CoreFoundation.framework": "5a2e66bce6c487a22e1b6b661e6a16a65f72b1927c506cbc4e4cb5910ea60fd9",
+    "CoreMIDI.framework": "24f87cef28f9bc99d632bcf8923b1611f013e2d8dc7fad82aa2abcfeed820ba9",
+    "Foundation.framework": "105e3f8d6a841922bad862085d16c299a1d9d5a1387c931de26536ec76e6a89c",
+    "IOKit.framework": "ef0056dc629b4b4dca720d8c6699c074dcea2e2fbf1033fad7983422916700d4",
+    "OpenAL.framework": "fac14c216bb6fbb6596cd5c1186b3459c3a8eaedc781b3fd1b7a7a3f24e06343",
+    "external-stub": "ad0db5070762eefd5267382063f3fb5039ba2261114907a679e69dbd3f1bebe2",
+    "sdk-gen-libsystem": "8955a35bc213dde9058f9819b9154d843386f2d8a07b291f60a7a27ab08ce9f5"
+  },
+  "sdk_gen": "macosx27.0",
+  "validated_archive_sha256": "d30354d4ae5875fab4170d89934543f0c825def91ca7345fa879e8815643fac3"
+}

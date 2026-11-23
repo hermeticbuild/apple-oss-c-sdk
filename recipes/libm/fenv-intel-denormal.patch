@@ -7,7 +7,7 @@ Apple architecture-282 i386/fpu.h and Intel's x87 and MXCSR documentation
 establish bit 1. The consumer spelling is corroborated by Remill. The C
 fixture checks the spelling, value and inclusion in FE_ALL_EXCEPT.
 
-Evidence: recipes/README.md and tools/sdk_review/fixtures/c_interfaces/fenv_denorm_mask.c.
+Evidence: recipes/README.md and .agents/skills/review-macos-c-sdk/scripts/sdk_review/headers/fixtures/c_interfaces/fenv_denorm_mask.c.
 
 --- a/usr/include/architecture/i386/fenv.h
 +++ b/usr/include/architecture/i386/fenv.h

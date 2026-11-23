@@ -62,4 +62,5 @@ compiler-rt. Apple omits this header from the public userspace install
 list. Apple SDK Gen 0.0.4 copies the same pinned XNU source directly.
 
 The syslog recipe copies `asl.h` from the pinned syslog project's public
-header phase. Audit and qualification tools live under `tools/`.
+header phase. Use the [SDK review skill](../.agents/skills/review-macos-c-sdk/SKILL.md)
+for reference comparisons and gap investigations.

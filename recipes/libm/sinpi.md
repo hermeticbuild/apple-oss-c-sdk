@@ -20,7 +20,7 @@ when the Libm pin changes or the reference surface changes.
 
 ## Qualification
 
-The [sine-pi consumer](../../tools/sdk_review/fixtures/c_interfaces/darwin_sinpi.c)
+The [sine-pi consumer](../../.agents/skills/review-macos-c-sdk/scripts/sdk_review/headers/fixtures/c_interfaces/darwin_sinpi.c)
 checks both function types, signed zero at `-1`, and the exact result at `1.5`.
 Clang 23.1.2 and Apple Clang 21.0.0 (`clang-2100.1.1.101`) gave these results.
 
