@@ -3,7 +3,8 @@
 These recipes build the framework layers for the macOS 26.5 composition.
 Each recipe lists its source and stages one `.framework` directory. The
 Security layer supplies the authorization header used by SystemConfiguration.
-The composer takes Foundation directly from the SDK Gen release.
+The original consumer composition takes Foundation directly from SDK Gen.
+The Objective-C trial uses the profiles below.
 
 From the repository root, set `C_INSTALL` to the generated C tree and
 `LLVM` to the pinned LLVM projection containing `bin/clang` and
@@ -32,7 +33,7 @@ qualified archive.
 make -C frameworks test CLANG="$LLVM/bin/clang" SDK="$NEW_SDK"
 ```
 
-Each framework layer has a `test.c` beside its recipe. The probes check
+Each framework in the default set has a `test.c` beside its recipe. The probes check
 signatures, record layouts, or linkage on arm64 and x86_64. CoreAudioTypes,
 IOKit and Security run compile checks. SystemConfiguration compiles its
 reachability header directly and links a separate client of the umbrella.
@@ -42,3 +43,25 @@ On a Mac that can run both target architectures, add `RUN=1` to execute
 the linked probes. CoreFoundation, AudioToolbox and SystemConfiguration
 call their tested APIs. The other linked probes exercise dynamic loading
 and symbol binding.
+
+## Objective-C framework trial
+
+Stage Cocoa and its dependency profiles by adding `Cocoa` to `FRAMEWORKS`.
+Pass `OBJC4_INSTALL` as the pinned Objective-C runtime header installation,
+`FOUNDATION_TBD` as the qualified SDK Gen 0.0.4 Foundation stub, and
+`SDK_GEN_SOURCE` as a Git checkout containing the Cocoa recipe from PR #11.
+The package notes describe the selected public declarations and provenance.
+
+The Foundation probe exercises strings, an `NSRange` return value,
+collections, data, errors, URLs, and scalar values. The Cocoa probe links
+through the umbrella to exercise an AppKit color, the responder class
+hierarchy, and an in-memory Core Data model.
+
+```sh
+make -C frameworks -k test-objc CLANG="$LLVM/bin/clang" SDK="$NEW_SDK" RUN=1
+```
+
+Both probes compile, link, and run as Objective-C and as Objective-C++ with
+Clang modules on arm64 and x86_64. Use `SDK_TEST_ARCHS=arm64` or
+`SDK_TEST_ARCHS=x86_64` to report a failing probe on each architecture
+independently. `test-Foundation` and `test-Cocoa` also run individually.

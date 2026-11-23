@@ -1,5 +1,9 @@
 # CoreFoundation
 
+When Foundation is staged, add a relative alias at
+`Versions/A/CoreFoundation.tbd` for its recorded runtime reexport. The alias
+resolves to the same InstallAPI output used by ordinary framework links.
+
 Generate application-extension-safe linker metadata. The loaded macOS 26.5.2
 CoreFoundation image reports `MH_APP_EXTENSION_SAFE` on arm64 and x86_64.
 The probe links in application-extension mode with linker warnings fatal.

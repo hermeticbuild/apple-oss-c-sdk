@@ -16,5 +16,10 @@ CoreFoundation: require-stage
 		-install_name /System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation \
 		-extra-public-header "$(CF_STAGE)/Headers" -extra-public-header "$(CURDIR)/CoreFoundation/installapi.h",$(CF_STAGE)/CoreFoundation.tbd)
 
+.PHONY: CoreFoundation-versioned-tbd
+CoreFoundation-versioned-tbd: CoreFoundation
+	mkdir -p "$(CF_STAGE)/Versions/A"
+	ln -s ../../CoreFoundation.tbd "$(CF_STAGE)/Versions/A/CoreFoundation.tbd"
+
 test-CoreFoundation:
 	$(call test-framework-link,CoreFoundation,$(application-extension-link))

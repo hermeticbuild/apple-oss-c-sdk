@@ -38,11 +38,21 @@ define write-tbd
 	} > "$(STAGE)/$(1).framework/$(1).tbd"
 endef
 
-define stage-local-framework
+define stage-framework-headers
 	mkdir -p "$(STAGE)/$(1).framework/Headers" "$(STAGE)/$(1).framework/Modules"
 	install -m 644 $(1)/Headers/*.h "$(STAGE)/$(1).framework/Headers/"
-	printf 'framework module %s [system] {\n  umbrella header "%s.h"\n  export *\n  module * { export * }\n}\n' \
-		'$(1)' '$(1)' > "$(STAGE)/$(1).framework/Modules/module.modulemap"
+	@set -eu; { \
+		printf 'framework module %s [system] {\n  umbrella header "%s.h"\n' '$(1)' '$(1)'; \
+		for name in $(2); do \
+			printf '#import <%s/%s.h>\n' '$(1)' '$(1)' > "$(STAGE)/$(1).framework/Headers/$$name.h"; \
+			printf '  textual header "%s.h"\n' "$$name"; \
+		done; \
+		printf '  export *\n  module * { export * }\n}\n'; \
+	} > "$(STAGE)/$(1).framework/Modules/module.modulemap"
+endef
+
+define stage-local-framework
+	$(call stage-framework-headers,$(1))
 	$(call write-tbd,$(1),$(2))
 endef
 
@@ -53,6 +63,7 @@ require-stage:
 
 CLANG_INSTALLAPI ?= $(dir $(CLANG))clang-installapi
 INSTALLAPI_MIN ?= 11.0
+objc-installapi = -iframework"$(STAGE)" -isystem "$(OBJC4_INSTALL)/usr/include" --filetype=tbd-v4 -fobjc-arc
 
 # InstallAPI can report a header error even when it returns success.
 define installapi
@@ -62,7 +73,7 @@ define installapi
 	resource=$$("$(CLANG)" --no-default-config -print-resource-dir); \
 	diagnostics=$$(mktemp "$${TMPDIR:-/tmp}/installapi.XXXXXX"); \
 	trap 'rm -f -- "$$diagnostics"' EXIT; \
-	if ! "$(CLANG_INSTALLAPI)" -x c -nostdinc -isysroot "$(C_INSTALL)" \
+	if ! "$(CLANG_INSTALLAPI)" -x "$(or $(3),c)" -nostdinc -isysroot "$(C_INSTALL)" \
 		-isystem "$$resource/include" -isystem "$(C_INSTALL)/usr/include" \
 		-dynamiclib -target "arm64-apple-macos$(INSTALLAPI_MIN)" -target "x86_64-apple-macos$(INSTALLAPI_MIN)" \
 		$(1) -o "$(2)" 2>"$$diagnostics" || test -s "$$diagnostics"; then \
@@ -74,19 +85,23 @@ test-clang = "$(CLANG)" --no-default-config -target "$$cpu-apple-macos14.0" -isy
 	-nostdinc -isystem "$$resource/include" -isystem "$(SDK)/usr/include" \
 	-iframework "$(SDK)/System/Library/Frameworks" -std=c11 -Werror
 
+SDK_TEST_ARCHS ?= arm64 x86_64
+
 define test-sdk-link
 @set -eu; \
 	work=$$(mktemp -d "$${TMPDIR:-/tmp}/framework-tests.XXXXXX"); \
 	trap 'rm -rf -- "$$work"' EXIT; \
 	resource=$$("$(CLANG)" --no-default-config -print-resource-dir); \
-	for cpu in arm64 x86_64; do \
-		$(test-clang) -fuse-ld=lld -nostdlib "$(1)" $(2) -lSystem -o "$$work/test-$$cpu"; \
+	for cpu in $(SDK_TEST_ARCHS); do \
+		$(test-clang) $(3) -fuse-ld=lld -nostdlib "$(1)" $(2) -lSystem -o "$$work/test-$$cpu"; \
 		if test "$(RUN)" = 1; then "$$work/test-$$cpu"; fi; \
 		echo "$$cpu $(@:test-%=%) link probe passed"; \
 	done
 endef
 
 test-framework-link = $(call test-sdk-link,$(1)/test.c,-framework "$(1)" $(2))
+test-objc-modules = $(call test-sdk-link,$(1)/test.m,-fobjc-arc -framework "$(1)" -lobjc -lc++ -lc++abi,\
+	-x objective-c++ -std=c++17 -fmodules -fcxx-modules -fmodules-cache-path="$$work/modules")
 
 # Treat an unsafe-dylib diagnostic as a failed link probe.
 application-extension-link = -fapplication-extension -Wl,-fatal_warnings

@@ -98,6 +98,40 @@ python3 -m tools.sdk_composition.compose_sdk \
 For [Bazel validation](../../e2e/README.md), use `NEW_SDK="$PWD/build/sdk/MacOSX.sdk"`
 and run `make sdk-archive`.
 
+## Foundation and Cocoa trial
+
+Use the same verified C and Objective-C runtime installations, SDK Gen
+libSystem input, and external stub selection as the consumer archive above.
+Set `FOUNDATION_TBD` to the Foundation stub from the verified SDK Gen 0.0.4
+archive. The recipe checks its digest separately because the Foundation stub
+changed in SDK Gen 0.0.5. Stage the four additional framework profiles before
+composing.
+
+```bash
+FRAMEWORKS="$PWD/build/frameworks-objc"
+c_frameworks=(CoreFoundation AudioToolbox AudioUnit CoreAudio CoreAudioTypes CoreMIDI IOKit OpenAL Security SystemConfiguration)
+make -C frameworks install CLANG="$LLVM/bin/clang" C_INSTALL="$C_INSTALL" \
+  OBJC4_INSTALL="$OBJC4_INSTALL" SDK_GEN_SOURCE="$SDK_GEN_SOURCE" \
+  FOUNDATION_TBD="$FOUNDATION_TBD" \
+  FRAMEWORKS="${c_frameworks[*]} Cocoa" OUT="$FRAMEWORKS"
+
+frameworks=()
+for name in "${c_frameworks[@]}" Foundation AppKit CoreData Cocoa; do
+  frameworks+=(--prepared-framework "$name" "$FRAMEWORKS/$name.framework")
+done
+python3 -m tools.sdk_composition.compose_sdk \
+  --c-install "$C_INSTALL" --objc4-install "$OBJC4_INSTALL" \
+  --sdk-gen "$SDK_GEN" --llvm "$LLVM" \
+  "${frameworks[@]}" "${stubs[@]}" --out "$NEW_SDK"
+```
+
+`SDK_GEN_SOURCE` must contain the pinned Cocoa commit from PR #11. The
+[framework recipes](../../frameworks/README.md#objective-c-framework-trial)
+declare the exact scope and provenance of the local headers. Use `test-objc`
+to exercise the Foundation and Cocoa profiles against the composed tree.
+The [qualification record](../../.agents/skills/review-macos-c-sdk/objc-framework-qualification.md)
+tracks their coverage and the upstream changes.
+
 ## Packing release archives
 
 Run `make sdk-archive` from the repository root to pack that tree into

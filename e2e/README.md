@@ -43,3 +43,30 @@ handoff.
 The LLVM suite includes the manual header-order checks and sanitizer
 builds. The Rust suite excludes the all-platform target-triple matrix.
 Run the [LCOV report-content check](coverage.md) separately.
+
+## Bazel Central Registry consumers
+
+The `bcr` module takes the same SDK archive and lets Bazel fetch c-ares and
+curl from the registry. Run both tests locally on Apple Silicon with Rosetta.
+
+```sh
+(
+  cd e2e/bcr
+  export USE_BAZEL_VERSION=9.3.2
+  for cpu in arm64 x86_64; do
+    bazel --nohome_rc test --platforms="@llvm//platforms:macos_$cpu" \
+      --@llvm//config:macos_libcxx_headers=llvm \
+      --@curl//:ssl_lib=mbedtls //:framework_consumers || exit 1
+  done
+)
+```
+
+- c-ares compiles the macOS DNS configuration path against
+  `SCNetworkConfiguration.h` and its reachability and CoreFoundation
+  dependencies. The test initializes a resolver without issuing a query.
+  [c-ares module](https://registry.bazel.build/modules/c-ares/1.34.9.bcr.1/)
+- curl compiles and calls the macOS proxy initialization path using
+  `SCDynamicStoreCopyProxies` and `CFRelease`. The test initializes and frees
+  a curl handle without making a request. The registry's Mbed TLS option
+  avoids the Security framework dependency of the default TLS configuration.
+  [curl module](https://registry.bazel.build/modules/curl/8.21.0/)
