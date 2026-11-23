@@ -32,8 +32,10 @@ The reference Apple SDK Gen project's [README](https://github.com/apple-cross-to
 says its libSystem, libobjc, and libc++ stub symbol lists are refreshed from
 an installed Xcode by
 [`extract-darwin-libs.py`](https://github.com/apple-cross-toolchain/apple-sdk-gen/blob/main/tools/extract-darwin-libs.py).
-The local CoreFoundation TBD amendment is kept outside this repository. The
-generator's Apache 2.0 code license does not by itself establish rights to
+The [framework recipes](frameworks/README.md) record each replacement's
+Apple OSS, local declaration, and SDK Gen inputs. CoreFoundation combines
+pinned Apple OSS headers and an amendment to SDK Gen's documentation-derived
+framework stub. The generator's Apache 2.0 code license does not by itself establish rights to
 redistribute its Xcode-derived export data or documentation-derived content.
 
 Apple's [Xcode and Apple SDKs Agreement](https://www.apple.com/legal/sla/docs/xcode.pdf)

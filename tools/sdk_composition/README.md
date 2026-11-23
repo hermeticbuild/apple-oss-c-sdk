@@ -21,9 +21,9 @@ sha256:e3ba6081bfcd23973dd80fe76b3c28ce8d3a98d9eb9cbc800225a649c5c07184
 
 Set `SDK_GEN` to the extracted `MacOSX.sdk` and `NEW_SDK` to a new output
 directory named `MacOSX.sdk`. The command below composes a smoke SDK.
-For the three consumer gates, replace each broken SDK Gen framework with
-its qualified directory using `--prepared-framework NAME DIRECTORY`, and
-include the iconv/charset layer described below.
+For the three consumer gates, build the replacements with the
+[framework recipes](../../frameworks/README.md) and include the iconv/charset
+layer described below.
 
 ```bash
 stubs=()
@@ -49,11 +49,10 @@ inputs for SDK Gen 0.0.4:
 - `SDK_GEN`, the macOS SDK Gen tree with the qualified `libSystem.B.tbd`.
   Its compiler-rt document exposes `___divsc3`, `___divdc3`, and `___divxc3`
   on x86_64. It supplies Foundation and the six SDK Gen stubs listed above.
-- `CF_FRAMEWORK`, the prepared `CoreFoundation.framework` with 40 Apple OSS
-  headers and the qualified stub.
-- `AUDIO_FRAMEWORKS`, the directory containing the seven prepared audio and
-  IOKit frameworks listed below. These come from the local SDK Gen
-  macOS C audio profile.
+- `FRAMEWORKS`, the directory containing all eight replacement frameworks
+  from the [framework recipes](../../frameworks/README.md). Build it with
+  the released CoreFoundation TBD as input. The separate libSystem
+  correction leaves that framework input byte-identical.
 - `STUBS`, the generated iconv and charset layer described below.
 
 Supply these prepared inputs explicitly. The
@@ -65,9 +64,13 @@ headers are checked through their own source locks and manifests. The
 records the source revisions and corrections behind the prepared assets.
 
 ```bash
-frameworks=(--prepared-framework CoreFoundation "$CF_FRAMEWORK")
-for name in AudioToolbox AudioUnit CoreAudio CoreAudioTypes CoreMIDI IOKit OpenAL; do
-  frameworks+=(--prepared-framework "$name" "$AUDIO_FRAMEWORKS/$name.framework")
+FRAMEWORKS="$PWD/build/frameworks"
+make -C frameworks prepare
+make -C frameworks install SDK_GEN="$SDK_GEN" OUT="$FRAMEWORKS"
+
+frameworks=()
+for name in CoreFoundation AudioToolbox AudioUnit CoreAudio CoreAudioTypes CoreMIDI IOKit OpenAL; do
+  frameworks+=(--prepared-framework "$name" "$FRAMEWORKS/$name.framework")
 done
 
 stubs=()

@@ -49,7 +49,10 @@ See [the tests](tests/README.md) for the checks and host requirements.
 
 ## Test a composed SDK
 
-Assemble the SDK using the [composition recipe](tools/sdk_composition/README.md).
+Build the [framework replacements](frameworks/README.md) and assemble the
+SDK using the [composition recipe](tools/sdk_composition/README.md).
+Run `make -C frameworks test CLANG="$LLVM_CLANG" SDK="$SDK_TREE"` to check
+the replacement frameworks in the composed tree.
 Run `make sdk-archive` to provide the archive for the
 [Bazel integration workspaces](e2e/README.md).
 
