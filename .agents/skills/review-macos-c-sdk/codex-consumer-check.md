@@ -190,6 +190,16 @@ ApplicationServices coverage remain open. Native voice runtime
 packaging and tests remain blocked by the Foundation and AppKit
 interfaces found in the reruns above.
 
+### Expanded SDK Gen composition replay
+
+The [expanded SDK](composition-gaps.md#expanded-public-framework-composition)
+with the Apple OSS Security overlay passed the Codex keyring and sandboxing
+tests on arm64. The native voice prefix still fails earlier, while building
+pkg-config's bundled GLib. The SDK Gen libSystem stub advertises `_pipe2`,
+so configure enables it. The macOS 26.5 header and runtime omit that API.
+This needs an SDK-version correction in the stub, with the Foundation and
+AppKit gaps above still open.
+
 ## Standalone CLI
 
 The configured action graph for `//codex-rs/cli:codex` has no

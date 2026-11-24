@@ -98,6 +98,19 @@ overlay keeps the source filename when DocC changed its case, as with
 `cssmaci.h`. The consumer test calls `SecCopyErrorMessageString` and
 passes for arm64 and x86_64.
 
+The exact-archive hermetic-llvm runs found an additional boundary on
+arm64 and x86_64.
+ThreadSanitizer uses `__has_include(<xpc/xpc.h>)` to enable its XPC
+interceptors. The object-type-only umbrella enabled that code without
+declaring `xpc_connection_t` or `xpc_handler_t`, and the runtime build
+failed. Intel rules_rs passed all 39 tests. A diagnostic copy exposes
+the same type at `xpc/_xpc_object.h` and uses it as the fallback in
+Security's staged `SecCode.h`. C and Objective-C include probes passed
+on both CPUs with the public XPC umbrella absent. The pinned
+hermetic-llvm workspace also built `//:tsan_fail` for both CPUs with
+the alternate layout. The checked-in recipe awaits the maintainer's
+decision on that layout.
+
 [Apple OSS Security umbrella](https://github.com/apple-oss-distributions/Security/blob/97c3a4296c1ea06b0fe1877a7e616aa84450b5b2/base/Security.h)
 · [Pinned WebKit type fallback](https://github.com/apple-oss-distributions/WebKit/blob/2a36545bf8dd89a417b724184900270fb2f523aa/Source/WTF/wtf/spi/darwin/XPCSPI.h)
 · [Pinned XNU libDER headers](https://github.com/apple-oss-distributions/xnu/tree/ac9718fb1af618d5ce8678d0dc6e8a58f252216f/EXTERNAL_HEADERS/libDER)
