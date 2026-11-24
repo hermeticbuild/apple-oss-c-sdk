@@ -3,7 +3,10 @@ include the two ABI types without parsing the rest of CoreGraphics.
 
 --- a/Headers/CoreGraphics.h
 +++ b/Headers/CoreGraphics.h
-@@ -281,8 +281,1 @@
+@@ -278,14 +278,7 @@
+ #import <stdint.h>
+ #import <sys/types.h>
+
 -#ifndef CGFLOAT_DEFINED
 -#define CGFLOAT_DEFINED 1
 -#if __LP64__
@@ -13,13 +16,21 @@ include the two ABI types without parsing the rest of CoreGraphics.
 -#endif
 -#endif
 +#include <CoreGraphics/CGGeometry.h>
-@@ -520,6 +513,1 @@
+
+ struct CGAffineTransform;
+ struct CGAffineTransformComponents;
+@@ -518,11 +511,6 @@
+ typedef uint32_t CGOpenGLDisplayMask;
+
  typedef const struct CGPath * CGPathRef;
 -
 -typedef struct CGPoint {
 -    CGFloat x;
 -    CGFloat y;
 -} CGPoint;
+
+ enum CGPathElementType : int32_t {
+     kCGPathElementAddCurveToPoint = 0,
 --- a/Modules/module.modulemap
 +++ b/Modules/module.modulemap
 @@ -1,5 +1,6 @@
