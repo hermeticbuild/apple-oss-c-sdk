@@ -66,6 +66,10 @@ replace paths in a generated bundle. All three origins appear in
 `composition.json`. If a generated filename differs only in capitalization,
 the overlay supplies the spelling from the source recipe.
 
+When the framework input supplies `usr/include/simd`, the composer imports
+its generated `simd.h` and module map. These provide the SIMD types used by
+the Model I/O framework. Their receipts use the `sdk-gen-simd` layer.
+
 Set `SDK_GEN_FRAMEWORKS` to the 26.5 framework input and use the matching
 C, Objective-C, libSystem, and standalone stub inputs. Stage
 the default recipes, Cocoa, and ApplicationServices. Pass the generated

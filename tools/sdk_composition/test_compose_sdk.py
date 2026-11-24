@@ -135,6 +135,20 @@ class ComposeTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertFalse(self.out.exists())
 
+    def test_selects_only_the_generated_simd_files_from_the_framework_input(self):
+        preview = self.work / "preview"
+        write(preview / "SDKSettings.json", self.gen.joinpath("SDKSettings.json").read_text())
+        write(preview / "usr/include/simd/simd.h", "typedef int simd_int2;\n")
+        write(preview / "usr/include/simd/module.modulemap", 'module simd { header "simd.h" }\n')
+        write(preview / "usr/include/simd/unselected.h", "// outside the SIMD layer\n")
+
+        result = self.compose("--framework-sdk-gen", preview)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        files = json.loads((self.out / "composition.json").read_text())["files"]
+        for name in ("simd.h", "module.modulemap"):
+            self.assertEqual(files[f"usr/include/simd/{name}"]["layer"], "sdk-gen-simd")
+        self.assertFalse((self.out / "usr/include/simd/unselected.h").exists())
+
     @unittest.skipUnless(os.getenv("LIBSYSTEM_TEST_LLVM"), "requires the official llvm-readtapi")
     def test_sdk_gen_umbrella_is_preserved(self):
         write(self.gen / "usr/include/unselected.h", "#error reference C header\n")

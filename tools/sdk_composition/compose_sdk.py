@@ -231,6 +231,18 @@ def sdk_gen_cxx_headers(plan, root):
         plan.file(path, root / path, root, "sdk-gen-cxx")
 
 
+def sdk_gen_simd_headers(plan, root):
+    include = Path("usr/include/simd")
+    if not (root / include).exists():
+        return
+    for name in ("simd.h", "module.modulemap"):
+        path = include / name
+        source = root / path
+        if not source.is_file():
+            raise ValueError(f"SDK Gen SIMD installation is missing {path}")
+        plan.file(path, source, root, "sdk-gen-simd")
+
+
 def sdk_settings(sdk, receipts):
     settings = {"CanonicalName": SDK_NAME, "Version": SDK_VERSION, "MaximumDeploymentTarget": SDK_VERSION,
                 "SupportedTargets": {"macosx": {"Archs": ["arm64"], "LLVMTargetTripleVendor": "apple",
@@ -340,7 +352,7 @@ def consumer_assets(files):
         layer = receipt["layer"]
         if layer in ("sdk-gen-framework", "prepared-framework", "framework-overlay"):
             group = Path(path).parts[len(FRAMEWORKS.parts)]
-        elif layer in ("sdk-gen-libsystem", "sdk-gen-cxx", "external-stub"):
+        elif layer in ("sdk-gen-libsystem", "sdk-gen-cxx", "sdk-gen-simd", "external-stub"):
             group = layer
         else:
             continue
@@ -407,6 +419,7 @@ def compose(args):
         objc4_headers(plan, objc_root)
     if args.include_cxx:
         sdk_gen_cxx_headers(plan, sdk_gen)
+    sdk_gen_simd_headers(plan, framework_sdk)
     frameworks(plan, framework_sdk, args)
     for spec in args.external_stub:
         external_stub(plan, spec)

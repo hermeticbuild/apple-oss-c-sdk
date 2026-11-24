@@ -135,13 +135,24 @@ by-value calling conventions. For example, `vector_float3` has 16-byte
 size and alignment. Re-run the probe from the SDK repository when
 qualifying the generated headers.
 
-The Apple SDK Gen follow-up is to emit `usr/include/simd/` from the
-Objective-C and C declaration variants of its existing Accelerate SIMD
-crawl. Read vector declarations from the type pages and matrix or
-quaternion fields from their member pages. The `columns[4]` and
-`vector` members are examples. Qualify all 14 types against the probe
-on both architectures, then compile the generated ModelIO umbrella.
-Use Xcode 26.5 as the comparison input.
+SDK Gen now reads the vector declarations, the matrix `columns[4]`
+members, the quaternion `vector` members and the aliases from the public
+C-family DocC pages. It installs `usr/include/simd/simd.h` and a Clang
+module map. The composer selects those two files from the framework input.
+The Model I/O emitter routes both SIMD topics and the Kernel-indexed
+`vector_int2` and `vector_int4` aliases to that header.
+
+The arm64 test compiles and runs against the composition. Clang emits the
+same by-value function signatures as it does with Xcode 26.5 for all 14
+types. The checked-in probe also compares sizes, alignments and record
+member offsets. Objective-C++ inclusion and Objective-C `@import simd`
+both pass. [SIMD ABI fixture](../../../tests/composed_sdk/simd-abi.c)
+
+The generated Model I/O umbrella gets through the includes and fails
+when it defines subclasses before `MDLAnimatedValue`, `MDLObject` and
+other superclasses. The Foundation overlay's `NSMutableArray` also
+lacks the type parameter used by Model I/O. The full Model I/O probe
+remains open at those Objective-C declarations.
 
 [Clang extended vectors](https://clang.llvm.org/docs/LanguageExtensions.html#vectors-and-extended-vectors)
 · [Apple SIMD documentation](https://developer.apple.com/documentation/simd)
@@ -150,15 +161,16 @@ Use Xcode 26.5 as the comparison input.
 
 #### OpenCV macOS wheel after SIMD
 
-Find a standalone reproducer for the wheel workspace's
+A standalone reproducer is available as `socat-opencv-sdk-repro.tar.gz`
+for the wheel workspace's
 `opencv//:ocv.3rdparty.avfoundation` and
-`opencv//:ocv.3rdparty.cocoa` targets. Run both against the original
-Socat SDK archive before changing the composition. The reported
-AVFoundation failure is a missing
-`AVFoundation/AVFoundation.h`. The Cocoa failure names
-`NSMutableDictionary`, `NSImage` and other undeclared Objective-C
-types. Record the exact SDK digest and compiler errors from the
-reproducer.
+`opencv//:ocv.3rdparty.cocoa` targets. The reported SDK archive hash
+starts with `fac8077b1a22`. In that run, AVFoundation reaches generated
+CoreGraphics declarations that use `_Bool` and uninitialized constants
+in Objective-C++. A Metal import also spells Dispatch with the wrong
+case. The Cocoa failure names `NSMutableDictionary`, `NSImage` and
+`NSSlider`. Replay both targets against the reported archive before
+changing the composition.
 
 After SIMD, qualify the required AVFoundation and Cocoa declarations
 and link stubs on arm64, then rebuild both real targets and the wheel.

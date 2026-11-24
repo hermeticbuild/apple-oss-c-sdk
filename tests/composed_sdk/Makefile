@@ -3,11 +3,11 @@
 include ../../frameworks/common.mk
 
 .PHONY: test test-dns-sd test-resolver test-frameworks test-foundation-macros \
-	test-coregraphics test-security test-network test-avrouting test-modelio test-metalkit
+	test-coregraphics test-security test-network test-avrouting test-simd test-modelio test-metalkit
 test: test-dns-sd test-resolver
 
 test-frameworks: test-foundation-macros test-coregraphics test-security test-network \
-	test-avrouting test-modelio test-metalkit
+	test-avrouting test-simd test-modelio test-metalkit
 
 test-dns-sd:
 	$(call test-sdk-link,../../recipes/mDNSResponder/test.c)
@@ -29,6 +29,9 @@ test-network:
 
 test-avrouting:
 	$(call test-sdk-link,avrouting.m,-framework AVRouting -lobjc,-fobjc-arc)
+
+test-simd:
+	$(call test-sdk-link,simd-abi.c)
 
 test-modelio:
 	$(call test-sdk-link,modelio.m,-framework ModelIO -lobjc,-fobjc-arc)
