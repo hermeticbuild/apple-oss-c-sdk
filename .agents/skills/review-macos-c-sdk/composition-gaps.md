@@ -118,6 +118,22 @@ on both CPUs with the previous installation and passed with the new
 one. The new composition also passed the Security, DNS-SD, resolver,
 Foundation macro, and framework recipe checks on both CPUs.
 
+Two independent compositions produced that same archive. The remote
+Stage 1 `@llvm//tools:clang` builds produced arm64 and x86_64 Mach-O
+executables. Both local hermetic-llvm runs passed 38 tests each, with
+45 skipped per architecture, and built the TSan target. The local
+c-ares and default TLS curl tests passed on both CPUs.
+
+The pinned rules_rs test workspace passed all 39 tests on each CPU.
+The replay used Bazel 9.3.1 and the same SDK projection as the other
+checks. The local SSH agent could not sign the public Serde fetch.
+The direct workspace replay passed a temporary Git config through
+`--repo_env=GIT_CONFIG_GLOBAL=...` to fetch the same pinned commit
+over HTTPS. The integration wrapper and user Git config stayed untouched.
+
+[Arm64 Stage 1](https://app.buildbuddy.io/invocation/3679715e-08a0-43f0-83e0-e6462329d065)
+· [Intel Stage 1](https://app.buildbuddy.io/invocation/fc42d2b4-26b4-47ec-942f-b0b88608d56a)
+
 [Apple OSS Security umbrella](https://github.com/apple-oss-distributions/Security/blob/97c3a4296c1ea06b0fe1877a7e616aa84450b5b2/base/Security.h)
 · [Pinned WebKit type fallback](https://github.com/apple-oss-distributions/WebKit/blob/2a36545bf8dd89a417b724184900270fb2f523aa/Source/WTF/wtf/spi/darwin/XPCSPI.h)
 · [Pinned XNU libDER headers](https://github.com/apple-oss-distributions/xnu/tree/ac9718fb1af618d5ce8678d0dc6e8a58f252216f/EXTERNAL_HEADERS/libDER)
