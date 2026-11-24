@@ -148,6 +148,22 @@ Use Xcode 26.5 as the comparison input.
 · [Matrix members](https://developer.apple.com/documentation/simd/simd_float4x4)
 · [Quaternion members](https://developer.apple.com/documentation/simd/simd_quatf)
 
+#### OpenCV macOS wheel after SIMD
+
+Find a standalone reproducer for the wheel workspace's
+`opencv//:ocv.3rdparty.avfoundation` and
+`opencv//:ocv.3rdparty.cocoa` targets. Run both against the original
+Socat SDK archive before changing the composition. The reported
+AVFoundation failure is a missing
+`AVFoundation/AVFoundation.h`. The Cocoa failure names
+`NSMutableDictionary`, `NSImage` and other undeclared Objective-C
+types. Record the exact SDK digest and compiler errors from the
+reproducer.
+
+After SIMD, qualify the required AVFoundation and Cocoa declarations
+and link stubs on arm64, then rebuild both real targets and the wheel.
+Codex Desktop is outside this reproducer.
+
 ### Match Darwin stubs to the 26.5 source lock
 
 [SDK Gen PR #20](https://github.com/apple-cross-toolchain/apple-sdk-gen/pull/20)
