@@ -188,9 +188,47 @@ compile cleared both errors and stopped when Metal pulled in DriverKit,
 whose generated header imports the nonexistent `kernel/kernel.h`.
 The Cocoa errors remain. Neither backend passed this run.
 
-After SIMD, qualify the required AVFoundation and Cocoa declarations
-and link stubs on arm64, then rebuild both real targets and the wheel.
-Codex Desktop is outside this reproducer.
+Metal’s `setOwnerWithIdentity:` DocC entry points `kern_return_t` to
+DriverKit and `task_id_token_t` to Kernel. SDK Gen now maps them to the
+public XNU `mach/kern_return.h` and `mach/mach_types.h` headers.
+Regenerated Metal keeps the method and removes both framework imports.
+With that header in the original archive, OpenCV then reached incomplete
+`MTLPackedFloat3` and `MTLPackedFloat4x3` records and CoreVideo’s
+`OpenGLES/OpenGLES.h` import. Record both as SDK Gen gaps.
+
+The local Cocoa and media recipes now develop separate public surfaces
+from the documented APIs and link names. Foundation and AppKit preserve
+the earlier voice declarations. CoreVideo, CoreMedia, AVFoundation, and
+QuartzCore have their own headers, InstallAPI commands, provenance and
+arm64 runtime probes. The earlier exact archive remains the build
+comparison input.
+
+Bazel 9.3.3 on Linux builds both unchanged backend targets with
+`--@llvm//config:macos_libcxx_headers=sdk`. This uses the archive's
+LLVM 21.1.6 libc++ headers. The first executable link then reported
+three missing compiler-generated objc4 imports. SDK Gen's 26.5
+`libobjc.A.tbd` gained `objc_msgSendSuper2`, `objc_getProperty`, and
+`objc_setProperty_atomic` after verification against Apple's pinned
+objc4 sources and the installed macOS dylib. The
+[property fixture](../../../tests/composed_sdk/objc-property.m) checks
+all three through an atomic retained property and a superclass call.
+
+Archive `aa9a370cd0e7a0c8ab6f29e29d0cbf203d1956728c3e1688fe6165381cc8baa9`
+builds both backends and links the OpenCV highgui and videoio executable.
+The resulting arm64 binary writes a three-frame MJPEG QuickTime file
+on macOS and reads back all three frames through AVFoundation. The
+local Cocoa tests run the image, collection, and event calls without
+opening a window. Two writes of the archive are byte-identical. The
+monorepo wheel and Codex Desktop are outside this reproducer.
+
+After the OpenCV backends pass, audit every local framework and
+composition recipe against a fresh matching macOS SDK Gen build. Include
+its patches, replacement headers, install-name and reexport corrections,
+and prepared framework bundles. For each, record the failing generated
+input, its provenance and regression probe, and decide whether SDK Gen
+should generate it, the recipe should continue to take it from Apple OSS,
+or the workaround can be removed. Track the corresponding upstream changes
+and retire each local override after the regenerated inputs pass its probe.
 
 ### Match Darwin stubs to the 26.5 source lock
 

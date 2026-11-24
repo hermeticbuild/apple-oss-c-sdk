@@ -10,11 +10,21 @@ int main(void) {
         NSEntityDescription *entity = [NSEntityDescription new];
         entity.name = @"TrialEntity";
         model.entities = [NSArray arrayWithObject:entity];
+        NSMutableDictionary<NSString *, NSNumber *> *counts = [NSMutableDictionary dictionaryWithCapacity:1];
+        counts[@"images"] = [NSNumber numberWithInt:1];
+        NSImage *image = [[NSImage alloc] initWithSize:NSMakeRect(0, 0, 80, 40).size];
+        NSEvent *event = [NSEvent otherEventWithType:NSEventTypeApplicationDefined
+                                           location:NSZeroPoint modifierFlags:0 timestamp:0
+                                       windowNumber:0 context:nil
+                                            subtype:NSEventSubtypeApplicationActivated data1:0 data2:0];
 
         return color.redComponent != 0.25 || color.greenComponent != 0.5 ||
                color.blueComponent != 0.75 || color.alphaComponent != 1 ||
                description.length == 0 || model.entities.count != 1 ||
                ![model.entities.firstObject.name isEqualToString:@"TrialEntity"] ||
+               counts[@"images"].integerValue != 1 || image.size.width != 80 || image.size.height != 40 ||
+               event.type != NSEventTypeApplicationDefined || event.subtype != NSEventSubtypeApplicationActivated ||
+               ![NSSlider isSubclassOfClass:[NSControl class]] ||
                ![NSWindow isSubclassOfClass:[NSResponder class]] ||
                ![NSView isSubclassOfClass:[NSResponder class]] ||
                ![NSApplication isSubclassOfClass:[NSResponder class]];

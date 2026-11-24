@@ -3,11 +3,11 @@
 include ../../frameworks/common.mk
 
 .PHONY: test test-dns-sd test-resolver test-frameworks test-foundation-macros \
-	test-coregraphics test-security test-network test-avrouting test-simd test-modelio test-modelio-modules test-metalkit
+	test-coregraphics test-security test-network test-avrouting test-simd test-modelio test-modelio-modules test-metalkit test-objc-property
 test: test-dns-sd test-resolver
 
 test-frameworks: test-foundation-macros test-coregraphics test-security test-network \
-	test-avrouting test-simd test-modelio test-modelio-modules test-metalkit
+	test-avrouting test-simd test-modelio test-modelio-modules test-metalkit test-objc-property
 
 test-dns-sd:
 	$(call test-sdk-link,../../recipes/mDNSResponder/test.c)
@@ -39,6 +39,9 @@ test-modelio:
 test-modelio-modules:
 	$(call test-sdk-link,modelio.m,-framework ModelIO -lobjc -lc++ -lc++abi,\
 	    -x objective-c++ -std=c++20 -fobjc-arc -fmodules -fcxx-modules -fmodules-cache-path="$$work/modules")
+
+test-objc-property:
+	$(call test-sdk-link,objc-property.m,-framework Foundation -lobjc,-fno-objc-arc)
 
 test-metalkit:
 	$(call test-sdk-link,metalkit.m,-framework MetalKit -lobjc,-fobjc-arc)

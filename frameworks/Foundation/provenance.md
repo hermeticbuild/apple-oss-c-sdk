@@ -23,9 +23,11 @@ nonnull region on arm64.
 - [Object and collection declarations](https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/ProgrammingWithObjectiveC/FoundationTypesandCollections/FoundationTypesandCollections.html)
 - [Foundation DocC catalog](https://developer.apple.com/documentation/foundation?language=objc)
 
-Preserve the qualified SDK Gen 0.0.4 Foundation stub's exports. The macOS
+The recipe accepts the pinned arm64 SDK Gen 26.5 Foundation stub and
+the earlier SDK Gen 0.0.4 input. The macOS
 26.5.2 (25F84) Foundation dylib has the `Versions/C/Foundation` install
-name and reexports CoreFoundation. CoreFoundation owns Clang's
+name and reexports CoreFoundation. The 26.5 input already has the
+versioned name. CoreFoundation owns Clang's
 Objective-C constant string symbol. The staged patch adds that reexport to
 the pinned SDK Gen input. The Foundation and CoreFoundation recipes provide
 the versioned paths the linker resolves. Xcode 26.5 is a validation reference.
@@ -54,3 +56,13 @@ element parameter and passes that parameter to its `NSArray` superclass.
 The composed `test-modelio` probe checks the type of
 `mesh.submeshes.firstObject` through both classes.
 [Apple's MDLMesh property declaration](https://developer.apple.com/documentation/modelio/mdlmesh/submeshes?language=objc)
+
+The current Foundation recipe carries the same voice declarations and
+adds the string, collection, thread, and run loop APIs used by OpenCV.
+The LP64 geometry names alias the CoreGraphics records. The Cocoa and
+Model I/O tests exercise collections and geometry without opening a window.
+
+- [Apple NSFastEnumerationState](https://developer.apple.com/documentation/foundation/nsfastenumerationstate)
+- [Apple NSGeometry types](https://developer.apple.com/documentation/foundation/nsrect)
+- [Apple NSRunLoop](https://developer.apple.com/documentation/foundation/runloop?language=objc)
+- [Apple NSUserNotification](https://developer.apple.com/documentation/foundation/nsusernotification?language=objc)

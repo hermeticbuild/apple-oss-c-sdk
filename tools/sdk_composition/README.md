@@ -162,10 +162,9 @@ and run `make sdk-archive`.
 ## Foundation and Cocoa trial
 
 Use the verified C and Objective-C runtime installations and the matching
-26.5 SDK Gen libSystem and external stubs. The Foundation recipe currently
-pins the verified SDK Gen 0.0.4 Foundation stub. Qualify a 26.5 Foundation
-stub and refresh that pin for a same-version trial. Stage the four
-additional framework profiles before composing.
+26.5 SDK Gen libSystem and external stubs. Set `FOUNDATION_TBD` to the
+pinned 26.5 SDK Gen Foundation stub. The older pinned input remains
+available for replaying the earlier Foundation trial.
 
 ```bash
 FRAMEWORKS="$PWD/build/frameworks-objc"
@@ -176,7 +175,7 @@ make -C frameworks install CLANG="$LLVM/bin/clang" C_INSTALL="$C_INSTALL" \
   FRAMEWORKS="${c_frameworks[*]} Cocoa" OUT="$FRAMEWORKS"
 
 frameworks=()
-for name in "${c_frameworks[@]}" Foundation AppKit CoreData Cocoa; do
+for name in "${c_frameworks[@]}" Foundation QuartzCore AppKit CoreData Cocoa; do
   frameworks+=(--prepared-framework "$name" "$FRAMEWORKS/$name.framework")
 done
 python3 -m tools.sdk_composition.compose_sdk \
@@ -191,6 +190,18 @@ declare the exact scope and provenance of the local headers. Use `test-objc`
 to exercise the Foundation and Cocoa profiles against the composed tree.
 The [qualification record](../../.agents/skills/review-macos-c-sdk/objc-framework-qualification.md)
 tracks their coverage and the upstream changes.
+
+For the OpenCV backends, also stage `CoreGraphics AVFoundation`.
+The Cocoa recipe stages QuartzCore through AppKit, and the AVFoundation
+recipe stages CoreMedia and CoreVideo. Set
+`COREGRAPHICS_FRAMEWORK` to the newly generated CoreGraphics bundle and
+pass the staged bundles to the composer as prepared frameworks.
+
+Run the backend reproducer with the SDK's bundled libc++ headers.
+
+```sh
+./repro.sh "$ARCHIVE" --@llvm//config:macos_libcxx_headers=sdk
+```
 
 ## Packing release archives
 

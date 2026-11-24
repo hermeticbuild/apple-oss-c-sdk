@@ -1,10 +1,10 @@
 # CoreGraphics geometry
 
-The local recipe moves the generated 26.5 `CGFloat` and `CGPoint`
-declarations into the public `CGGeometry.h` path. The umbrella uses the
-same declarations. The module map treats the geometry header as textual
-so the local AppKit event declaration can include it without compiling
-the entire CoreGraphics umbrella as Objective-C++.
+The local recipe puts the documented `CGFloat`, `CGPoint`, `CGSize`,
+and `CGRect` declarations in the public `CGGeometry.h` path. The
+umbrella uses those declarations. The module map treats the geometry
+header as textual so Foundation can alias the geometry records without
+importing the graphics umbrella.
 
 [Apple's geometry API](https://developer.apple.com/documentation/coregraphics/cggeometry)
 · [Clang textual headers](https://clang.llvm.org/docs/Modules.html#header-declaration)
@@ -22,6 +22,13 @@ Pinned Clang confirmed the same 17 constant values as Xcode 26.5 on
 arm64. The composed Model I/O module fixture exercises the full
 CoreGraphics import in Objective-C++20.
 
+SDK Gen also uses C linkage for C APIs under Objective-C++. The
+window-level key values follow Apple's archived public enumeration
+and its current documentation. All 22 values matched Xcode 26.5
+on arm64. OpenCV's Cocoa backend calls `CGWindowLevelForKey` through
+that interface.
+
 - [Apple CGImage Reference](https://leopard-adc.pepas.com/documentation/GraphicsImaging/Reference/CGImage/Reference/reference.html)
 - [Apple CGFont Reference](https://leopard-adc.pepas.com/documentation/GraphicsImaging/Reference/CGFont/CGFont.pdf)
 - [.NET CoreGraphics bindings](https://github.com/dotnet/macios/blob/36c7da52d3f0a7d66adca044040db5eb6231f5bd/src/CoreGraphics/CGImage.cs)
+- [Apple Quartz Display Services Reference](https://leopard-adc.pepas.com/documentation/GraphicsImaging/Reference/Quartz_Services_Ref/Reference/reference.html)
