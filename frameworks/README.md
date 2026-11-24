@@ -65,3 +65,16 @@ Both probes compile, link, and run as Objective-C and as Objective-C++ with
 Clang modules on arm64 and x86_64. Use `SDK_TEST_ARCHS=arm64` or
 `SDK_TEST_ARCHS=x86_64` to report a failing probe on each architecture
 independently. `test-Foundation` and `test-Cocoa` also run individually.
+
+## LaunchServices trial
+
+Select `FRAMEWORKS="AppKit ApplicationServices"` with the Objective-C inputs
+above. The recipe stages CoreServices and its LaunchServices child and
+includes the ApplicationServices reexport in AppKit. The profiles cover
+the LaunchServices APIs required by GLib. See the package provenance files
+for the remaining framework coverage.
+
+```sh
+make -C frameworks test-CoreServices test-ApplicationServices \
+  CLANG="$LLVM/bin/clang" SDK="$NEW_SDK" RUN=1
+```

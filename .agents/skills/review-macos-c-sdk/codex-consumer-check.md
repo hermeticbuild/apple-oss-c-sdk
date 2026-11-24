@@ -116,10 +116,79 @@ Its fallback CoreFoundation link macros emit `extern "C"`. After
 guarding that syntax, the same include reaches a generated DriverKit
 dependency on absent `kernel/kernel.h`. The released stub also lacks the
 uniform type identifier data constants used by GLib.
-[SDK Gen PR #15](https://github.com/apple-cross-toolchain/apple-sdk-gen/pull/15)
-fixes the linkage macros. The CoreServices dependency closure, constant
-exports, and ApplicationServices umbrella need separate work. The voice
-effort stops here before introducing a larger framework replacement.
+
+SDK Gen merged the linkage correction in
+[#15](https://github.com/apple-cross-toolchain/apple-sdk-gen/pull/15).
+[#17](https://github.com/apple-cross-toolchain/apple-sdk-gen/pull/17)
+fixes the generated CoreFoundation and dispatch import paths, resolves the
+documented `mach_port_t` to XNU's public `mach/port.h`, and places C
+availability attributes on their declarations.
+[#16](https://github.com/apple-cross-toolchain/apple-sdk-gen/pull/16)
+removes false linker exports for C enum cases such as
+`_kLSLaunchDefaults` while preserving data symbols that DocC supplies.
+
+### CoreServices and ApplicationServices trial
+
+The native arm64 `//third_party/voice:native_prefix` build was rerun in
+this order against separate copies of the diagnostic SDK:
+
+| Added layer | Native build result |
+|---|---|
+| CoreServices UTI declarations and LaunchServices stub | GLib compiled `gcontenttype-osx.m`. `gosxappinfo.m` stopped at the missing ApplicationServices umbrella. |
+| ApplicationServices umbrella, remaining LaunchServices declarations, and AppKit reexport | `gosxappinfo.m` reached missing Foundation declarations for `NSBundle`, `NSUTF8StringEncoding`, and `NSAutoreleasePool`. The notification backend also failed on `NSImage`, `NSUserNotificationCenterDelegate`, and dictionary subscripting. |
+| Make-generated CoreServices and ApplicationServices recipes | The same Foundation and AppKit diagnostics reproduced on arm64 and on the x86_64 target with Rosetta. |
+
+The [CoreServices](../../../frameworks/CoreServices/provenance.md) and
+[ApplicationServices](../../../frameworks/ApplicationServices/provenance.md)
+recipes stage the interfaces used in the trial. Their probes compile,
+link, and run with the candidate and Xcode 26.5 on arm64 and x86_64.
+The ApplicationServices probe also passes with Objective-C++ modules
+against the candidate. Its Mach-O imports bind through CoreServices on
+both CPUs, matching Xcode for GLib's existing AppKit and CoreFoundation
+link line. The default composition continues to use its qualified
+framework inputs.
+
+To replay the native prefix from the Codex workspace, use the diagnostic
+Bazel repository containing the candidate `sysroot`:
+
+```sh
+bazel --nohome_rc build --disk_cache= \
+  --override_module="llvm=$LLVM_WITH_HEADER_MODE" \
+  --override_repository="llvm++osx+macos_sdk=$VOICE_SDK_REPO" \
+  --@llvm//config:macos_libcxx_headers=llvm \
+  --platforms=@llvm//platforms:macos_arm64 \
+  //third_party/voice:native_prefix
+```
+
+For the x86_64 target on Apple Silicon, select the x86_64 target and
+execution platforms. GNU Make 4.4.1's configure script can still
+identify its host as arm64. It then sets `__arm__` for an x86_64
+compiler, includes both architecture versions of libkern's byte order
+helpers, and misdetects types such as `pid_t` and `ssize_t`. A minimal
+x86_64 client that defines `__arm__` before including `stdlib.h`
+reproduces the same redefinitions with Xcode 26.5 and the candidate.
+The normal x86_64 include passes in both. With the host override on exec
+actions, the replay built GNU Make and pkg-config, compiled
+`gcontenttype-osx.m`, and reached the same GLib failures as arm64:
+
+```sh
+--platforms=@llvm//platforms:macos_x86_64 \
+--extra_execution_platforms=@llvm//platforms:macos_x86_64 \
+--host_action_env="ac_cv_host=x86_64-apple-darwin$(uname -r)"
+```
+
+The machine-readable CoreServices DocC index has the UTI functions and
+omits the six UTI data globals used here. The installed Mac confirms
+LaunchServices owns those data exports. The original umbrella also
+needs type-level dependency attribution for its DriverKit imports and
+any remaining Kernel DocC references. Upstream still needs a
+source-backed way to represent legacy data declarations, packed records,
+and ApplicationServices reexports.
+The local profile covers the GLib requirements. Other CoreServices
+children, including the separate FSEvents work, and broader
+ApplicationServices coverage remain open. Native voice runtime
+packaging and tests remain blocked by the Foundation and AppKit
+interfaces found in the reruns above.
 
 ## Standalone CLI
 
@@ -177,7 +246,8 @@ done
 | CFNetwork is absent | The arm64 `sandboxing-unit-tests` link requests both CFNetwork and Security. Its Security imports also include certificate and trust-settings APIs. SDK Gen 0.0.5 has a CFNetwork stub and contains all four named Security exports. | Qualify both stubs against the sandboxing target. Stage only the linker files while this consumer gets its declarations from Rust. |
 | The inherited 27.0 libSystem advertises `pipe2` in a 26.5 archive | Codex's bundled pkg-config configures its internal GLib with `pipe2` enabled, then `glib-unix.c` fails to compile. The composed stub resolves a strong `_pipe2` import on both CPUs. Xcode 26.5 declines the same link. The trial includes that name under both `libsystem_kernel` and `libsystem_sim_kernel`. Runtime lookup on 26.5.2 finds neither `pipe2` nor the related `dup3`, which is also advertised by the stub. [macOS 27 compatibility report](https://github.com/python/cpython/issues/153711) | Select libSystem exports by SDK version and target in the composition. The local diagnostic removes the two exact `_pipe2` entries and reproduces the reference link failure on both CPUs. Keep 27.0 support in the 27.0 generator output. |
 | Foundation path-search declarations | GLib's `gosxutils.m` cannot compile the path lookup. The independently sourced header passes the two-architecture path probe. SDK Gen 0.0.5's generated Foundation header repeats the type name for every case in `NSSearchPathDirectory`. | Add the tested header profile after review. [SDK Gen PR #14](https://github.com/apple-cross-toolchain/apple-sdk-gen/pull/14) fixes case names. Qualify numeric values independently. |
-| CoreServices header, typed data exports, and dependencies | The native voice failure and two-architecture umbrella probe are recorded above. Guarding C linkage fixes one generator defect. | Qualify the actual CoreServices and LaunchServices header and linker surfaces, including the reexport layout. Check imports against the declared macOS SDK target and avoid treating a DocC module name as a header path. |
+| CoreServices header, typed data exports, and dependencies | The GLib profile passes its probes on both CPUs. SDK Gen's generated umbrella and other subframeworks still have the coverage gaps above. | Resolve DocC types to their actual C headers and qualify a broader CoreServices reexport tree. |
+| ApplicationServices umbrella and reexports | The local umbrella and AppKit reexport get GLib to Foundation compilation. GLib stops before its link step. | Use the two-architecture LaunchServices ABI and link probe when extending the umbrella. |
 
 [SDK Gen PR #4](https://github.com/apple-cross-toolchain/apple-sdk-gen/pull/4)
 already tracks preserving each SDK's Darwin library documents and target

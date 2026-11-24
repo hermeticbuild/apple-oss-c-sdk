@@ -4,13 +4,15 @@ SOURCE_ROOT ?= $(abspath ../build/framework-sources)
 OUT ?= $(abspath ../build/frameworks)
 C_FRAMEWORKS := CoreFoundation AudioToolbox AudioUnit CoreAudio CoreAudioTypes CoreMIDI IOKit OpenAL Security SystemConfiguration
 OBJC_FRAMEWORKS := Foundation AppKit CoreData Cocoa
-SUPPORTED := $(C_FRAMEWORKS) $(OBJC_FRAMEWORKS)
+OPTIONAL_FRAMEWORKS := CoreServices ApplicationServices
+SUPPORTED := $(C_FRAMEWORKS) $(OBJC_FRAMEWORKS) $(OPTIONAL_FRAMEWORKS)
 FRAMEWORKS ?= $(C_FRAMEWORKS)
 TESTS := $(addprefix test-,$(C_FRAMEWORKS))
 OBJC_TESTS := test-Foundation test-Foundation-modules test-Cocoa test-Cocoa-modules
+OPTIONAL_TESTS := $(addprefix test-,$(OPTIONAL_FRAMEWORKS))
 PYTHON ?= python3
 
-.PHONY: install stage prepare test test-objc check-test-tools $(SUPPORTED) $(TESTS) $(OBJC_TESTS)
+.PHONY: install stage prepare test test-objc check-test-tools $(SUPPORTED) $(TESTS) $(OBJC_TESTS) $(OPTIONAL_TESTS)
 
 install:
 	@set -eu; \
@@ -36,7 +38,7 @@ test: $(TESTS)
 
 test-objc: $(OBJC_TESTS)
 
-$(TESTS) $(OBJC_TESTS): check-test-tools
+$(TESTS) $(OBJC_TESTS) $(OPTIONAL_TESTS): check-test-tools
 
 check-test-tools:
 	@test -x "$(CLANG)" && test -n "$(SDK)" && test -d "$(SDK)/System/Library/Frameworks" \
