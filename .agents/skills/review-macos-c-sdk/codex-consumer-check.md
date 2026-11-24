@@ -467,3 +467,48 @@ The same directory contains `versioned-voice-arm64.log` and
 `versioned-voice-tests-arm64.log`. The scratch Foundation/AppKit voice
 profiles still need to be represented in the framework recipes before
 this exact build can be replayed from a fresh checkout.
+
+### Audio framework replay
+
+The version-matched 26.5 starting preview requested only CoreGraphics,
+Network, and Security. Later layers added the frameworks needed for the
+native prefix. The older full SDK Gen artifact already has the audio
+exports, so reproduce with the version-matched generator before adding
+local declarations or stub entries.
+
+Run SDK Gen on macOS platform only with `--sdk-version 26.5` and the same
+version-matched Darwin metadata. The isolated generator at
+`7a7aaf29f0c75d809c83e170645ed92d1686f424` ran with
+`--frameworks AudioToolbox,CoreAudio,AudioUnit,CoreAudioTypes` and produced
+all four bundles through its ordinary generation path. The same
+scratch directory contains the command output in `audio-pristine.log`.
+
+The link-only client `voice-audio-imports.c` references the 18 audio names
+reported by the first Rust link. It fails against the earlier preview
+and links against both Xcode 26.5 and the four freshly generated bundles
+in `voice-sdk-gen-audio`. The Mach-O undefined symbols match in name and
+bind-through framework. Both probe libraries load on macOS 26.5.2. SDK Gen
+still records flat audio install names where Xcode uses `Versions/A`.
+`AudioToolbox` and `CoreAudio` are independent link inputs. These probes
+measure linker coverage for the Rust consumer. C and Objective-C header
+coverage has separate probes.
+
+Codex's arm64 native prefix and runtime package build with
+`voice-sdk-gen-audio`. The unmodified voice host links and passes all four
+Bazel test targets on macOS 26.5.2. The unit (56 cases), installed client
+(2), lifecycle (3), and relocated native runtime (1) cases ran. The
+packaged test uses `--test_arg=--include-ignored` and
+`CODEX_TEST_VOICE_RUNTIME` pointing to the native runtime from the same
+build. The unit suite's ignored subprocess fixture is exercised by its
+watchdog test.
+
+The first installed-client run passed its two cases and Bazel's
+`generate-xml.sh` then segfaulted. The local replay uses
+`--test_env=LC_ALL=C`, consistent with the Bazel integration workspace.
+The successful logs are `sdk-gen-audio-voice-tests-arm64-locale-c.log`
+and `sdk-gen-audio-packaged-runtime-arm64.log`.
+
+For the full composition, generate macOS 26.5 with SDK Gen's
+`--all-frameworks`, then pass `--all-frameworks` to our composer with the
+qualified recipe overlays. A targeted preview only contains the
+frameworks selected in its SDK Gen invocation.
