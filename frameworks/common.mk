@@ -19,7 +19,7 @@ endef
 # Emit only the format shared by the small C framework stubs.
 define write-tbd
 @set -eu; \
-	targets='[ arm64-macos, x86_64-macos ]'; \
+	targets='[ arm64-macos ]'; \
 	{ \
 		printf '%s\n' '--- !tapi-tbd' 'tbd-version: 4' "targets: $$targets" \
 			"install-name: '/System/Library/Frameworks/$(1).framework/$(1)'"; \
@@ -75,7 +75,7 @@ define installapi
 	trap 'rm -f -- "$$diagnostics"' EXIT; \
 	if ! "$(CLANG_INSTALLAPI)" -x "$(or $(3),c)" -nostdinc -isysroot "$(C_INSTALL)" \
 		-isystem "$$resource/include" -isystem "$(C_INSTALL)/usr/include" \
-		-dynamiclib -target "arm64-apple-macos$(INSTALLAPI_MIN)" -target "x86_64-apple-macos$(INSTALLAPI_MIN)" \
+		-dynamiclib -target "arm64-apple-macos$(INSTALLAPI_MIN)" \
 		$(1) -o "$(2)" 2>"$$diagnostics" || test -s "$$diagnostics"; then \
 		cat "$$diagnostics" >&2; exit 1; \
 	fi
@@ -85,7 +85,7 @@ test-clang = "$(CLANG)" --no-default-config -target "$$cpu-apple-macos14.0" -isy
 	-nostdinc -isystem "$$resource/include" -isystem "$(SDK)/usr/include" \
 	-iframework "$(SDK)/System/Library/Frameworks" -std=c11 -Werror
 
-SDK_TEST_ARCHS ?= arm64 x86_64
+SDK_TEST_ARCHS := arm64
 
 define test-sdk-link
 @set -eu; \
@@ -109,7 +109,7 @@ application-extension-link = -fapplication-extension -Wl,-fatal_warnings
 define test-framework-headers
 @set -eu; \
 	resource=$$("$(CLANG)" --no-default-config -print-resource-dir); \
-	for cpu in arm64 x86_64; do \
+	for cpu in $(SDK_TEST_ARCHS); do \
 		$(test-clang) -fsyntax-only "$(1)/$(or $(2),test.c)"; \
 		echo "$$cpu $(1) header probe passed"; \
 	done

@@ -200,14 +200,12 @@ def verify(llvm, work, c_install, lock, run, sha256):
         library = installapi(header, "/usr/lib/libGeneratedHeaderProbe.dylib",
                              work / "generated.tbd", c_install)
         actual = {}
-        spellings = {"arm64": "_stat", "x86_64": "_stat$INODE64"}
         for arch in architectures:
             obj = work / f"stat-{arch}.o"
             invoke("clang", *compile_flags(arch, c_install), "-c", FIXTURES / "stat.c", "-o", obj)
             imports = invoke("llvm-nm", "-uj", obj).split()
-            require(imports == [spellings[arch]] and
-                    set(spellings.values()) & symbols(library, f"{arch}-macos", "text", "global") ==
-                    {spellings[arch]}, f"{arch} generated stat header and object disagree: {imports}")
+            require(imports == ["_stat"] and "_stat" in symbols(library, f"{arch}-macos", "text", "global"),
+                    f"{arch} generated stat header and object disagree: {imports}")
             actual[arch] = imports[0]
         source_lock = c_install / "source-lock.json"
         if source_lock.is_file():

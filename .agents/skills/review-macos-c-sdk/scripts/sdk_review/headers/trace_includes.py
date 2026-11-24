@@ -14,10 +14,9 @@ from sdk_review import REPO_ROOT as ROOT
 
 DEFAULT_PROBE = Path(__file__).with_name("fixtures") / "sdk_discovery.c"
 SHIPPING_PROBE = ROOT / "tests/installed_headers/default_profile.c"
-TARGETS = ("arm64", "x86_64")
+TARGETS = ("arm64",)
 COMBINED = "__combined__"
 ROOT_FLAGS = {
-    "string_x86.h": ("-include", "string.h"),
     "ucontext.h": ("-D_XOPEN_SOURCE=700",),
 }
 COMPILER_ENV = {"PATH": "/usr/bin:/bin", "LC_ALL": "C"}

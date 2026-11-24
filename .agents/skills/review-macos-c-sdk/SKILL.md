@@ -28,7 +28,7 @@ REVIEW=.agents/skills/review-macos-c-sdk
 export PYTHONPATH="$PWD/$REVIEW/scripts${PYTHONPATH:+:$PYTHONPATH}"
 ```
 
-1. Reproduce one affected public include or client on arm64 and x86_64.
+1. Reproduce one affected public include or client on arm64.
    Record the target, deployment minimum, feature macros, compiler, source
    lock, and reference result.
 2. Follow the installed manifest receipt to the owning recipe and pinned

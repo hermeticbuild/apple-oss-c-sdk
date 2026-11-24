@@ -52,7 +52,7 @@ def check_guards(path):
 
 def qualify(args, resource):
     for label, root in (("reference", args.sdk), ("installation", args.installation)):
-        for arch in ("arm64", "x86_64"):
+        for arch in ("arm64",):
             for minimum in ("13.0", "14.0"):
                 command = [
                     args.apple_clang, "--no-default-config", "-target", f"{arch}-apple-macos{minimum}",

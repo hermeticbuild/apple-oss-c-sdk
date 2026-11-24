@@ -1,4 +1,4 @@
-"""Exercise source-only production and two-level namespace binding on both macOS targets."""
+"""Exercise source-only production and two-level namespace binding on arm64 macOS."""
 
 import os
 from pathlib import Path
@@ -51,28 +51,26 @@ class IconvStubsTest(unittest.TestCase):
         )
         tools = self.llvm / "bin"
         resource = self.llvm / official_llvm.read_lock(official_llvm.PIN)["resource_headers"]["path"]
-        for arch in ("arm64", "x86_64"):
-            with self.subTest(arch=arch):
-                obj = self.work / (arch + ".o")
-                client = self.work / (arch + ".dylib")
-                subprocess.run([
-                    tools / "clang", "--no-default-config", "-target", f"{arch}-apple-macos11",
-                    "-nostdinc", "-isysroot", self.headers, "-isystem", resource, "-isystem",
-                    self.headers / "usr/include", "-I", self.work, "-c", source, "-o", obj,
-                ], check=True, env={"LC_ALL": "C"})
-                link = [tools / "ld64.lld", "-arch", arch, "-platform_version", "macos", "11", "26.5",
-                        "-dylib", "-syslibroot", self.sdk, "-L", self.sdk / "usr/lib", obj, "-o", client]
-                wrong = subprocess.run([*link, "-lcharset"], capture_output=True, text=True)
-                self.assertNotEqual(wrong.returncode, 0)
-                self.assertIn("undefined symbol: _iconv_open", wrong.stderr)
-                subprocess.run([*link, "-liconv"], check=True)
-                nm = subprocess.check_output([tools / "llvm-nm", "-m", "-u", client], text=True)
-                self.assertIn("_iconv_open (from libiconv)", nm)
-                self.assertIn("_locale_charset (from libcharset)", nm)
-                loads = subprocess.check_output([tools / "llvm-objdump", "--macho",
-                                                 "--dylibs-used", client], text=True)
-                for lib in STUBS:
-                    self.assertIn("/usr/lib/" + lib + ".dylib ", loads)
+        obj = self.work / "client.o"
+        client = self.work / "client.dylib"
+        subprocess.run([
+            tools / "clang", "--no-default-config", "-target", "arm64-apple-macos11",
+            "-nostdinc", "-isysroot", self.headers, "-isystem", resource, "-isystem",
+            self.headers / "usr/include", "-I", self.work, "-c", source, "-o", obj,
+        ], check=True, env={"LC_ALL": "C"})
+        link = [tools / "ld64.lld", "-arch", "arm64", "-platform_version", "macos", "11", "26.5",
+                "-dylib", "-syslibroot", self.sdk, "-L", self.sdk / "usr/lib", obj, "-o", client]
+        wrong = subprocess.run([*link, "-lcharset"], capture_output=True, text=True)
+        self.assertNotEqual(wrong.returncode, 0)
+        self.assertIn("undefined symbol: _iconv_open", wrong.stderr)
+        subprocess.run([*link, "-liconv"], check=True)
+        nm = subprocess.check_output([tools / "llvm-nm", "-m", "-u", client], text=True)
+        self.assertIn("_iconv_open (from libiconv)", nm)
+        self.assertIn("_locale_charset (from libcharset)", nm)
+        loads = subprocess.check_output([tools / "llvm-objdump", "--macho",
+                                         "--dylibs-used", client], text=True)
+        for lib in STUBS:
+            self.assertIn("/usr/lib/" + lib + ".dylib ", loads)
 
     @unittest.skipUnless(os.getenv("ICONV_REFERENCE_SDK"), "optional macOS 26.5 reference comparison")
     def test_reference_export_and_reexport_parity(self):
@@ -82,18 +80,17 @@ class IconvStubsTest(unittest.TestCase):
             actual, expected = (read_stub((root / path).read_text(), self.llvm / "bin/llvm-readtapi")
                                 for root in (self.sdk, reference))
             self.assertEqual(actual.main, expected.main)
-            self.assertEqual(set(actual.libraries[actual.main]), {"arm64-macos", "x86_64-macos"})
-            for generated, ref in (("arm64-macos", "arm64e-macos"), ("x86_64-macos", "x86_64-macos")):
-                with self.subTest(lib=lib, target=generated):
-                    a = actual.libraries[actual.main][generated]
-                    b = expected.libraries[expected.main][ref]
-                    self.assertEqual(a.symbols.keys(), b.symbols.keys())
-                    for symbol in a.symbols:
-                        for key in ("role", "weak", "thread_local"):
-                            self.assertEqual(a.symbols[symbol][key], b.symbols[symbol][key])
-                    self.assertEqual(a.reexports, b.reexports)
-                    for key in ("current_version", "compatibility_version"):
-                        self.assertEqual(a.metadata[key], b.metadata[key])
+            with self.subTest(lib=lib):
+                self.assertEqual(set(actual.libraries[actual.main]), {"arm64-macos"})
+                a = actual.libraries[actual.main]["arm64-macos"]
+                b = expected.libraries[expected.main]["arm64e-macos"]
+                self.assertEqual(a.symbols.keys(), b.symbols.keys())
+                for symbol in a.symbols:
+                    for key in ("role", "weak", "thread_local"):
+                        self.assertEqual(a.symbols[symbol][key], b.symbols[symbol][key])
+                self.assertEqual(a.reexports, b.reexports)
+                for key in ("current_version", "compatibility_version"):
+                    self.assertEqual(a.metadata[key], b.metadata[key])
 
 
 if __name__ == "__main__":

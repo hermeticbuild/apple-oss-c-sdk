@@ -35,8 +35,7 @@
     "sha256": "b743750cc37838fd27451887d71b643a9ca1ae546c12a9b63ad37a51acc5fc9c"
   },
   "target_architectures": [
-    "arm64",
-    "x86_64"
+    "arm64"
   ],
   "minimum_deployment": "11.0",
   "tbd_version": 5,

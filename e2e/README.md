@@ -15,19 +15,16 @@ It builds a macOS Clang with the seed compiler.
 (
   cd e2e/llvm-stage1
   export USE_BAZEL_VERSION=9.3.2
-  for cpu in arm64 x86_64; do
-    bazel --bazelrc=../remote.bazelrc build --config=remote -c opt \
-      --platforms="@llvm//platforms:macos_$cpu" \
-      --@llvm//toolchain:bootstrap_stage=stage1_from_source \
-      --@llvm//config:macos_libcxx_headers=llvm @llvm//tools:clang || exit 1
-  done
+  bazel --bazelrc=../remote.bazelrc build --config=remote -c opt \
+    --platforms=@llvm//platforms:macos_arm64 \
+    --@llvm//toolchain:bootstrap_stage=stage1_from_source \
+    --@llvm//config:macos_libcxx_headers=llvm @llvm//tools:clang
 )
 ```
 
 ## Local consumer suites
 
-Run from this directory on Apple Silicon macOS with Rosetta available to
-exercise both target architectures.
+Run from this directory on Apple Silicon macOS.
 
 ```sh
 USE_BAZEL_VERSION=9.3.2 bazel test //:hermetic_llvm
@@ -37,7 +34,7 @@ USE_BAZEL_VERSION=9.3.2 bazel test //:rules_rs
 Bazel fetches both pinned source trees and the child Bazel binaries. Each
 upstream test workspace runs as its own root, with an SDK repository
 override pointing to the extracted root-build archive. Each suite runs
-arm64 and x86_64 locally. Run `//:libomp` for a focused check of the SDK
+on arm64 locally. Run `//:libomp` for a focused check of the SDK
 handoff.
 
 The LLVM suite includes the manual header-order checks and sanitizer
@@ -47,17 +44,15 @@ Run the [LCOV report-content check](coverage.md) separately.
 ## Bazel Central Registry consumers
 
 The `bcr` module takes the same SDK archive and lets Bazel fetch c-ares and
-curl from the registry. Run both tests locally on Apple Silicon with Rosetta.
+curl from the registry. Run both tests locally on Apple Silicon.
 
 ```sh
 (
   cd e2e/bcr
   export USE_BAZEL_VERSION=9.3.2
-  for cpu in arm64 x86_64; do
-    bazel --nohome_rc test --platforms="@llvm//platforms:macos_$cpu" \
-      --@llvm//config:macos_libcxx_headers=llvm \
-      --@curl//:ssl_lib=mbedtls //:framework_consumers || exit 1
-  done
+  bazel --nohome_rc test --platforms=@llvm//platforms:macos_arm64 \
+    --@llvm//config:macos_libcxx_headers=llvm \
+    --@curl//:ssl_lib=mbedtls //:framework_consumers
 )
 ```
 

@@ -16,7 +16,7 @@ from sdk_review.headers.trace_includes import classify, digest_tree, installed_p
 from sdk_review import REPO_ROOT as ROOT
 
 FIXTURES = Path(__file__).resolve().with_name("fixtures") / "c_interfaces"
-TARGETS = ("arm64-apple-macos14.0", "x86_64-apple-macos14.0")
+TARGETS = ("arm64-apple-macos14.0",)
 COMPILER_ENV = {"LC_ALL": "C"}
 FLAGS = (
     "-std=c11", "-fblocks", "-Werror=implicit-function-declaration",
@@ -37,11 +37,11 @@ FIXTURE_HEADERS = {
     "abi_target_value": ("TargetConditionals.h",),
     "compact_arm32": ("mach-o/compact_unwind_encoding.h",),
     "complex_constructor": ("complex.h",),
-    "darwin_exp10": ("math.h", "architecture/arm/math.h", "architecture/i386/math.h"),
-    "darwin_sinpi": ("math.h", "architecture/arm/math.h", "architecture/i386/math.h"),
+    "darwin_exp10": ("math.h", "architecture/arm/math.h"),
+    "darwin_sinpi": ("math.h", "architecture/arm/math.h"),
     "dyld_images_layout": ("mach-o/dyld_images.h",),
-    "fenv_denorm_mask": ("fenv.h", "architecture/arm64/fenv.h", "architecture/i386/fenv.h"),
-    "fenv_layout": ("fenv.h", "architecture/arm64/fenv.h", "architecture/i386/fenv.h"),
+    "fenv_denorm_mask": ("fenv.h", "architecture/arm64/fenv.h"),
+    "fenv_layout": ("fenv.h", "architecture/arm64/fenv.h"),
     "long_double_flag": ("ConditionalMacros.h",),
     "mac_catalyst_format_tag": ("mach-o/loader.h",),
     "mac_target_branch": ("TargetConditionals.h",),

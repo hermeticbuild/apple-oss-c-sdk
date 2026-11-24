@@ -15,7 +15,7 @@ from tools.toolchain.official_llvm import PIN, projection, read_lock, sha256
 
 POLICY = Path(__file__).with_name("data") / "macosx26.5/expected-undefined.json"
 FIXTURE = Path(__file__).with_name("fixtures") / "unistd_expected_undefined.c"
-ARCHES = ("arm64", "x86_64")
+ARCHES = ("arm64",)
 HEADER = "usr/include/unistd.h"
 SHA256 = re.compile(r"[0-9a-f]{64}")
 C_SYMBOL = re.compile(r"_[A-Za-z_][A-Za-z_0-9]*")
@@ -27,7 +27,7 @@ def read(path):
 
 def validate_policy(policy):
     if policy["header"] != HEADER or sorted(policy["architectures"]) != list(ARCHES):
-        raise ValueError("expected the unistd.h policy for both macOS architectures")
+        raise ValueError("expected the unistd.h policy for arm64 macOS")
     if not SHA256.fullmatch(policy["header_sha256"]) or not policy["reason"].strip():
         raise ValueError("policy requires the approved header digest and reason")
     symbols = policy["symbols"]

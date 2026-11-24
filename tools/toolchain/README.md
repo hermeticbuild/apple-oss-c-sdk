@@ -4,9 +4,8 @@
 
 The [release lock](data/llvm-official-macos-arm64.json) pins the Apple Silicon
 host archive, its GitHub build attestation, and the digests of the selected
-executables, resource headers and Darwin builtins. The compiler and linker
-support arm64 and x86_64 Darwin clients. The archive's macOS builtins have
-one arm64 slice. The x86_64 fixture exercises the linker with no static runtime.
+executables, resource headers and Darwin builtins. The qualification
+exercises arm64 Darwin clients and the included arm64 builtins.
 
 On an Apple Silicon Mac, run from the repository root. Cold preparation uses
 Python 3, `curl`, `gh`, `zstd` and macOS `tar`. Allow about 1.4 GB of cache
@@ -44,15 +43,15 @@ python3 -m tools.toolchain.official_llvm verify --llvm-dir "$LLVM_DIR" \
 `verify` works on a relocated projection without the archive or network. Both
 commands run the same smoke test. Clang AST and InstallAPI exercise a function,
 TLS, an explicit assembler name and an inline definition. The v5 reader
-extracts each target from an umbrella with an embedded child. LLD links both
-client objects with an empty sysroot. The Mach-O inspection checks the import
+extracts the target from an umbrella with an embedded child. LLD links the
+client object with an empty sysroot. The Mach-O inspection checks the import
 names, bind-through library and load commands. A separate arm64 link checks
-static resolution of `___udivti3` from the bundled archive. The receipt records
-the absent x86_64 builtins slice and uses logical roots for the probe commands.
+static resolution of `___udivti3` from the bundled archive. The receipt uses
+logical roots for the probe commands.
 
 `--c-install` runs the additional check against the generated C installation
 and its header manifest. The InstallAPI export and client object must agree on
-`_stat` for arm64 and `_stat$INODE64` for x86_64. Omit it for a standalone
+`_stat` on arm64. Omit it for a standalone
 bootstrap check. Use `--work-dir` with an existing directory to retain the
 inputs and outputs under a fresh child directory.
 

@@ -9,8 +9,7 @@ xnu_unifdef := /usr/bin/unifdef
 xnu_mi := bsd/sys bsd/sys/_types bsd/machine bsd/uuid bsd/net \
 	libkern/libkern bsd/netinet bsd/netinet6 bsd/bsm libkern/os \
 	osfmk/mach osfmk/mach/machine osfmk/mach_debug
-xnu_md := bsd/arm bsd/i386 osfmk/arm osfmk/i386 libkern/libkern/arm \
-	libkern/libkern/i386 osfmk/mach/arm osfmk/mach/i386
+xnu_md := bsd/arm osfmk/arm libkern/libkern/arm osfmk/mach/arm
 
 # The older public Make pin omits two visionOS platform names even though
 # sys/cdefs.h uses them. Preserve the existing ordinary macOS output.
@@ -37,9 +36,7 @@ stage-xnu: stage-AvailabilityVersions
 		$(call xnu-install-public,$$component,MD); \
 	done
 	@$(call xnu-install-public,osfmk/device,MI,device_types.h)
-	@set -e; for arch in arm64 i386; do \
-		$(call xnu-install-public,osfmk/mach/$$arch,MD_GEN,asm.h); \
-	done
+	@$(call xnu-install-public,osfmk/mach/arm64,MD_GEN,asm.h)
 	/bin/sh recipes/xnu/install-libsyscall.sh "$(xnu_stage)" "$(xnu_unifdef)"
 	mkdir -p "$(xnu_work)/syscall" "$(xnu_work)/availability-sdk/usr/local/libexec"
 	"$(xnu_unifdef)" -x2 "$(xnu_source)/bsd/kern/syscalls.master" > "$(xnu_work)/syscall/bsd.syscalls.master"
@@ -53,7 +50,6 @@ stage-xnu: stage-AvailabilityVersions
 	$(call header-record,xnu,usr/include/sys/_symbol_aliasing.h,generated:sources/xnu/bsd/sys/make_symbol_aliasing.sh,bsd/sys/Makefile:INSTALL_MI_GEN_LIST,XNU public header generator,sources/xnu/bsd/sys/Makefile sources/xnu/bsd/sys/make_symbol_aliasing.sh sources/AvailabilityVersions/availability sources/AvailabilityVersions/availability.dsl $(availability_supplement))
 	$(call header-record,xnu,usr/include/sys/_posix_availability.h,generated:sources/xnu/bsd/sys/make_posix_availability.sh,bsd/sys/Makefile:INSTALL_MI_GEN_LIST,XNU public header generator,sources/xnu/bsd/sys/Makefile sources/xnu/bsd/sys/make_posix_availability.sh)
 
-# The Libsyscall public MIG list uses the armv7/i386 preprocessing modes.
-.PHONY: mig-arm64 mig-x86_64
-mig-arm64 mig-x86_64: pre-mig
-	/bin/sh recipes/xnu/mig.sh "$(@:mig-%=%)" "$(MIG)" "$(CLANG)" "$(STAGE)/pre-mig" "$(STAGE)/$@"
+.PHONY: mig-arm64
+mig-arm64: pre-mig
+	/bin/sh recipes/xnu/mig.sh "$(MIG)" "$(CLANG)" "$(STAGE)/pre-mig" "$(STAGE)/$@"

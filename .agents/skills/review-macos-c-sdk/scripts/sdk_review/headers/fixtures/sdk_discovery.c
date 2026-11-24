@@ -139,18 +139,6 @@
 // individually included for one or both targets (see COVERAGE_GAPS.md).
 #include <architecture/byte_order.h>
 #include <architecture/arm/byte_order.h>
-#include <architecture/i386/alignment.h>
-#include <architecture/i386/asm_help.h>
-#include <architecture/i386/byte_order.h>
-#include <architecture/i386/cpu.h>
-#include <architecture/i386/desc.h>
-#include <architecture/i386/fpu.h>
-#include <architecture/i386/frame.h>
-#include <architecture/i386/io.h>
-#include <architecture/i386/reg_help.h>
-#include <architecture/i386/sel.h>
-#include <architecture/i386/table.h>
-#include <architecture/i386/tss.h>
 #endif
 #include <atm/atm_types.h>
 #include <arpa/nameser.h>
@@ -208,14 +196,12 @@
 #include <mach-o/stab.h>
 #include <mach-o/swap.h>
 #include <mach-o/utils.h>
-#include <mach-o/x86_64/reloc.h>
 #include <mach/clock.h>
 // Assembly helper macros such as addr16 collide with C field names.
 // These three headers are individually compiled roots only.
 #if defined(APPLE_C_PROBE_ASM_HEADERS)
 #include <mach/arm/asm.h>
 #include <mach/arm64/asm.h>
-#include <mach/i386/asm.h>
 #endif
 #include <mach/exception.h>
 #include <mach/mach.h>
@@ -289,9 +275,6 @@
 #include <servers/netname_defs.h>
 #include <servers/nm_defs.h>
 #include <simd/simd.h>
-// The Intel declarations use size_t and __BEGIN_DECLS from the C headers.
-// The individual trace pre-includes string.h for this root.
-#include <string_x86.h>
 #include <sys/acl.h>
 #include <sys/attr.h>
 #include <sys/clonefile.h>

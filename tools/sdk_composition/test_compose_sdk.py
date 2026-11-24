@@ -193,7 +193,7 @@ install-name: '{PARENT}'
         self.assertEqual(result.returncode, 0, result.stderr)
         settings = json.loads((self.out / "SDKSettings.json").read_text())
         self.assertEqual(settings["Version"], "26.5")
-        self.assertEqual(settings["SupportedTargets"]["macosx"]["Archs"], ["arm64", "x86_64"])
+        self.assertEqual(settings["SupportedTargets"]["macosx"]["Archs"], ["arm64"])
         files = json.loads((self.out / "composition.json").read_text())["files"]
         self.assertEqual(files[f"{FRAMEWORK}/Headers/Example.h"]["layer"], "prepared-framework")
 

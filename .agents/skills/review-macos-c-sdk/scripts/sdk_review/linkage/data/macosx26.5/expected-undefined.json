@@ -1,7 +1,7 @@
 {
   "sdk": "macosx26.5",
   "reference_build": "25F70",
-  "architectures": ["arm64", "x86_64"],
+  "architectures": ["arm64"],
   "header": "usr/include/unistd.h",
   "libc_commit": "4e34d0559e3a1b081afeb8604d9e204a1f31321d",
   "header_sha256": "8d535079658f063bcef358ef4c1c1b52b8e88dacfc22cbf4db0f6bf8abe40637",

@@ -12,4 +12,4 @@ stage-libplatform:
 	$(call copy-headers,libplatform,.,sources/libplatform/include/setjmp.h sources/libplatform/include/ucontext.h)
 	@# Retain the reviewed source headers at their matching SDK paths.
 	$(call copy-headers,libplatform,os,sources/libplatform/include/os/security_config.h)
-	$(call copy-headers,libplatform,.,sources/libplatform/include/string_x86.h sources/libplatform/include/timingsafe.h)
+	$(call copy-headers,libplatform,.,sources/libplatform/include/timingsafe.h)

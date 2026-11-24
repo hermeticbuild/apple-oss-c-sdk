@@ -6,7 +6,7 @@
     {
       "id": "HEADER-26.5-EVENTLINK-STANDALONE",
       "path": "usr/include/mach/mach_eventlink.h",
-      "architectures": ["arm64", "x86_64"],
+      "architectures": ["arm64"],
       "minimum": "11.0",
       "context": {},
       "compiler_sha256": "f8fa7184dab7d8fa7f6af268a6f1b3aa3d2e598d0cca04dc68447b4c0ca58d8e",
@@ -23,7 +23,7 @@
         "selector": "PRIVATE_DATAFILES"
       },
       "approved_by": "Corentin Kerisit",
-      "reason": "The generated header and SDK 26.5 build 25F70 have identical bytes and fail the same default C17 standalone probe on both slices. XNU lists the missing dependency as a private header. The approval covers this compile context only."
+      "reason": "The generated header and SDK 26.5 build 25F70 have identical bytes and fail the same default C17 standalone probe on arm64. XNU lists the missing dependency as a private header. The approval covers this compile context only."
     }
   ]
 }

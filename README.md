@@ -1,6 +1,6 @@
 # Apple OSS macOS C headers (prototype)
 
-This repository builds a standalone C header tree for macOS arm64 and x86_64
+This repository builds a standalone C header tree for macOS arm64
 cross-compilation from locked Apple OSS sources and local compatibility
 recipes. Each qualified Apple install command contributes its public headers.
 The installed-header tests and SDK review probe measure the result. Clang resource
@@ -32,7 +32,7 @@ The default SDK is `macosx26.5`. Select `macosx26.0` to use the older source
 set. See [the source locks](locks/README.md) for preparation, offline operation,
 and how to add a version. The output directory must be new.
 The installer copies the selected lock as `source-lock.json` and stages each upstream install
-separately, merges public headers, and compares MIG output across both targets.
+separately, generates public MIG headers, and merges the result.
 It emits one `header-manifest.tsv` with each header's origin, producer,
 selection rule, inputs, transformation, and SHA-256.
 See [the recipes](recipes/README.md) for the production steps.

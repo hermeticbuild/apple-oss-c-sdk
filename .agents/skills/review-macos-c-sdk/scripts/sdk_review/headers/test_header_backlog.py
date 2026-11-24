@@ -54,7 +54,7 @@ class HeaderBacklogTest(unittest.TestCase):
                 "includes": [HEADER], "stdin": "#include <mach/mach_eventlink.h>\n",
                 "argv": [str(clang), "--no-default-config", "-target", f"{arch}-apple-macos11.0", "-x", "c",
                          "-std=c17", "-fsyntax-only", "-"],
-            } for arch in ("arm64", "x86_64")],
+            } for arch in ("arm64",)],
         }
         self.audit = {
             "schema": 3, "sdk": {"CanonicalName": "macosx26.5"},
@@ -96,23 +96,23 @@ class HeaderBacklogTest(unittest.TestCase):
         report = self.run_backlog()
         header, missing = report["paths"]
         self.assertEqual(header["path"], HEADER)
-        self.assertEqual([row["approval"]["id"] for row in header["contexts"]], [APPROVAL, APPROVAL])
+        self.assertEqual([row["approval"]["id"] for row in header["contexts"]], [APPROVAL])
         self.assertEqual(header["reasons"], [])
         self.assertEqual(missing["reasons"], [{"code": "missing-required-path"}])
 
-    def test_new_missing_dependency_keeps_one_slice_open(self):
-        row = self.census["rows"][1]
+    def test_new_missing_dependency_keeps_context_open(self):
+        row = self.census["rows"][0]
         row["diagnostic"] = row["diagnostic"].replace("mach_eventlink_types.h", "another_header.h")
         header = self.run_backlog()["paths"][0]
-        self.assertEqual(header["reasons"], [{"arch": "x86_64", "code": "missing-include"}])
-        self.assertEqual(header["contexts"][1]["reviewed_approval_did_not_match"], APPROVAL)
-        self.assertNotIn("approval", header["contexts"][1])
+        self.assertEqual(header["reasons"], [{"arch": "arm64", "code": "missing-include"}])
+        self.assertEqual(header["contexts"][0]["reviewed_approval_did_not_match"], APPROVAL)
+        self.assertNotIn("approval", header["contexts"][0])
 
-    def test_changed_xnu_commit_reopens_both_approved_contexts(self):
+    def test_changed_xnu_commit_reopens_approved_context(self):
         self.lock["projects"]["xnu"]["commit"] = "3" * 40
         report = self.run_backlog()
         self.assertEqual(report["counts"]["approved_contexts"], 0)
-        self.assertEqual(report["counts"]["reasons"]["missing-include"], 2)
+        self.assertEqual(report["counts"]["reasons"]["missing-include"], 1)
         self.assertIn("stale-semantic-report", report["input_issues"])
 
     def test_missing_source_lock_identity_marks_semantic_report_stale(self):
@@ -135,7 +135,7 @@ class HeaderBacklogTest(unittest.TestCase):
     def test_manifest_drift_preserves_semantic_observation_as_stale(self):
         self.semantic["manifest_sha256"] = "0" * 64
         self.semantic["probes"]["include:mach/mach_eventlink.h"] = {
-            "x86_64-apple-macos11.0": {"installation": "failed", "sdk": "pass"},
+            "arm64-apple-macos11.0": {"installation": "failed", "sdk": "pass"},
         }
         report = self.run_backlog()
         self.assertEqual(report["input_issues"], ["stale-semantic-report"])
@@ -144,13 +144,13 @@ class HeaderBacklogTest(unittest.TestCase):
 
     def test_current_semantic_mismatch_stays_open_with_approved_include_failure(self):
         self.semantic["probes"]["include:mach/mach_eventlink.h"] = {
-            "x86_64-apple-macos11.0": {"installation": "failed", "sdk": "pass"},
+            "arm64-apple-macos11.0": {"installation": "failed", "sdk": "pass"},
         }
         report = self.run_backlog()
-        self.assertEqual(report["counts"]["approved_contexts"], 2)
+        self.assertEqual(report["counts"]["approved_contexts"], 1)
         self.assertEqual(report["paths"][0]["reasons"], [
             {"code": "semantic-probe-mismatch", "probe": "include:mach/mach_eventlink.h",
-             "target": "x86_64-apple-macos11.0"},
+             "target": "arm64-apple-macos11.0"},
         ])
 
     def test_census_approval_cannot_hide_changed_installed_bytes(self):

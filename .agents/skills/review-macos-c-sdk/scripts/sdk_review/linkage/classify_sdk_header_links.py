@@ -12,7 +12,7 @@ from tempfile import TemporaryDirectory
 from tools.header_manifest import read_header_manifest
 
 
-ARCHES = ("arm64", "x86_64")
+ARCHES = ("arm64",)
 
 
 def write(path, value):
@@ -100,7 +100,7 @@ def join(args):
     for arch in ARCHES:
         # The raw candidates include the arm64e fallback. A raw match in a
         # separate document still needs an exact client link with that library.
-        targets = {"arm64-macos", "arm64e-macos"} if arch == "arm64" else {"x86_64-macos"}
+        targets = {"arm64-macos", "arm64e-macos"}
         providers = defaultdict(set)
         for row in hits["matches"]:
             if targets.intersection(row["targets"]) and row["role"] in ("export", "reexport"):

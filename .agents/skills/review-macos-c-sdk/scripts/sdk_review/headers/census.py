@@ -12,7 +12,7 @@ import subprocess
 from tools.header_manifest import read_header_manifest
 from sdk_review.headers.trace_includes import classify
 
-ARCHES = ("arm64", "x86_64")
+ARCHES = ("arm64",)
 INCLUDE = re.compile(r"[A-Za-z0-9_./+-]+")
 DEFINE = re.compile(r"[A-Za-z_]\w*(?:=[A-Za-z0-9_+-]+)?")
 

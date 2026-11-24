@@ -124,7 +124,6 @@
 #include <mach-o/utils.h>
 #include <mach-o/arm/reloc.h>
 #include <mach-o/arm64/reloc.h>
-#include <mach-o/x86_64/reloc.h>
 #include <net/bpf.h>
 #include <net/dlil.h>
 #include <net/ethernet.h>

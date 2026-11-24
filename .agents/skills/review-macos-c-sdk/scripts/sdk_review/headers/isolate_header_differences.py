@@ -78,7 +78,7 @@ def main():
                 "roots": [{"type": "file", "name": str(header), "external-contents": str(sdk / path)}],
             }))
             cells = {}
-            for cpu in ("arm64", "x86_64"):
+            for cpu in ("arm64",):
                 for minimum in ("11.0", "14.0", identity["version"]):
                     target = f"{cpu}-apple-macos{minimum}"
                     for profile, defines in profiles.items():

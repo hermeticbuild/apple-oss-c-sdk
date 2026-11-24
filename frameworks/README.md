@@ -35,12 +35,12 @@ make -C frameworks test CLANG="$LLVM/bin/clang" SDK="$NEW_SDK"
 ```
 
 Each framework in the default set has a `test.c` beside its recipe. The probes check
-signatures, record layouts, or linkage on arm64 and x86_64. CoreAudioTypes,
+signatures, record layouts, or linkage on arm64. CoreAudioTypes,
 IOKit and Security run compile checks. SystemConfiguration compiles its
 reachability header directly and links a separate client of the umbrella.
 Use `test-OpenAL`, for example, to run a single framework's probe.
 
-On a Mac that can run both target architectures, add `RUN=1` to execute
+On Apple Silicon, add `RUN=1` to execute
 the linked probes. CoreFoundation, AudioToolbox and SystemConfiguration
 call their tested APIs. The other linked probes exercise dynamic loading
 and symbol binding.
@@ -63,9 +63,7 @@ make -C frameworks -k test-objc CLANG="$LLVM/bin/clang" SDK="$NEW_SDK" RUN=1
 ```
 
 Both probes compile, link, and run as Objective-C and as Objective-C++ with
-Clang modules on arm64 and x86_64. Use `SDK_TEST_ARCHS=arm64` or
-`SDK_TEST_ARCHS=x86_64` to report a failing probe on each architecture
-independently. `test-Foundation` and `test-Cocoa` also run individually.
+Clang modules on arm64. `test-Foundation` and `test-Cocoa` also run individually.
 
 ## LaunchServices trial
 

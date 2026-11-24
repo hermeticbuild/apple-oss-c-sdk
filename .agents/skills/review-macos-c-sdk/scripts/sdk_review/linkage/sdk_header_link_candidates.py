@@ -15,7 +15,7 @@ from tools.sdk_composition.tbd import parse_v5, version
 from tools.toolchain.official_llvm import PIN, projection, read_lock, sha256
 
 
-ARCHES = ("arm64", "x86_64")
+ARCHES = ("arm64",)
 MINIMUM = "11.0"
 INSTALL_NAME = "/local/review"
 ENV = {"LC_ALL": "C"}

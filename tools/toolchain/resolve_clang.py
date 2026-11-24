@@ -25,7 +25,7 @@ def main() -> None:
     machine = {"x86_64": "amd64", "aarch64": "arm64", "arm64": "arm64"}.get(
         platform.machine().lower())
     system = platform.system().lower()
-    if system not in ("darwin", "linux") or machine is None:
+    if system not in ("darwin", "linux") or machine is None or (system == "darwin" and machine != "arm64"):
         parser.error("no pinned minimal-prebuilt archive for this host")
     archive_target = f"{system}-{machine}" + ("-musl" if system == "linux" else "")
     if index["releases"][release][archive_target] != pin["archives"][archive_target]:

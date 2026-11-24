@@ -114,7 +114,7 @@ def main():
     for name in ("llvm", "reference", "candidate", "object", "out"):
         parser.add_argument("--" + name, required=True, type=Path)
     parser.add_argument("--builtins", action="append", type=Path, default=[], help="explicit static archive after -lSystem")
-    parser.add_argument("--arch", choices=("arm64", "x86_64"), required=True)
+    parser.add_argument("--arch", choices=("arm64",), required=True)
     parser.add_argument("--minimum", required=True)
     parser.add_argument("--sdk-version", required=True)
     parser.add_argument("--expect-undefined", action="append", default=[])

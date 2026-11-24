@@ -7,7 +7,6 @@
 #include <pthread/introspection.h>
 #include <removefile.h>
 #include <string.h>
-#include <string_x86.h>
 #include <sys/syscall.h>
 #include <timingsafe.h>
 

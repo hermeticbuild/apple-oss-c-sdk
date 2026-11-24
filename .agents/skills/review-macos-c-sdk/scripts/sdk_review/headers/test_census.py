@@ -28,12 +28,14 @@ class CensusTest(unittest.TestCase):
                              "fixture", name, "fixture", "copy", name])
             (root / "header-manifest.tsv").write_text("".join("\t".join(row) + "\n" for row in rows))
             contexts = root / "contexts.json"
-            contexts.write_text(json.dumps({"usr/include/leaf.h": {"arm64": {"root": "umbrella.h"},
-                                                                   "x86_64": {"root": "empty.h"}}}))
             report = root / "report.json"
             cmd = [sys.executable, "-m", "sdk_review.headers.census", "--clang", Path(os.environ["LLVM"]) / "bin/clang",
                    "--c-install", root, "--minimum", "11.0", "--header", "leaf.h", "--contexts", contexts, "--out", report]
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            self.assertEqual(result.returncode, 1, result.stderr)
-            data = json.loads(report.read_text())
-            self.assertEqual([r["status"] for r in data["rows"]], ["passed", "header-not-reached"])
+            for umbrella, expected_status, returncode in (
+                    ("umbrella.h", "passed", 0), ("empty.h", "header-not-reached", 1)):
+                with self.subTest(umbrella=umbrella):
+                    contexts.write_text(json.dumps({"usr/include/leaf.h": {"arm64": {"root": umbrella}}}))
+                    result = subprocess.run(cmd, capture_output=True, text=True)
+                    self.assertEqual(result.returncode, returncode, result.stderr)
+                    data = json.loads(report.read_text())
+                    self.assertEqual([r["status"] for r in data["rows"]], [expected_status])

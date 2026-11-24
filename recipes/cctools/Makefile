@@ -15,4 +15,3 @@ stage-cctools:
 		sources/cctools/include/mach-o/swap.h)
 	$(call copy-headers,cctools,mach-o/arm,sources/cctools/include/mach-o/arm/reloc.h)
 	$(call copy-headers,cctools,mach-o/arm64,sources/cctools/include/mach-o/arm64/reloc.h)
-	$(call copy-headers,cctools,mach-o/x86_64,sources/cctools/include/mach-o/x86_64/reloc.h)

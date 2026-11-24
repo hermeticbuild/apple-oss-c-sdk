@@ -18,13 +18,10 @@ class XnuInstallTest(unittest.TestCase):
         self.assertNotIn("usr/include/sys/proc_private.h", self.headers)
         self.assertNotIn("usr/include/mach/syscall_sw.h", self.headers)
 
-    def test_asm_headers_record_actual_inputs_from_xnu_vpath(self):
+    def test_asm_header_records_actual_input_from_xnu_vpath(self):
         arm = self.headers["usr/include/mach/arm64/asm.h"]
-        intel = self.headers["usr/include/mach/i386/asm.h"]
         self.assertIn("sources/xnu/osfmk/arm64/asm.h", arm["inputs"])
-        self.assertIn("sources/xnu/osfmk/i386/asm.h", intel["inputs"])
         self.assertEqual(arm["selection"], "osfmk/mach/arm64/Makefile:INSTALL_MD_GEN_LIST")
-        self.assertEqual(intel["selection"], "osfmk/mach/i386/Makefile:INSTALL_MD_GEN_LIST")
 
     def test_generated_headers_record_syscall_and_availability_inputs(self):
         syscall = self.headers["usr/include/sys/syscall.h"]

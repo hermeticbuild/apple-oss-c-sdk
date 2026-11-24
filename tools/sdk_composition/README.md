@@ -234,12 +234,12 @@ Append these four arguments to `compose_sdk`.
 
 For qualification, export `ICONV_SOURCE`, `C_INSTALL` and `LLVM` and run
 `python3 -m unittest -v tools.sdk_composition.test_iconv_stubs`. The tests
-check reproducibility, link a client against `-liconv` alone for arm64 and
-x86_64, and inspect the two-level bindings for `iconv_open` and `locale_charset`.
+check reproducibility, link an arm64 client against `-liconv`, and inspect the
+two-level bindings for `iconv_open` and `locale_charset`.
 
 Setting `ICONV_REFERENCE_SDK` additionally compares the products with the macOS
 26.5 SDK. All 95 direct iconv exports and both charset exports match, including
-the reexport edge and dylib versions. The producer targets macOS arm64 and
-x86_64 with a deployment floor of 11.0. The reference uses arm64e and x86_64,
-and also includes Catalyst. Upstream LLVM emits `not_app_extension_safe` for
+the reexport edge and dylib versions. The producer targets macOS arm64 with
+a deployment floor of 11.0. The comparison uses the reference arm64e target.
+Upstream LLVM emits `not_app_extension_safe` for
 these project settings. App-extension compatibility remains unqualified.

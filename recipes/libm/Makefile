@@ -1,4 +1,4 @@
-# Libm.xcodeproj/project.pbxproj Copy ARM and Copy Intel phases.
+# Libm.xcodeproj/project.pbxproj Copy ARM phase.
 libm_root = $(STAGE)/Libm/dst
 libm_include = $(libm_root)/usr/include
 libm_recipe = recipes/libm
@@ -21,18 +21,14 @@ ifeq ($(SDK),macosx26.5)
 else
 	$(call copy-headers,Libm,architecture/arm,sources/Libm/Source/ARM/math.h,$(libm_recipe)/Makefile)
 endif
-	$(call copy-headers,Libm,architecture/i386,sources/Libm/Source/Intel/math.h,$(libm_recipe)/Makefile)
 	install -m 644 "$(libm_source)/complex.h" "$(libm_source)/math.h" "$(libm_source)/fenv.h" "$(libm_include)/"
-	install -m 644 "$(libm_source)/Intel/fenv.h" "$(libm_include)/architecture/i386/"
 	mkdir -p "$(libm_include)/architecture/arm64"
 	install -m 644 "$(libm_recipe)/arm64_fenv.h" "$(libm_include)/architecture/arm64/fenv.h"
 	@set -e; for patch_file in $(libm_complex_patches) $(libm_math_patches); do \
 		$(call apply-recipe-patch,$(libm_root),$$patch_file); \
 	done
 	$(call apply-recipe-patch,$(libm_root),$(libm_recipe)/fenv-arm64.patch)
-	$(call apply-recipe-patch,$(libm_root),$(libm_recipe)/fenv-intel-denormal.patch)
 	$(call header-record,Libm,usr/include/complex.h,derived:sources/Libm/Source/complex.h,$(libm_recipe)/Makefile,arm64 selection and complex constructors,sources/Libm/Source/complex.h $(libm_complex_patches))
 	$(call header-record,Libm,usr/include/math.h,derived:sources/Libm/Source/math.h,$(libm_recipe)/Makefile,arm64 selection and macOS math extensions,sources/Libm/Source/math.h sources/xnu/bsd/sys/cdefs.h $(libm_math_patches))
 	$(call header-record,Libm,usr/include/fenv.h,derived:sources/Libm/Source/fenv.h,$(libm_recipe)/Makefile,arm64 fenv include selection,sources/Libm/Source/fenv.h $(libm_recipe)/fenv-arm64.patch)
-	$(call header-record,Libm,usr/include/architecture/i386/fenv.h,derived:sources/Libm/Source/Intel/fenv.h,$(libm_recipe)/Makefile,include Intel denormal operand in FE_ALL_EXCEPT,sources/Libm/Source/Intel/fenv.h sources/architecture/i386/fpu.h $(libm_recipe)/fenv-intel-denormal.patch)
 	$(call header-record,Libm,usr/include/architecture/arm64/fenv.h,$(libm_recipe)/arm64_fenv.h,$(libm_recipe)/Makefile,local ABI declaration and FPSR exception flags,$(libm_recipe)/arm64_fenv.h sources/Libm/Source/ARM/fenv.h sources/xnu/osfmk/arm64/proc_reg.h)

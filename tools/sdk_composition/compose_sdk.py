@@ -217,7 +217,7 @@ def objc4_headers(plan, root):
 
 def sdk_settings(sdk, receipts):
     settings = {"CanonicalName": SDK_NAME, "Version": SDK_VERSION, "MaximumDeploymentTarget": SDK_VERSION,
-                "SupportedTargets": {"macosx": {"Archs": ["arm64", "x86_64"], "LLVMTargetTripleVendor": "apple",
+                "SupportedTargets": {"macosx": {"Archs": ["arm64"], "LLVMTargetTripleVendor": "apple",
                                                  "LLVMTargetTripleSys": "macosx"}}}
     path = sdk / "SDKSettings.json"
     path.write_text(json.dumps(settings, indent=2, sort_keys=True) + "\n")

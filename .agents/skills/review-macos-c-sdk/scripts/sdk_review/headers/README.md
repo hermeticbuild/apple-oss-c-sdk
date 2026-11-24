@@ -13,7 +13,7 @@ Use `make -f .agents/skills/review-macos-c-sdk/headers.mk paths` with the
 inputs from the skill. That target traces the shipping probe against each
 sysroot and inventories all of the SDK's `usr/include`. The `discovery`
 target traces the extra roots in report-only mode. For a direct comparison
-on both architectures, pass `--reference "$WORK/reference.json"` to
+on arm64, pass `--reference "$WORK/reference.json"` to
 `sdk_review.headers.trace_includes` when tracing the installation.
 
 With the import path from the skill, rerun the path audit in strict

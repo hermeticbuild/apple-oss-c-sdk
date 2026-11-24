@@ -44,11 +44,11 @@ header-backlog: census paths semantics discovery
 test:
 	LLVM="$(LLVM)" LIBSYSTEM_TEST_LLVM="$(LLVM)" $(PYTHON) -m unittest discover -s "$(SKILL)scripts/sdk_review" -t "$(SKILL)scripts"
 
-.PHONY: complex-runtime complex-arm64 complex-x86_64
-complex-runtime: complex-arm64 complex-x86_64
+.PHONY: complex-runtime complex-arm64
+complex-runtime: complex-arm64
 
 # Compile against the generated headers. Only the link step reads reference stubs.
-complex-arm64 complex-x86_64: complex-%: inputs
+complex-arm64: complex-%: inputs
 	env -i PATH=/usr/bin:/bin LC_ALL=C "$(CLANG)" --no-default-config -target "$*-apple-macos$(MINIMUM)" \
 		-isysroot "$(C_INSTALL)" -nostdinc -isystem "$$("$(CLANG)" --no-default-config -print-resource-dir)/include" \
 		-isystem "$(C_INSTALL)/usr/include" -std=c11 -c tests/installed_headers/complex_abi.c -o "$(WORK)/complex-$*.o"

@@ -88,8 +88,7 @@ include $(wildcard recipes/*/Makefile)
 pre-mig: stage
 	/bin/sh recipes/merge.sh --bootstrap "$(STAGE)/pre-mig" "$(STAGE)"/*/records
 
-build-install: mig-arm64 mig-x86_64
-	diff -rq "$(STAGE)/mig-arm64/dst/usr/include/mach" "$(STAGE)/mig-x86_64/dst/usr/include/mach"
+build-install: mig-arm64
 	SOURCE_LOCK="$(STAGE)/source-lock.json" /bin/sh recipes/merge.sh "$(OUT)" "$(STAGE)"/*/records
 
 build-objc4: stage-objc4
