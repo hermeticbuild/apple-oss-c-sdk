@@ -200,6 +200,72 @@ so configure enables it. The macOS 26.5 header and runtime omit that API.
 This needs an SDK-version correction in the stub, with the Foundation and
 AppKit gaps above still open.
 
+### Source-backed macOS 26.5 replay
+
+Codex `53fe98bdc22c19b9520b0d033c2b0a1b0be62bcb` uses
+`rules_foreign_cc` to configure and build GNU Make and the pinned
+pkg-config 0.29.2. The pkg-config action sets `PKG_CONFIG=/bin/false`
+and selects the Bazel LLVM archive tools and linker. The voice recipe
+then passes the built executable to CMake and Meson, with an empty
+`PKG_CONFIG_PATH` and `PKG_CONFIG_LIBDIR` restricted to the staged prefix.
+The version-matched comparison SDK built pkg-config on arm64 and
+x86_64. The actual binaries import `pipe` through libSystem.
+
+GNU Make exposed a missing `environ` data import in the source-backed
+preview. The pinned dyld implementation defines the object and both
+macOS 26.5.2 runtime slices export it through libdyld. The candidate and
+reference both linked and ran a client reading `environ` and
+`_NSGetEnviron()` on both CPUs at deployment minima 11.0 and 26.5.
+[Pinned Apple OSS definition](https://github.com/apple-oss-distributions/dyld/blob/fd8d0c4d52320ebf64db34f3cb280310d905c5ae/libdyld/libdyldGlue.cpp#L1206-L1212)
+· [Versioned export preview](https://github.com/apple-cross-toolchain/apple-sdk-gen/pull/21)
+
+The next pkg-config link needed eight out-of-line ctype functions such
+as `isalpha`. Apple's Libc uses `isctype.c` to emit external versions.
+InstallAPI with `-D_DONT_USE_CTYPE_INLINE_` exposes the client declarations
+in the installed `_ctype.h`. Keep the 23 names confirmed by both runtime
+slices. All 23 also occur in the Xcode 26.5 libsystem_c documents.
+[Apple's pinned isctype.c](https://github.com/apple-oss-distributions/Libc/blob/4e34d0559e3a1b081afeb8604d9e204a1f31321d/locale/isctype.c)
+
+The regenerated stub builds the pinned pkg-config target on arm64
+and x86_64. Both binaries run and import `isspace` and `pipe` through
+libSystem. The Intel target and executable were exercised with Rosetta,
+using the x86_64 execution platform and configure host override above.
+
+The arm64 voice prefix built and installed GLib with the narrow SDK. It
+stopped at GStreamer 1.28.6's explicit `Cocoa` dependency in
+`gst/meson.build:178`. The next local SDK stages the existing Foundation,
+AppKit, Core Data, Cocoa, CoreServices and ApplicationServices recipes,
+using an SDK Gen Foundation stub generated with `--sdk-version 26.5`.
+The Foundation recipe restores its verified CoreFoundation reexport.
+The Foundation, Cocoa, CoreServices and ApplicationServices
+compile-link-run probes passed on arm64 and x86_64.
+
+With Cocoa staged, the native arm64 build enabled GLib's Objective-C
+code and failed compiling `glib/gosxutils.m` on the missing Foundation
+path API. SDK Gen's generated Foundation umbrella also imports AppKit
+and unrelated frameworks. The umbrella renders
+`NSDocumentDirectory = 14` and `NSUserDomainMask = 4` from its fallback
+enum policy. Pinned Swift Foundation supplies 9 and 1 respectively.
+The existing diagnostic header supplies the verified declarations and
+values to the local Foundation profile. The directory runtime fixture
+passed with the 26.5 Foundation stub on both CPUs.
+[Pinned Swift Foundation values](https://github.com/swiftlang/swift-foundation/blob/511394753aa873fd390674301594b4bb8460a74b/Sources/FoundationEssentials/FileManager/SwiftFileManager.swift#L170-L219)
+
+The arm64 replay with that header got past `gosxutils.m`. The native
+prefix now stops in GLib's GIO Objective-C backends. `gosxappinfo.m`
+needs `NSBundle`, `NSUTF8StringEncoding` and `NSAutoreleasePool`.
+`gcocoanotificationbackend.m` needs AppKit's `NSImage`,
+`NSUserNotificationCenterDelegate` and the Foundation collection
+subscripting methods. Qualify these interfaces from public headers or
+independently sourced declarations before rerunning the native prefix.
+The Cocoa header overlay and its diagnostic remain local under
+`build/darwin-inventory-26.5.kUsWl8/voice-cocoa-paths-repo`.
+
+Follow-up for Codex: evaluate a pinned native pkgconf tool, keeping the
+same staged-prefix lookup. The Windows voice build already selects a
+pinned pkgconf package. This would eliminate the Unix pkg-config and
+bundled GLib bootstrap from consumers of that tool.
+
 ## Standalone CLI
 
 The configured action graph for `//codex-rs/cli:codex` has no

@@ -168,15 +168,52 @@ in this experiment came from the local Xcode reference. Replace it
 with the regenerated, reviewed inventory in a separate SDK Gen data PR
 before distributing a new composition.
 
+### Rebuilt source-backed iteration
+
+The working tree under `build/darwin-inventory-26.5.kUsWl8` exercises
+all four SDK Gen Darwin libraries without using the installed SDK as
+a generation input. It uses the pinned macOS 26.5 C headers, the
+Libsystem component graph, the reviewed Apple Libc, XNU, dyld,
+libunwind, CommonCrypto and Libnotify recipes, and verifies providers
+on the matching arm64e and Rosetta x86_64 runtime images. The libSystem
+conversion runs LLVM's TBD transform once per inlined library and
+checks all 40 documents after recombining. Merging the two whole
+architecture files dropped the child documents in the first experiment.
+
+The objc4 public header scan supplies the user API. The compiler ABI
+adds 22 names per target from pinned Apple declarations and Clang's
+code generation and ARC documentation after verifying deployed
+exports. The libc++ and libc++abi candidates start from LLVM 23.1.2's
+Darwin ABI lists and export lists, then retain the definitions and
+symbol reexports confirmed on the corresponding macOS 26.5.2 runtime.
+The comparison found zero candidate-only names across all four
+Darwin libraries. Reference-only names remain open. The scope and
+sources for the versioned preview are recorded in
+[SDK Gen PR #21](https://github.com/apple-cross-toolchain/apple-sdk-gen/pull/21),
+which depends on
+[SDK Gen PR #20](https://github.com/apple-cross-toolchain/apple-sdk-gen/pull/20).
+
+The local archive is
+`build/darwin-inventory-26.5.kUsWl8/broad-ctype/MacOSX.sdk.tar.zst`
+at SHA-256
+`1417b7ef6dcb61326c7185224730f1c9652e21b08c144a1af9475fa511c49e8b`.
+The C, Objective-C ARC and C++ smoke binaries ran on both client
+architectures after archive extraction. Both extracted target stubs
+rejected links to `pipe2` and `dup3`. DNS-SD, resolver, CoreGraphics,
+Network, Security, CoreFoundation and SystemConfiguration passed their
+composed probes. This is a local iteration artifact. The linked export
+coverage and native voice replay are tracked in
+[the Codex consumer check](codex-consumer-check.md).
+
 ### Legacy frameworks still missing
 
 | Framework | Evidence and next qualification |
 | --- | --- |
-| OpenGL | Khronos supplies the GL API registry. The macOS umbrella also has CGL declarations and separate libGL and libGLU reexports. Start with one real desktop GL consumer, source the declarations it uses, and check its link and runtime on both architectures. |
+| OpenGL | The pinned Khronos registry at `6af574a14089ccfee87efe230ebcdd8742859813` supplies 858 candidate commands through desktop GL 4.1. Both macOS 26.5.2 slices provide 828 of them in libGL. Both runtime slices confirm the umbrella's libGL and libGLU reexports. A small stub for the independently declared `glGetError` linked and ran on both CPUs. The remaining GL commands, Apple CGL, and GLU still need release evidence. |
 | Carbon | Apple OSS CarbonHeaders supplies common Darwin headers. Xcode 26.5's Carbon framework is a separate umbrella with children such as HIToolbox and OpenScripting. Use an identified child API to qualify the first reexport and header path. |
 | FontServices | The reference stub lives under PrivateFrameworks and there is no header bundle at that path. Keep the gap recorded and check the actual private install name and symbol if a consumer link requires it. |
 
-[Khronos GL registry](https://github.com/KhronosGroup/OpenGL-Registry/blob/main/xml/gl.xml)
+[Pinned Khronos GL registry](https://github.com/KhronosGroup/OpenGL-Registry/blob/6af574a14089ccfee87efe230ebcdd8742859813/xml/gl.xml)
 · [Apple OSS CarbonHeaders](https://github.com/apple-oss-distributions/CarbonHeaders)
 
 The Codex workspace's SDK selection lists OpenGL and FontServices.
