@@ -47,14 +47,15 @@ which links Security.
 | --- | --- |
 | Missing framework stubs | SDK Gen 0.0.5 supplies 26 of the 30 requested names, including Network and ModelIO. The ApplicationServices recipe adds a 27th. Carbon, OpenGL, and private FontServices remain open. |
 | Foundation macros | The Foundation recipe delegates the enum, options, and nullability macros to the installed CoreFoundation macros. The composed probe compiles, links, and runs on both CPUs. |
-| CoreGraphics | SDK Gen's generated Kernel and DriverKit imports came from shared C typedefs. PR #17 resolves them to public headers. Rebuilding then exposed misplaced callback names, corrected by PR #18. Fresh headers still fail on type dependencies such as `CGError` and `CGFloat`, and incomplete declarations. |
+| CoreGraphics | Regenerated with SDK Gen PRs #17–#19. The umbrella compiles as C and Objective-C. Color, geometry layout, and affine-transform probes compile, link, and run on both CPUs. Other enum values and API coverage remain open. |
 | Security | Apple's 26.5 public umbrella compiles as C and Objective-C. A modular Objective-C++ include compiles and a Security API call runs on both CPUs with SDK Gen's stub. |
-| Network | The 0.0.5 umbrella defines C++ linkage macros in Objective-C before importing CoreFoundation. Regeneration with PRs #17 and #18 gets through the repaired Security dependency. Both CPUs then fail because callback typedefs precede types such as `nw_browser_state_t`, and the emitted `nw_ethernet_address_t` array places its bound before the name. |
+| Network | Regenerated with SDK Gen PRs #17–#19. The umbrella compiles as C and Objective-C, and endpoint probes compile, link, and run on both CPUs. The generator preserves documented enum storage types and omits constants without value evidence. |
 | AVRouting | SDK Gen lacks `AVCustomDeviceRoute.h`. Apple ships the header on macOS and marks the class unavailable there. DocC lists iOS, iPadOS, Mac Catalyst and visionOS for the class. Header availability and API availability need to be represented separately. |
 | ModelIO and MetalKit | MetalKit lacks the historical `MTKModel.h` header path. The generated ModelIO umbrella also needs SIMD. SIMD remains deferred. |
 
 [SDK Gen PR #17](https://github.com/apple-cross-toolchain/apple-sdk-gen/pull/17)
 · [SDK Gen PR #18](https://github.com/apple-cross-toolchain/apple-sdk-gen/pull/18)
+· [SDK Gen PR #19](https://github.com/apple-cross-toolchain/apple-sdk-gen/pull/19)
 · [AVCustomDeviceRoute DocC](https://developer.apple.com/tutorials/data/documentation/avrouting/avcustomdeviceroute.json)
 
 The macOS SDK preview workflow from SDK Gen PR #13 landed on the manual
@@ -65,6 +66,38 @@ rejected pushing the workflow with the current OAuth credential because
 it lacks `workflow` scope. A local macOS 26.5 crawl of the six reported
 frameworks used the merged source and the header fixes from PRs #17 and
 #18 for diagnostics.
+
+### Regenerated CoreGraphics and Network
+
+Regenerated macOS 26.5 from the DocC cache with upstream PRs #16–#19
+applied. The combined generator revision is `6d0e294`. The two
+generated bundles replace the raw SDK Gen copies in the trial
+composition under `build/cg-network.jHtKBh/qualified.sdk`.
+
+The existing `test-coregraphics` and `test-network` probes linked and ran
+with the composed SDK on arm64 and x86_64. C11 probes also matched the
+Xcode 26.5 reference on both CPUs for the geometry layouts, a rotated
+rectangle's bounding box, the Network endpoint handle and Ethernet
+address types, and a socket-address endpoint. Mach-O imports confirm the
+geometry and endpoint calls bind through their respective frameworks.
+
+The installed macOS runtime supplies the exported geometry and affine
+transform functions on both CPUs. The generator keeps inline bodies for
+the four constructors it could not find in either runtime slice and
+omits those constructors from the stub exports. Apple places the C
+geometry records under its CoreFoundation documentation. The regenerated
+Network umbrella no longer redeclares Security exports.
+
+[CoreGraphics geometry topics](https://developer.apple.com/documentation/coregraphics/cggeometry)
+· [CGAffineTransform components](https://developer.apple.com/documentation/corefoundation/cgaffinetransformcomponents)
+· [Network enum documentation](https://developer.apple.com/documentation/network/nw_interface_type_t)
+· [Opaque C and Objective-C declaration changes](https://github.com/apple-cross-toolchain/apple-sdk-gen/pull/19)
+
+The probes cover the named client calls and record layouts. Network
+enumerators whose values DocC omits remain a source gap, and the other
+CoreGraphics enum values still need independent verification. SDK Gen
+received HTTP 403 for a cross-linked `expm1` DocC page during the crawl.
+SIMD remains deferred.
 
 ### Security source closure
 
