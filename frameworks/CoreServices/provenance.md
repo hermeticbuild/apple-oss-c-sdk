@@ -33,6 +33,14 @@ the versioned LaunchServices image in both slices. Apple's runtime
 CoreServices umbrella reexports that image. The recipe emits that
 observed relationship. Xcode 26.5 is used for comparison only.
 
+For a bulk SDK composition, pass `CORE_SERVICES_TBD` from the pinned SDK
+Gen artifact to preserve its generated linker exports in the umbrella,
+including FSEvents. The recipe normalizes the generated install name to
+the versioned name observed above before merging with LLVM. The prepared
+umbrella header exposes the qualified LaunchServices subset. The
+unmodified generated stub remains an input with its original coverage
+limits.
+
 The other CoreServices subframeworks and the rest of LaunchServices remain
 open, including direct includes of the original `UTCoreTypes.h` and
 `LSOpen.h` headers. The separate CLI diagnostic already verified selected

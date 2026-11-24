@@ -10,6 +10,12 @@ and the Objective-C collection methods. The runtime probe checks range
 layout and by-value returns as well as behavior for the supported classes.
 Other Foundation features require additional declarations and probes.
 
+The Foundation enum, option, and nullability macros delegate to the
+corresponding definitions in the staged Apple OSS CoreFoundation headers.
+The composed SDK probe uses an `NS_ENUM` type and a declaration inside a
+nonnull region on arm64 and x86_64.
+[Apple OSS enum macros](https://github.com/apple-oss-distributions/CF/blob/dc54c6bb1c1e5e0b9486c1d26dd5bef110b20bf3/CFAvailability.h#L195-L215)
+
 - [Apple OSS objc4](https://github.com/apple-oss-distributions/objc4)
 - [LP64 Foundation scalar types](https://developer.apple.com/library/archive/documentation/Darwin/Conceptual/64bitPorting/HighLevelAPIs/HighLevelAPIs.html)
 - [Range fields](https://developer.apple.com/documentation/xcode/reading-an-exception-message)

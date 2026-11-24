@@ -69,6 +69,8 @@ class Plan:
     def __init__(self):
         self.files = {}
         self.directories = set()
+        self.replaced = {}
+        self.generated_paths = defaultdict(set)
 
     def directory(self, path):
         allowed_path(path)
@@ -80,7 +82,22 @@ class Plan:
     def file(self, destination, source, source_root, layer, sha256=None, *, symlink=None):
         allowed_path(destination)
         self.directory(destination.parent)
-        if destination in self.files or destination in self.directories:
+        original = destination
+        if layer == "framework-overlay" and original not in self.files:
+            # DocC can capitalize a C header differently from its source.
+            # Keep the spelling supplied by the replacement recipe.
+            matches = self.generated_paths.get((destination.parent, destination.name.casefold()), ())
+            if len(matches) > 1:
+                raise ValueError(f"ambiguous SDK Gen file spelling: {destination}")
+            if matches:
+                original = next(iter(matches))
+                if original not in self.files:
+                    raise ValueError(f"SDK path collision: {destination}")
+        previous = self.files.get(original)
+        replaces_generated_file = (
+            previous is not None and layer == "framework-overlay" and previous.layer == "sdk-gen-framework"
+        )
+        if destination in self.directories or (previous is not None and not replaces_generated_file):
             raise ValueError(f"SDK path collision: {destination}")
         mode = source.lstat().st_mode
         if not (stat.S_ISREG(mode) or stat.S_ISLNK(mode)):
@@ -96,6 +113,11 @@ class Plan:
             raise ValueError(f"invalid SDK input path or symlink {source}: {err}") from err
         if not resolved.is_relative_to(source_root):
             raise ValueError(f"SDK source symlink escapes selected input: {source}")
+        if replaces_generated_file:
+            del self.files[original]
+            self.replaced[destination] = previous
+        elif layer == "sdk-gen-framework":
+            self.generated_paths[destination.parent, destination.name.casefold()].add(destination)
         self.files[destination] = File(source, source_root, layer, sha256, link)
 
     def tree(self, destination, source, source_root, layer):
@@ -145,12 +167,18 @@ class Plan:
                 if resolved.is_dir():
                     # Framework version aliases must keep pointing within the
                     # selected framework. Header installs list individual files.
-                    if file.layer not in {"sdk-gen-framework", "prepared-framework"} or not target.is_relative_to(
+                    if file.layer not in {"sdk-gen-framework", "prepared-framework", "framework-overlay"} or not target.is_relative_to(
                             FRAMEWORKS / path.parts[len(FRAMEWORKS.parts)]):
                         raise ValueError(f"SDK directory alias escapes its selected framework: {path}")
-                elif (target not in self.files or self.files[target].layer != file.layer or
-                      self.files[target].source.resolve() != source_target):
-                    raise ValueError(f"SDK symlink target differs from selected source: {path}")
+                else:
+                    selected = self.files.get(target)
+                    # A generated alias still points at the same SDK path when
+                    # an explicit overlay replaces its original regular file.
+                    if file.layer == "sdk-gen-framework":
+                        selected = self.replaced.get(target, selected)
+                    if (selected is None or selected.layer != file.layer or
+                            selected.source.resolve() != source_target):
+                        raise ValueError(f"SDK symlink target differs from selected source: {path}")
                 if path.suffix == ".tbd" and (not resolved.is_file() or target.suffix != ".tbd"):
                     raise ValueError(f"TBD alias does not resolve to a selected TBD: {path}")
             if file.sha256 is not None:
@@ -200,16 +228,42 @@ def sdk_settings(sdk, receipts):
     receipts[path.name] = {"layer": "sdk-settings", "source": "c-install:macosx26.5", "sha256": digest(path)}
 
 
-def framework(plan, sdk_gen, name, *, prepared=None):
+def framework(plan, sdk_gen, name, *, prepared=None, overlay=None):
     if not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.+-]*", name):
         raise ValueError(f"invalid SDK Gen framework name: {name}")
     relative = FRAMEWORKS / f"{name}.framework"
-    source = prepared if prepared is not None else sdk_gen / relative
+    source = overlay or prepared or sdk_gen / relative
     if (source.name != relative.name or source.is_symlink() or not source.is_dir()
-            or (prepared is None and not source.resolve().is_relative_to(sdk_gen))):
+            or (prepared is None and overlay is None and not source.resolve().is_relative_to(sdk_gen))):
         raise ValueError(f"missing or escaped framework: {relative}")
     source = source.resolve()
-    plan.tree(relative, source, source, "prepared-framework" if prepared is not None else "sdk-gen-framework")
+    layer = "framework-overlay" if overlay else "prepared-framework" if prepared else "sdk-gen-framework"
+    plan.tree(relative, source, source, layer)
+
+
+def frameworks(plan, sdk_gen, args):
+    names = set(args.framework)
+    prepared = dict(args.prepared_framework)
+    overlays = dict(args.framework_overlay)
+    if len(prepared) != len(args.prepared_framework) or len(overlays) != len(args.framework_overlay):
+        raise ValueError("multiple prepared bundles or overlays for a framework")
+    if names & prepared.keys():
+        raise ValueError("a framework cannot be selected and supplied as a prepared bundle")
+    if args.all_frameworks:
+        root = sdk_gen / FRAMEWORKS
+        if not root.is_dir():
+            raise ValueError(f"missing SDK Gen framework directory: {root}")
+        names.update(path.stem for path in root.glob("*.framework") if path.is_dir())
+        names.difference_update(prepared)
+    if overlays.keys() - names:
+        raise ValueError("framework overlays require a selected SDK Gen base bundle: " +
+                         ", ".join(sorted(overlays.keys() - names)))
+    for name in sorted(names):
+        framework(plan, sdk_gen, name)
+    for name, source in sorted(prepared.items()):
+        framework(plan, sdk_gen, name, prepared=Path(source))
+    for name, source in sorted(overlays.items()):
+        framework(plan, sdk_gen, name, overlay=Path(source))
 
 
 def external_stub(plan, spec):
@@ -272,7 +326,7 @@ def consumer_assets(files):
     groups = defaultdict(list)
     for path, receipt in sorted(files.items()):
         layer = receipt["layer"]
-        if layer in ("sdk-gen-framework", "prepared-framework"):
+        if layer in ("sdk-gen-framework", "prepared-framework", "framework-overlay"):
             group = Path(path).parts[len(FRAMEWORKS.parts)]
         elif layer in ("sdk-gen-libsystem", "external-stub"):
             group = layer
@@ -310,13 +364,11 @@ def compose(args):
         raise ValueError("composition requires the pinned macosx26.5 C installation")
     sdk_gen = args.sdk_gen.resolve()
     sdk_gen_libsystem(plan, sdk_gen)
+    framework_sdk = args.framework_sdk_gen.resolve() if args.framework_sdk_gen else sdk_gen
     objc4_revision = None
     if args.objc4_install:
         objc4_revision = objc4_headers(plan, args.objc4_install.resolve(), "macosx26.5")
-    for name in args.framework:
-        framework(plan, sdk_gen, name)
-    for name, source in args.prepared_framework:
-        framework(plan, None, name, prepared=Path(source))
+    frameworks(plan, framework_sdk, args)
     for spec in args.external_stub:
         external_stub(plan, spec)
 
@@ -334,6 +386,10 @@ def compose(args):
         }
         if objc4_revision:
             composition["objc4_revision"] = objc4_revision
+        if args.framework_sdk_gen:
+            composition["framework_sdk_gen"] = read_json(
+                (framework_sdk / "SDKSettings.json").read_bytes()
+            )["CanonicalName"]
         if args.verify_consumer_inputs:
             verify_consumer_inputs(composition)
         manifest = sdk / "composition.json"
@@ -353,8 +409,14 @@ def main():
     parser.add_argument("--verify-consumer-inputs", action="store_true",
                         help="require the assets from the qualified macOS 26.5 consumer archive")
     parser.add_argument("--framework", action="append", default=[], help="public SDK Gen framework name")
+    parser.add_argument("--all-frameworks", action="store_true",
+                        help="select every SDK Gen System/Library/Frameworks bundle")
+    parser.add_argument("--framework-sdk-gen", type=Path,
+                        help="SDK Gen framework input, separately from the libSystem input")
     parser.add_argument("--prepared-framework", nargs=2, action="append", default=[], metavar=("NAME", "DIRECTORY"),
-                        help="select a previously qualified framework layer and record its files separately")
+                        help="supply an entire prepared framework bundle")
+    parser.add_argument("--framework-overlay", nargs=2, action="append", default=[], metavar=("NAME", "DIRECTORY"),
+                        help="add or replace explicit files in a selected SDK Gen framework")
     parser.add_argument("--external-stub", action="append", default=[], metavar="DESTINATION=SOURCE",
                         help="select one .tbd or relative alias at a path below usr/lib")
     args = parser.parse_args()

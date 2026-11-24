@@ -5,9 +5,12 @@ prepare-Security:
 	$(call prepare-source,Security,$(SECURITY_COMMIT))
 
 Security: require-stage
-	mkdir -p "$(STAGE)/Security.framework/Headers"
-	git -C "$(SOURCE_ROOT)/Security" show "$(SECURITY_COMMIT):OSX/libsecurity_authorization/lib/Authorization.h" \
-		> "$(STAGE)/Security.framework/Headers/Authorization.h"
+	@set -eu; \
+		headers="$(STAGE)/Security.framework/Headers"; \
+		mkdir -p "$$headers"; \
+		while IFS= read -r source; do \
+			git -C "$(SOURCE_ROOT)/Security" show "$(SECURITY_COMMIT):$$source" > "$$headers/$${source##*/}"; \
+		done < Security/headers.list
 
 test-Security:
 	$(call test-framework-headers,Security)

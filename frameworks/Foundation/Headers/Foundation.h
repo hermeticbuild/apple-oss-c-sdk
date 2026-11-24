@@ -3,6 +3,19 @@
 #include <CoreFoundation/CFBase.h>
 #include <objc/objc.h>
 
+#ifndef NS_ENUM
+#define NS_ENUM(...) CF_ENUM(__VA_ARGS__)
+#endif
+#ifndef NS_OPTIONS
+#define NS_OPTIONS(type, name) CF_OPTIONS(type, name)
+#endif
+#ifndef NS_ASSUME_NONNULL_BEGIN
+#define NS_ASSUME_NONNULL_BEGIN CF_ASSUME_NONNULL_BEGIN
+#endif
+#ifndef NS_ASSUME_NONNULL_END
+#define NS_ASSUME_NONNULL_END CF_ASSUME_NONNULL_END
+#endif
+
 /* The trial targets macOS LP64. The ranges follow Apple's documented
  * NSUInteger location/length contract and are validated by value. */
 typedef long NSInteger;

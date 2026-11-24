@@ -22,6 +22,13 @@ API used by newer clients from pinned Swift Corelibs Foundation. The patch
 adds `CFErrorDomain`, the assume-nonnull macros, and one-argument `CF_ENUM`.
 Its source and license are recorded with the patch.
 
+[modern-framework-macros.patch](modern-framework-macros.patch) uses the
+same Swift Corelibs Foundation source for public availability and Swift
+importer macros required by Apple's Security headers. The macOS branch
+accepts underscore-version attributes on Clang versions that support
+them, including deprecation messages. It also declares the closed enum
+used by Secure Transport with Clang's enum extensibility attribute.
+
 Clang InstallAPI reads the staged public headers and
 [installapi.h](installapi.h), which declares the compiler's 64-bit
 `CFSTR` reference from Apple's pinned `CFRuntime.c`. The two-architecture

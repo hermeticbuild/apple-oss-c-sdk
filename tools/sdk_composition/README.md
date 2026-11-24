@@ -41,6 +41,48 @@ Use `--framework NAME` to take a framework from SDK Gen. Use
 The composer rejects a framework or stub that shadows an SDK Gen libSystem
 provider.
 
+## Expanded framework trial
+
+Use `--all-frameworks` to import every SDK Gen framework under
+`System/Library/Frameworks`. Set `--framework-sdk-gen` when the framework
+archive and the qualified libSystem archive come from separate releases.
+Use `--prepared-framework` for an entire bundle and
+`--framework-overlay NAME DIRECTORY` for recipe files that add to or
+replace paths in a generated bundle. All three origins appear in
+`composition.json`. If a generated filename differs only in capitalization,
+the overlay supplies the spelling from the source recipe.
+
+Set `SDK_GEN_FRAMEWORKS` to the framework input and keep the C, Objective-C,
+libSystem, and standalone stub inputs from the consumer archive. Stage
+the default recipes, Cocoa, and ApplicationServices. Pass the generated
+CoreServices stub to its recipe to preserve its linker exports.
+
+```bash
+make -C frameworks prepare
+make -C frameworks install CLANG="$LLVM/bin/clang" C_INSTALL="$C_INSTALL" \
+  OBJC4_INSTALL="$OBJC4_INSTALL" FOUNDATION_TBD="$FOUNDATION_TBD" \
+  SDK_GEN_SOURCE="$SDK_GEN_SOURCE" OUT="$FRAMEWORKS" \
+  CORE_SERVICES_TBD="$SDK_GEN_FRAMEWORKS/System/Library/Frameworks/CoreServices.framework/CoreServices.tbd" \
+  FRAMEWORKS="CoreFoundation AudioToolbox AudioUnit CoreAudio CoreAudioTypes CoreMIDI IOKit OpenAL Security SystemConfiguration Cocoa CoreServices ApplicationServices"
+
+frameworks=()
+for bundle in "$FRAMEWORKS"/*.framework; do
+  name=$(basename "$bundle" .framework)
+  case "$name" in
+    CoreServices|Security) frameworks+=(--framework-overlay "$name" "$bundle");;
+    *) frameworks+=(--prepared-framework "$name" "$bundle");;
+  esac
+done
+
+python3 -m tools.sdk_composition.compose_sdk \
+  --c-install "$C_INSTALL" --objc4-install "$OBJC4_INSTALL" \
+  --sdk-gen "$SDK_GEN" --framework-sdk-gen "$SDK_GEN_FRAMEWORKS" \
+  --all-frameworks --llvm "$LLVM" "${frameworks[@]}" "${stubs[@]}" --out "$NEW_SDK"
+```
+
+Run the [composed SDK probes](../../tests/README.md) on the expanded tree.
+The digest check below applies to the original qualified asset selection.
+
 ## Consumer archive
 
 The SDK used by Stage 1 and both consumer suites requires these prepared
@@ -65,12 +107,10 @@ selected framework and both stub groups before publishing. C and Objective-C
 headers are checked through their own source locks and manifests. The
 [qualification evidence](../../.agents/skills/review-macos-c-sdk/composition-gaps.md)
 records the source revisions and corrections behind the prepared assets.
+Use the retained qualified recipe outputs for that exact asset check.
 
 ```bash
-FRAMEWORKS="$PWD/build/frameworks"
 RESOLVER="$PWD/build/resolver"
-make -C frameworks prepare
-make -C frameworks install CLANG="$LLVM/bin/clang" C_INSTALL="$C_INSTALL" OUT="$FRAMEWORKS"
 make -f recipes/libresolv/stubs.mk CLANG="$LLVM/bin/clang" C_INSTALL="$C_INSTALL" OUT="$RESOLVER"
 
 frameworks=()

@@ -2,9 +2,11 @@
 
 These recipes build the framework layers for the macOS 26.5 composition.
 Each recipe lists its source and stages one `.framework` directory. The
-Security layer supplies the authorization header used by SystemConfiguration.
-The original consumer composition takes Foundation directly from SDK Gen.
-The Objective-C trial uses the profiles below.
+Security layer supplies Apple's public umbrella and its include closure,
+including the authorization header used by SystemConfiguration. The
+expanded composition retains SDK Gen's Security stub. The original consumer
+composition takes Foundation directly from SDK Gen. The Objective-C trial
+uses the profiles below.
 
 From the repository root, set `C_INSTALL` to the generated C tree and
 `LLVM` to the pinned LLVM projection containing `bin/clang` and
@@ -25,9 +27,8 @@ for example. SystemConfiguration also stages CoreFoundation and Security.
 The recipes use Make, shell, Git, and standard tools. They take no
 official SDK path. Each framework's `provenance.md` identifies its inputs,
 the scope of the repair, and the available source evidence. The
-[composition instructions](../tools/sdk_composition/README.md#consumer-archive)
-use the resulting directories and check their digests against the
-qualified archive.
+[composition instructions](../tools/sdk_composition/README.md#expanded-framework-trial)
+use the resulting directories as prepared bundles or overlays.
 
 ```sh
 make -C frameworks test CLANG="$LLVM/bin/clang" SDK="$NEW_SDK"

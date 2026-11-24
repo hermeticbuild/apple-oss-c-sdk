@@ -176,6 +176,54 @@ install-name: '{PARENT}'
         files = json.loads((self.out / "composition.json").read_text())["files"]
         self.assertEqual(files[f"{FRAMEWORK}/Headers/Example.h"]["layer"], "prepared-framework")
 
+    def test_all_frameworks_preserve_generated_files_and_allow_explicit_overrides(self):
+        frameworks = self.work / "preview"
+        live = frameworks / FRAMEWORK
+        write(frameworks / "SDKSettings.json", '{"CanonicalName":"macosx26.5"}')
+        write(live / "Versions/A/Headers/Example.h", "original")
+        write(live / "Versions/A/Headers/CASE.h", "generated capitalization")
+        (live / "Headers").symlink_to("Versions/A/Headers")
+        (live / "Example.h").symlink_to("Headers/Example.h")
+        install_name = "/System/Library/Frameworks/Example.framework/Example"
+        write(live / "Example.tbd", tbd(install_name))
+        other = "System/Library/Frameworks/Other.framework"
+        write(frameworks / other / "generated.h", "generated")
+        write(frameworks / "System/Library/PrivateFrameworks/Hidden.framework/hidden.h", "hidden")
+        write(frameworks / "usr/include/sdk.h", "not a framework")
+        prepared = self.work / "recipes/Other.framework"
+        write(prepared / "prepared.h", "prepared")
+        overlay = self.work / "recipes/Example.framework"
+        write(overlay / "Versions/A/Headers/Example.h", "local fix")
+        write(overlay / "Versions/A/Headers/Extra.h", "new header")
+        write(overlay / "Versions/A/Headers/case.h", "source capitalization")
+
+        result = self.compose("--all-frameworks", "--framework-sdk-gen", frameworks,
+                              "--prepared-framework", "Other", prepared,
+                              "--framework-overlay", "Example", overlay)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual((self.out / FRAMEWORK / "Example.h").read_text(), "local fix")
+        self.assertEqual((self.out / FRAMEWORK / "Headers/Extra.h").read_text(), "new header")
+        self.assertEqual((self.out / FRAMEWORK / "Headers/case.h").read_text(), "source capitalization")
+        self.assertNotIn("CASE.h", {path.name for path in (self.out / FRAMEWORK / "Headers").iterdir()})
+        self.assertTrue((self.out / other / "prepared.h").is_file())
+        self.assertFalse((self.out / other / "generated.h").exists())
+        self.assertFalse((self.out / "System/Library/PrivateFrameworks").exists())
+        self.assertFalse((self.out / "usr/include/sdk.h").exists())
+
+        manifest = json.loads((self.out / "composition.json").read_text())
+        self.assertEqual(manifest["sdk_gen"], "macosx27.0")
+        self.assertEqual(manifest["framework_sdk_gen"], "macosx26.5")
+        self.assertEqual(manifest["files"][f"{FRAMEWORK}/Example.tbd"]["layer"], "sdk-gen-framework")
+        self.assertEqual(manifest["files"][f"{FRAMEWORK}/Versions/A/Headers/Example.h"]["layer"],
+                         "framework-overlay")
+        self.assertEqual(manifest["providers"][install_name], [f"{FRAMEWORK}/Example.tbd"])
+
+    def test_overlay_requires_a_selected_generated_bundle(self):
+        write(self.framework / "Headers/Example.h", "replacement")
+        result = self.compose("--framework-overlay", "Example", self.framework)
+        self.assertIn("framework overlays require a selected SDK Gen base bundle: Example", result.stderr)
+        self.assertFalse(self.out.exists())
+
     def test_selected_assets_and_relative_framework_aliases(self):
         write(self.framework / "Versions/A/Headers/Example.h", "#define EXAMPLE 1\n")
         example = "/System/Library/Frameworks/Example.framework/Versions/A/Example"
