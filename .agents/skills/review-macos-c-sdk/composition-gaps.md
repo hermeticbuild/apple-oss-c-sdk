@@ -148,11 +148,15 @@ types. The checked-in probe also compares sizes, alignments and record
 member offsets. Objective-C++ inclusion and Objective-C `@import simd`
 both pass. [SIMD ABI fixture](../../../tests/composed_sdk/simd-abi.c)
 
-The generated Model I/O umbrella gets through the includes and fails
-when it defines subclasses before `MDLAnimatedValue`, `MDLObject` and
-other superclasses. The Foundation overlay's `NSMutableArray` also
-lacks the type parameter used by Model I/O. The full Model I/O probe
-remains open at those Objective-C declarations.
+SDK Gen now emits a class after its same-framework superclass, using
+the superclass from the rendered Objective-C declaration. The Foundation
+recipe carries a [patch for the voice overlay](../../../frameworks/Foundation/voice-array-generics.patch)
+that preserves the element parameter of `NSMutableArray`. Regenerating
+Model I/O from 962 cached DocC symbols and composing both changes passes
+the arm64 Objective-C import, link and runtime test. Objective-C++
+textual and module imports both reach the CoreGraphics `_Bool` callbacks
+and five uninitialized constants below. Those errors also affect the
+OpenCV AVFoundation client.
 
 [Clang extended vectors](https://clang.llvm.org/docs/LanguageExtensions.html#vectors-and-extended-vectors)
 · [Apple SIMD documentation](https://developer.apple.com/documentation/simd)

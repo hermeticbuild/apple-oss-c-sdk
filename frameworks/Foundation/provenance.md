@@ -45,4 +45,12 @@ compiles, links and runs with it.
 ```sh
 patch -s -f -F 0 -V none -p1 -d "$VOICE_FOUNDATION_FRAMEWORK" \
   < frameworks/Foundation/voice-modulemap.patch
+patch -s -f -F 0 -V none -p1 -d "$VOICE_FOUNDATION_FRAMEWORK" \
+  < frameworks/Foundation/voice-array-generics.patch
 ```
+
+The second patch gives the voice layer's mutable array an invariant
+element parameter and passes that parameter to its `NSArray` superclass.
+The composed `test-modelio` probe checks the type of
+`mesh.submeshes.firstObject` through both classes.
+[Apple's MDLMesh property declaration](https://developer.apple.com/documentation/modelio/mdlmesh/submeshes?language=objc)
