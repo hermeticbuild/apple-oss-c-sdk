@@ -126,6 +126,30 @@ is a generated import of `ObjectiveC/ObjectiveC.h`. The same umbrella
 also requests `kernel/kernel.h` and `simd/simd.h`. Check the origin of
 the Objective-C and kernel imports before extending the SIMD scope.
 
+### Match Darwin stubs to the 26.5 source lock
+
+[SDK Gen PR #20](https://github.com/apple-cross-toolchain/apple-sdk-gen/pull/20)
+requires versioned Darwin metadata for 26.5 and preserves the supplied
+export and reexport target groups. The bundled 27.0 stubs are byte
+identical to the prior generator on every configured platform.
+
+On arm64 and x86_64, strict links to `pipe2` and `dup3` succeed against
+the previously bundled data and fail with the matching undefined-symbol
+diagnostic against both Xcode 26.5 and the local regenerated stubs. A
+`pipe` client links and runs on both CPUs. Neither newer name appears
+in the locked XNU syscall definitions or userspace syscall sources.
+
+The two local SDK Gen invocations used a 26.5 inventory from Xcode as a
+comparison input. That file stays local. A distributable same-version
+composition still needs a reviewed Darwin inventory and a macOS-only
+framework preview from the DocC cache at 26.5. Use the C and objc4
+source locks for headers. The earlier standalone libSystem recipes
+survive in the local archive. Their final component lock and tested
+outputs were in scratch and are unavailable at the recorded paths.
+Port or reconstruct the needed source-backed evidence before pinning
+the new SDK Gen input. Then replay the voice native prefix and runtime
+on both CPUs.
+
 ### Security source closure
 
 Apple's pinned 26.5 Security source supplies the umbrella and its
