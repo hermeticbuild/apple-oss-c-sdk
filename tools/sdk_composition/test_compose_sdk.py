@@ -97,6 +97,44 @@ class ComposeTests(unittest.TestCase):
         self.assertIn("Version='27.0'", result.stderr)
         self.assertFalse(self.out.exists())
 
+    def cxx_fixture(self):
+        for filename in ("__config_site", "module.modulemap", "cxxabi.h", "__cxxabi_config.h", "vector"):
+            write(self.gen / "usr/include/c++/v1" / filename, "// LLVM C++ fixture\n")
+        for project in ("libcxx", "libcxxabi"):
+            write(self.gen / "usr/share/licenses" / project / "LICENSE.TXT", "LLVM license fixture\n")
+
+    def test_includes_only_the_selected_cxx_headers_and_licenses(self):
+        self.cxx_fixture()
+        write(self.gen / "usr/include/c++/unselected.h", "// outside v1\n")
+        write(self.gen / "usr/include/other.h", "// outside the C++ layer\n")
+        write(self.gen / "usr/lib/libc++.a", "!<arch>\n")
+        result = self.compose("--include-cxx")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        manifest = json.loads((self.out / "composition.json").read_text())
+        files = manifest["files"]
+        self.assertEqual(files["usr/include/c++/v1/vector"]["layer"], "sdk-gen-cxx")
+        self.assertIn("usr/include/c++/v1/cxxabi.h", files)
+        for project in ("libcxx", "libcxxabi"):
+            self.assertIn(f"usr/share/licenses/{project}/LICENSE.TXT", files)
+        for path in ("usr/include/c++/unselected.h", "usr/include/other.h", "usr/lib/libc++.a"):
+            self.assertFalse((self.out / path).exists(), path)
+
+    def test_rejects_an_incomplete_cxx_installation(self):
+        self.cxx_fixture()
+        (self.gen / "usr/include/c++/v1/cxxabi.h").unlink()
+        result = self.compose("--include-cxx")
+        self.assertIn("SDK Gen C++ installation is missing usr/include/c++/v1/cxxabi.h", result.stderr)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(self.out.exists())
+
+    def test_rejects_an_archive_in_the_cxx_installation(self):
+        self.cxx_fixture()
+        write(self.gen / "usr/include/c++/v1/archive", "!<arch>\n")
+        result = self.compose("--include-cxx")
+        self.assertIn("binary or archive in SDK input: usr/include/c++/v1/archive", result.stderr)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(self.out.exists())
+
     @unittest.skipUnless(os.getenv("LIBSYSTEM_TEST_LLVM"), "requires the official llvm-readtapi")
     def test_sdk_gen_umbrella_is_preserved(self):
         write(self.gen / "usr/include/unselected.h", "#error reference C header\n")

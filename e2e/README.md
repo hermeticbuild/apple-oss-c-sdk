@@ -1,7 +1,7 @@
 # macOS SDK integration tests
 
-Build the [composed SDK](../tools/sdk_composition/README.md) and run
-`make sdk-archive` at the repository root. Bazel reads
+Build the [composed SDK](../tools/sdk_composition/README.md) with
+`--include-cxx` and run `make sdk-archive` at the repository root. Bazel reads
 `build/sdk/MacOSX.sdk.tar.zst` directly. Bazel watches the archive file and
 refreshes the SDK repository when it changes.
 
@@ -18,7 +18,7 @@ It builds a macOS Clang with the seed compiler.
   bazel --bazelrc=../remote.bazelrc build --config=remote -c opt \
     --platforms=@llvm//platforms:macos_arm64 \
     --@llvm//toolchain:bootstrap_stage=stage1_from_source \
-    --@llvm//config:macos_libcxx_headers=llvm @llvm//tools:clang
+    --@llvm//config:macos_libcxx_headers=sdk @llvm//tools:clang
 )
 ```
 
@@ -51,7 +51,7 @@ curl from the registry. Run both tests locally on Apple Silicon.
   cd e2e/bcr
   export USE_BAZEL_VERSION=9.3.2
   bazel --nohome_rc test --platforms=@llvm//platforms:macos_arm64 \
-    --@llvm//config:macos_libcxx_headers=llvm \
+    --@llvm//config:macos_libcxx_headers=sdk \
     --@curl//:ssl_lib=mbedtls //:framework_consumers
 )
 ```

@@ -21,7 +21,7 @@ From the SDK repository root, with the composed archive available:
     --lockfile_mode=off --symlink_prefix=/ --nocache_test_results --test_env=LC_ALL=C \
     --repo_env=BAZEL_MACOS_USE_HOST_SDK=0 \
     --extra_execution_platforms=@platforms//host \
-    --@llvm//config:macos_libcxx_headers=llvm \
+    --@llvm//config:macos_libcxx_headers=sdk \
     "--override_repository=llvm++osx+macos_sdk=$sdk"
 )
 ```

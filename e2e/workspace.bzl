@@ -63,7 +63,7 @@ def consumer_test(name, bazel_binaries, bazel_version, workspace, sdk_path, args
             "--local_test_jobs=2",
             "--repo_env=BAZEL_MACOS_USE_HOST_SDK=0",
             "--extra_execution_platforms=@platforms//host",
-            "--@llvm//config:macos_libcxx_headers=llvm",
+            "--@llvm//config:macos_libcxx_headers=sdk",
             "--override_repository=llvm++osx+macos_sdk=" + sdk_path,
         ] + args)],
     )

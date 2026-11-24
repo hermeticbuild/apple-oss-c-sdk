@@ -29,6 +29,9 @@ SYSTEM_INSTALL_NAME = "/usr/lib/libSystem.B.dylib"
 # https://github.com/apple-oss-distributions/Libsystem/blob/c23b51183e46e613375dc7639fb4bf11fbf59ba8/xcodescripts/create_dylib_symlinks.sh#L14-L31
 SYSTEM_COMPAT_NAMES = ("c", "dbm", "dl", "gcc_s.1", "info", "m", "poll", "proc", "pthread", "rpcsvc")
 FRAMEWORKS = Path("System/Library/Frameworks")
+CXX_HEADERS = Path("usr/include/c++/v1")
+CXX_LICENSES = tuple(Path("usr/share/licenses") / name / "LICENSE.TXT"
+                     for name in ("libcxx", "libcxxabi"))
 SDK_VERSION = "26.5"
 SDK_NAME = "macosx" + SDK_VERSION
 CONSUMER_PROFILE = Path(__file__).with_name("consumer-26.5.json")
@@ -53,8 +56,10 @@ def relative_path(value):
     return path
 
 
-def allowed_path(path):
-    if path.is_relative_to("usr/include/c++") or path.suffix in {".a", ".dylib"}:
+def allowed_path(path, layer):
+    cxx_path = path == CXX_HEADERS.parent or path.is_relative_to(CXX_HEADERS)
+    if ((path.is_relative_to(CXX_HEADERS.parent) and (not cxx_path or layer != "sdk-gen-cxx"))
+            or path.suffix in {".a", ".dylib"}):
         raise ValueError(f"toolchain or binary asset cannot enter the composed SDK: {path}")
 
 
@@ -74,16 +79,16 @@ class Plan:
         self.replaced = {}
         self.generated_paths = defaultdict(set)
 
-    def directory(self, path):
-        allowed_path(path)
+    def directory(self, path, layer):
+        allowed_path(path, layer)
         for destination in (path, *path.parents):
             if destination in self.files:
                 raise ValueError(f"SDK path collision: {destination}")
             self.directories.add(destination)
 
     def file(self, destination, source, source_root, layer, sha256=None, *, symlink=None):
-        allowed_path(destination)
-        self.directory(destination.parent)
+        allowed_path(destination, layer)
+        self.directory(destination.parent, layer)
         original = destination
         if layer == "framework-overlay" and original not in self.files:
             # DocC can capitalize a C header differently from its source.
@@ -123,7 +128,7 @@ class Plan:
         self.files[destination] = File(source, source_root, layer, sha256, link)
 
     def tree(self, destination, source, source_root, layer):
-        self.directory(destination)
+        self.directory(destination, layer)
         for path in sorted(source.iterdir()):
             out = destination / path.name
             if path.is_dir() and not path.is_symlink():
@@ -214,6 +219,17 @@ def objc4_headers(plan, root):
         if source.is_symlink() or not source.is_file() or source.resolve() != source:
             raise ValueError(f"objc4 public header must be a regular staged file: {source}")
         plan.file(path, source, root, "objc4-public-headers", record["sha256"])
+
+
+def sdk_gen_cxx_headers(plan, root):
+    headers = root / CXX_HEADERS
+    for name in ("__config_site", "module.modulemap", "cxxabi.h", "__cxxabi_config.h"):
+        if not (headers / name).is_file():
+            raise ValueError(f"SDK Gen C++ installation is missing {CXX_HEADERS / name}")
+    plan.tree(CXX_HEADERS, headers, root, "sdk-gen-cxx")
+    for path in CXX_LICENSES:
+        plan.file(path, root / path, root, "sdk-gen-cxx")
+
 
 def sdk_settings(sdk, receipts):
     settings = {"CanonicalName": SDK_NAME, "Version": SDK_VERSION, "MaximumDeploymentTarget": SDK_VERSION,
@@ -324,7 +340,7 @@ def consumer_assets(files):
         layer = receipt["layer"]
         if layer in ("sdk-gen-framework", "prepared-framework", "framework-overlay"):
             group = Path(path).parts[len(FRAMEWORKS.parts)]
-        elif layer in ("sdk-gen-libsystem", "external-stub"):
+        elif layer in ("sdk-gen-libsystem", "sdk-gen-cxx", "external-stub"):
             group = layer
         else:
             continue
@@ -389,6 +405,8 @@ def compose(args):
     sdk_gen_libsystem(plan, sdk_gen)
     if objc_root:
         objc4_headers(plan, objc_root)
+    if args.include_cxx:
+        sdk_gen_cxx_headers(plan, sdk_gen)
     frameworks(plan, framework_sdk, args)
     for spec in args.external_stub:
         external_stub(plan, spec)
@@ -425,6 +443,8 @@ def main():
         parser.add_argument(f"--{name}", required=True, type=Path)
     parser.add_argument("--objc4-install", type=Path,
                         help="separate Objective-C runtime headers from make install-objc4")
+    parser.add_argument("--include-cxx", action="store_true",
+                        help="include the LLVM C++ and ABI headers supplied by --sdk-gen")
     parser.add_argument("--verify-consumer-inputs", action="store_true",
                         help="require the assets from the qualified macOS 26.5 consumer archive")
     parser.add_argument("--framework", action="append", default=[], help="public SDK Gen framework name")

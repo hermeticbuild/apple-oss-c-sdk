@@ -3,8 +3,10 @@
 The composer combines a source-locked macOS 26.5 C installation, pinned
 `objc4` headers, and named Apple SDK Gen assets. It copies the SDK Gen
 libSystem TBD unchanged and records the source SDK name separately from the
-generated SDK settings. Hermetic-llvm supplies the C++ headers; only the
-dylib link stubs enter the SDK.
+generated SDK settings. Pass `--include-cxx` to include the fork’s LLVM
+libc++ and libc++abi headers and license files. Set up the linker inputs
+from the same SDK Gen tree. The C++ programs link against the macOS
+system dylibs.
 
 The composer restores the macOS compatibility names from Apple's Libsystem
 install rule as links to the unchanged SDK Gen umbrella. This lets
@@ -41,6 +43,16 @@ Use `--framework NAME` to take a framework from SDK Gen. Use
 `--prepared-framework NAME DIRECTORY` to take a specific prepared framework.
 The composer rejects a framework or stub that shadows an SDK Gen libSystem
 provider.
+
+## Bundle the LLVM C++ headers
+
+Generate the macOS 26.5 SDK Gen input with its `--include-cxx` flag.
+It uses LLVM 21.1.6 and the upstream Apple libc++ CMake preset. Then pass
+`--include-cxx` to the composer. It selects `usr/include/c++/v1` and the
+two LLVM license files, and records them under `sdk-gen-cxx` in the manifest.
+Use `--@llvm//config:macos_libcxx_headers=sdk` in the consumer workspace
+to exercise this layer. The historical consumer archive was qualified
+with headers supplied by hermetic-llvm.
 
 ## Expanded framework trial
 
