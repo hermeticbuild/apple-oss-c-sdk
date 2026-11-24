@@ -101,7 +101,7 @@ endef
 
 test-framework-link = $(call test-sdk-link,$(1)/test.c,-framework "$(1)" $(2))
 test-objc-modules = $(call test-sdk-link,$(1)/test.m,-fobjc-arc -framework "$(1)" -lobjc -lc++ -lc++abi,\
-	-x objective-c++ -std=c++17 -fmodules -fcxx-modules -fmodules-cache-path="$$work/modules")
+	-x objective-c++ -std=$(or $(2),c++17) -fmodules -fcxx-modules -fmodules-cache-path="$$work/modules")
 
 # Treat an unsafe-dylib diagnostic as a failed link probe.
 application-extension-link = -fapplication-extension -Wl,-fatal_warnings

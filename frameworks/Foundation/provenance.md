@@ -33,3 +33,16 @@ the versioned paths the linker resolves. Xcode 26.5 is a validation reference.
 ```sh
 dyld_info -dependents /System/Library/Frameworks/Foundation.framework/Versions/C/Foundation
 ```
+
+The local voice Foundation layer includes `VoiceFoundation.h` from its
+umbrella. Apply [voice-modulemap.patch](voice-modulemap.patch) to that
+prepared bundle before composition. The textual entry follows the existing
+`NSPathUtilities.h` entry. It gives the voice declarations access to types
+defined in the umbrella. The C++20 `test-Foundation-modules` target
+reproduces the missing `NSUInteger` diagnostic without the patch and
+compiles, links and runs with it.
+
+```sh
+patch -s -f -F 0 -V none -p1 -d "$VOICE_FOUNDATION_FRAMEWORK" \
+  < frameworks/Foundation/voice-modulemap.patch
+```

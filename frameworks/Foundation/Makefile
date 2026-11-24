@@ -15,4 +15,4 @@ test-Foundation:
 	$(call test-sdk-link,Foundation/test.m,-fobjc-arc -framework Foundation -lobjc)
 
 test-Foundation-modules:
-	$(call test-objc-modules,Foundation)
+	$(call test-objc-modules,Foundation,c++20)
