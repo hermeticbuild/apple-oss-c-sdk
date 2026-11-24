@@ -153,10 +153,9 @@ the superclass from the rendered Objective-C declaration. The Foundation
 recipe carries a [patch for the voice overlay](../../../frameworks/Foundation/voice-array-generics.patch)
 that preserves the element parameter of `NSMutableArray`. Regenerating
 Model I/O from 962 cached DocC symbols and composing both changes passes
-the arm64 Objective-C import, link and runtime test. Objective-C++
-textual and module imports both reach the CoreGraphics `_Bool` callbacks
-and five uninitialized constants below. Those errors also affect the
-OpenCV AVFoundation client.
+the arm64 Objective-C import, link and runtime test. After regenerating
+CoreGraphics with the fixes below, the arm64 Objective-C++ module probe
+also compiles, links and runs.
 
 [Clang extended vectors](https://clang.llvm.org/docs/LanguageExtensions.html#vectors-and-extended-vectors)
 · [Apple SIMD documentation](https://developer.apple.com/documentation/simd)
@@ -168,13 +167,26 @@ OpenCV AVFoundation client.
 A standalone reproducer is available as `socat-opencv-sdk-repro.tar.gz`
 for the wheel workspace's
 `opencv//:ocv.3rdparty.avfoundation` and
-`opencv//:ocv.3rdparty.cocoa` targets. The reported SDK archive hash
-starts with `fac8077b1a22`. In that run, AVFoundation reaches generated
-CoreGraphics declarations that use `_Bool` and uninitialized constants
-in Objective-C++. A Metal import also spells Dispatch with the wrong
-case. The Cocoa failure names `NSMutableDictionary`, `NSImage` and
-`NSSlider`. Replay both targets against the reported archive before
-changing the composition.
+`opencv//:ocv.3rdparty.cocoa` targets. Bazel 9.3.3 on Linux x86_64
+reproduced both failures for the exact `fac8077b1a22…` archive, targeting
+arm64 macOS. AVFoundation reached CoreGraphics callbacks with `_Bool`
+and five uninitialized constants. The old Metal header imported
+`Dispatch/Dispatch.h`. Cocoa hit missing Foundation and AppKit APIs
+including `NSMutableDictionary`, `NSImage` and `NSSlider`.
+
+SDK Gen now renders the callback type with `bool`, keeps
+`CGBitmapInfo` as a `uint32_t` bitmask, initializes the five constants,
+and leaves static declarations out of the stub. Pinned Clang emitted
+the same 17 bitmap and glyph constant values as Xcode 26.5. The CoreGraphics
+stub lost six false exports, all absent from the reference stub.
+[CoreGraphics provenance](../../../frameworks/CoreGraphics/provenance.md)
+
+The second Bazel run used a diagnostic copy of the exact archive with
+the regenerated CoreGraphics header and lower-case dispatch imports,
+matching the current generator's import spelling. The AVFoundation
+compile cleared both errors and stopped when Metal pulled in DriverKit,
+whose generated header imports the nonexistent `kernel/kernel.h`.
+The Cocoa errors remain. Neither backend passed this run.
 
 After SIMD, qualify the required AVFoundation and Cocoa declarations
 and link stubs on arm64, then rebuild both real targets and the wheel.
