@@ -332,3 +332,51 @@ over HTTPS. The integration wrapper and user Git config stayed untouched.
 [Apple OSS Security umbrella](https://github.com/apple-oss-distributions/Security/blob/97c3a4296c1ea06b0fe1877a7e616aa84450b5b2/base/Security.h)
 · [Pinned WebKit type fallback](https://github.com/apple-oss-distributions/WebKit/blob/2a36545bf8dd89a417b724184900270fb2f523aa/Source/WTF/wtf/spi/darwin/XPCSPI.h)
 · [Pinned XNU libDER headers](https://github.com/apple-oss-distributions/xnu/tree/ac9718fb1af618d5ce8678d0dc6e8a58f252216f/EXTERNAL_HEADERS/libDER)
+
+## Arm64 macOS 26.5 SDK Gen fork
+
+The fork ports the twelve SDK Gen changes for C and Objective-C framework
+generation and the versioned Darwin inventory. The comparison baseline
+at `817afcc` passed remote Stage 1 Clang, the local LLVM and rules_rs
+suites, the Codex voice host including runtime relocation, and the
+c-ares and curl consumers. Its archive SHA-256 is
+`35096a24d6b350c18f00a2c344e7e6f7537b9cbd9b128471ccb7edc386e24316`.
+[Stage 1 baseline](https://app.buildbuddy.io/invocation/8e9e2063-0094-4a89-aab5-8e9cdf638426)
+
+Both compositions use the fork’s LLVM 21.1.6 header install and the
+`macos_libcxx_headers=sdk` consumer setting. Xcode 26.5 reports the same
+libc++ version, ABI namespace, and vendor availability setting. The two
+header sets produce the same imports for the C++ exception and RTTI
+probe with the same compiler. Of 1,680 shared paths, 1,651 are
+byte-identical. Xcode has five additional paths. The pinned release
+provides the tested C++ surface, with Apple’s additional header changes
+remaining a separate parity question.
+The sanitizer links exposed four missing direct libc++abi exports.
+Adding LLVM’s Darwin export list to the 26.5 arm64 inventory resolved
+both links. The audited runtime supplies the library at
+`/usr/lib/libc++abi.dylib`.
+[LLVM Darwin export list](https://github.com/llvm/llvm-project/blob/a832a5222e489298337fbb5876f8dcaf072c5cca/libcxxabi/lib/symbols-not-reexported.exp)
+
+The arm64-only generator retains relevant Swift-language DocC
+declarations for C and Objective-C rendering. The composition uses the
+source-locked C and objc4 layers and the prepared Foundation, AppKit,
+Core Data, and Cocoa layers. Apply the Foundation voice module-map patch
+when replaying that preparation. The framework gate exercises the
+audio, security, network, graphics, CoreServices, and ApplicationServices
+surfaces used by the selected clients. The wider AVRouting, Model I/O,
+and MetalKit probes remain open with the SIMD work.
+
+The arm64-only archive SHA-256 is
+`f9dd6c4c2122c8dfd5cea70b25014a34413ad409fe5319be427b8b5e683328d4`.
+Repacking reproduced the digest. All 16,026 C-family headers and module
+maps match the baseline bytes. All 32 stub files target arm64 macOS,
+and their retained exports, reexports and provider names match the
+baseline arm64 surface.
+
+The trimmed archive passed remote Stage 1 Clang, 34 applicable local
+hermetic-llvm tests and the LCOV report check, all 39 rules_rs tests,
+all four Codex voice test targets, the framework link probes, and the
+c-ares and curl tests. The consumer suites ran directly in their
+pinned upstream Bazel workspaces. The native voice test exercised
+one relocated runtime case. The same archive is available at
+`build/sdk/MacOSX.sdk.tar.zst`. [Trimmed Stage 1](https://app.buildbuddy.io/invocation/e8f83229-07ec-46b2-9b38-992983e8e4d5)
