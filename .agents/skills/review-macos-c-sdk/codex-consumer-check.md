@@ -266,6 +266,65 @@ same staged-prefix lookup. The Windows voice build already selects a
 pinned pkgconf package. This would eliminate the Unix pkg-config and
 bundled GLib bootstrap from consumers of that tool.
 
+### Foundation and AppKit generation
+
+The 26.5 generation in `build/foundation-voice-qualification` applies
+three SDK Gen changes. The header regression tests failed before each
+change and passed afterward for arm64 and x86_64.
+
+- [PR #22](https://github.com/apple-cross-toolchain/apple-sdk-gen/pull/22)
+  forward-declares foreign Objective-C classes used through pointers
+  and keeps required imports for superclasses. It also resolves
+  Objective-C types supplied by the preamble without a fictional
+  `ObjectiveC/ObjectiveC.h` umbrella.
+- [PR #23](https://github.com/apple-cross-toolchain/apple-sdk-gen/pull/23)
+  renders the anonymous constants documented under `NSStringEncoding`
+  and uses pinned Swift Foundation values for search paths and domains.
+  The full generated Foundation header contains
+  `NSUTF8StringEncoding = 4`, `NSDocumentDirectory = 9` and
+  `NSUserDomainMask = 1`.
+- [PR #24](https://github.com/apple-cross-toolchain/apple-sdk-gen/pull/24)
+  keeps top-level declarations outside Objective-C interfaces. DocC
+  lists `NSApplicationDelegate`, `NSApp` and the activation-policy enum
+  among the topics of `NSApplication`. They are not its methods.
+
+The selected AppKit headers and stubs generated from DocC linked and ran
+the `NSImage` and `NSEvent` probes on arm64 and x86_64. The event probe
+also compiles methods using `NSApplication`, `NSApp` and an
+`NSApplicationDelegate` implementation. The numeric inputs for those
+event and activation-policy cases were corroborated with pinned
+[GNUstep NSEvent.h](https://github.com/gnustep/libs-gui/blob/af9ee9812aaef80a00645b3dcea29ab4d0eef8d8/Headers/AppKit/NSEvent.h)
+and [NSRunningApplication.h](https://github.com/gnustep/libs-gui/blob/af9ee9812aaef80a00645b3dcea29ab4d0eef8d8/Headers/AppKit/NSRunningApplication.h).
+The selected declaration script is `generate-appkit-probe.py` in the
+trial directory. Compiling a delegate class exposed
+`__objc_empty_cache`, an exported objc4 global on both targets. The
+inventory fix is in
+[PR #21](https://github.com/apple-cross-toolchain/apple-sdk-gen/pull/21).
+Foundation and Cocoa link and module probes passed with the local
+framework recipes and the updated objc4 stub.
+
+The full regenerated Foundation and AppKit bundles fail direct imports
+on both CPUs. Foundation enters AppKit and then CoreData before
+defining `NSObject`-based interfaces such as `NSArray`. AppKit enters
+Foundation and reaches `CloudKit/CloudKit.h`. With the selected
+`NSImage` bundle in place of full AppKit, Foundation reaches the same
+CloudKit failure. The precise diagnostics are in
+`full-Foundation-{arm64,x86_64}.log` and
+`full-AppKit-{arm64,x86_64}.log` in the trial directory.
+
+DocC attributes CloudKit sharing methods to Foundation's
+`NSItemProvider` topic. Xcode 26.5's header layout, used for comparison,
+locates them in `CloudKit/NSItemProvider+CKSharingSupport.h`. The same
+pattern puts AppKit's `applyFontTraits:range:` on Foundation's
+`NSMutableAttributedString` topic. The full generator needs to place
+these extensions in the framework that supplies them and to keep their
+dependencies out of Foundation's base declarations. A single warm
+crawl entry for Foundation's cookie setter returned HTTP 403.
+
+The full-bundle header compile gate precedes the native prefix,
+runtime and voice-host suite. Re-run that gate after correcting
+framework ownership.
+
 ## Standalone CLI
 
 The configured action graph for `//codex-rs/cli:codex` has no
