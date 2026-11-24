@@ -1,0 +1,31 @@
+Move the SDK Gen geometry declarations out of the umbrella so AppKit can
+include the two ABI types without parsing the rest of CoreGraphics.
+
+--- a/Headers/CoreGraphics.h
++++ b/Headers/CoreGraphics.h
+@@ -281,8 +281,1 @@
+-#ifndef CGFLOAT_DEFINED
+-#define CGFLOAT_DEFINED 1
+-#if __LP64__
+-typedef double CGFloat;
+-#else
+-typedef float CGFloat;
+-#endif
+-#endif
++#include <CoreGraphics/CGGeometry.h>
+@@ -520,6 +513,1 @@
+ typedef const struct CGPath * CGPathRef;
+-
+-typedef struct CGPoint {
+-    CGFloat x;
+-    CGFloat y;
+-} CGPoint;
+--- a/Modules/module.modulemap
++++ b/Modules/module.modulemap
+@@ -1,5 +1,6 @@
+ framework module CoreGraphics [system] {
+   umbrella header "CoreGraphics.h"
++  textual header "CGGeometry.h"
+   export *
+   module * { export * }
+ }

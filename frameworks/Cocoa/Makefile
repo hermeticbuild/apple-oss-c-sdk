@@ -7,7 +7,8 @@ Cocoa: require-stage Foundation AppKit CoreData
 		temp=$$(mktemp -d "$${TMPDIR:-/tmp}/cocoa-recipe.XXXXXX"); \
 		trap 'rm -rf -- "$$temp"' EXIT; \
 		git -C "$(SDK_GEN_SOURCE)" archive '$(COCOA_SDK_GEN_COMMIT)' tools/apple_sdk_gen | tar -xf - -C "$$temp"; \
-		PYTHONPATH="$$temp" "$(PYTHON)" -c 'from pathlib import Path; import sys; from tools.apple_sdk_gen.assembler.cocoa import assemble_cocoa; assemble_cocoa(Path(sys.argv[1]), ["arm64-macos", "x86_64-macos"])' "$(STAGE)"
+		PYTHONPATH="$$temp" "$(PYTHON)" -c 'from pathlib import Path; import sys; from tools.apple_sdk_gen.assembler.cocoa import assemble_cocoa; assemble_cocoa(Path(sys.argv[1]), ["arm64-macos"])' "$(STAGE)"
+	patch -s -f -F 0 -V none -p1 -d "$(STAGE)/Cocoa.framework" < Cocoa/versioned-appkit.patch
 
 test-Cocoa:
 	$(call test-sdk-link,Cocoa/test.m,-fobjc-arc -framework Cocoa -lobjc)

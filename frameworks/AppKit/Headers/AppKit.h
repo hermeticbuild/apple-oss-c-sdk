@@ -2,8 +2,12 @@
 
 #import <Foundation/Foundation.h>
 
+#if __has_include(<CoreGraphics/CGGeometry.h>)
+#import <CoreGraphics/CGGeometry.h>
+#else
 /* CGFloat is a double on both macOS LP64 targets. */
 typedef double CGFloat;
+#endif
 
 #ifdef __OBJC__
 @interface NSColor : NSObject

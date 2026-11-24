@@ -6,11 +6,11 @@ and NSWindow class declarations and the window title property. It gets
 NSObject through the Foundation layer's pinned Apple OSS objc4 headers.
 The scalar ABI follows Apple's LP64 CGFloat documentation.
 
-Clang InstallAPI emits the Objective-C class exports for both macOS
-architectures from the staged headers. The installed AppKit image on macOS
-26.5.2 (25F84) reexports Foundation on arm64 and x86_64. The recipe passes
-the staged Foundation stub to InstallAPI to describe that edge at the flat
-SDK path. The Cocoa probe creates a color, checks all its components, and
+Clang InstallAPI emits the arm64 Objective-C class exports from the staged
+headers. The installed AppKit image on macOS 26.5.2 (25F84) uses the
+`Versions/C/AppKit` install name and reexports versioned Foundation. The recipe
+passes the staged Foundation stub to InstallAPI to describe that edge and
+provides both flat and versioned lookup paths. The Cocoa probe creates a color, checks all its components, and
 checks the responder hierarchy without opening a window. Window creation,
 event processing, and the remaining AppKit API require separate qualification.
 

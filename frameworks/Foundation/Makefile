@@ -7,6 +7,9 @@ Foundation: require-stage CoreFoundation-versioned-tbd
 	$(call stage-framework-headers,Foundation,NSObjCRuntime NSRange NSObject NSString NSArray NSDictionary NSData NSError NSURL NSValue NSNumber NSDate)
 	install -m 644 "$(FOUNDATION_TBD)" "$(FOUNDATION_STAGE)/Foundation.tbd"
 	patch -s -f -F 0 -V none -p1 -d "$(FOUNDATION_STAGE)" < Foundation/reexport-corefoundation.patch
+	patch -s -f -F 0 -V none -p1 -d "$(FOUNDATION_STAGE)" < Foundation/versioned-install-name.patch
+	mkdir -p "$(FOUNDATION_STAGE)/Versions/C"
+	ln -s ../../Foundation.tbd "$(FOUNDATION_STAGE)/Versions/C/Foundation.tbd"
 
 test-Foundation:
 	$(call test-sdk-link,Foundation/test.m,-fobjc-arc -framework Foundation -lobjc)

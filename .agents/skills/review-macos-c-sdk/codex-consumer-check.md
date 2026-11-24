@@ -443,3 +443,27 @@ directory supplies `LLVM_WITH_HEADER_MODE`. Use
 `sdk-repo-cli-diagnostic` for the CLI. The full failed-link inventory
 is in `arm64-cli-link-replay.log`, and the successful CLI runs are in
 the two `*-cli-composed-build.log` and `*-cli-composed-smoke.log` pairs.
+
+## Arm64 voice runtime packaging
+
+At Codex `53fe98bdc22c19b9520b0d033c2b0a1b0be62bcb`, the local
+Foundation and AppKit voice profiles let the native GLib and GStreamer
+prefix build. Using the runtime's `Versions/C` Foundation and AppKit
+install names fixed packaging. Both `//third_party/voice:native_prefix`
+and `//third_party/voice:native_runtime` passed with the same 26.5 scratch
+SDK. The generated `runtime.json` records the versioned identities.
+[SDK Gen PR #26](https://github.com/apple-cross-toolchain/apple-sdk-gen/pull/26)
+
+The exact voice-host test invocation then failed at the Rust executable
+link on `-framework AudioToolbox` and `-framework CoreAudio`. The trial
+omitted those bundles. The existing local profiles cover their older C
+tests, with additional linker coverage needed for the voice host. The
+first unresolved names include `AudioUnitRender`,
+`AudioHardwareCreateProcessTap`, and `AudioObjectGetPropertyData`.
+
+The SDK repository override is
+`build/foundation-voice-qualification/voice-versioned-frameworks`.
+The same directory contains `versioned-voice-arm64.log` and
+`versioned-voice-tests-arm64.log`. The scratch Foundation/AppKit voice
+profiles still need to be represented in the framework recipes before
+this exact build can be replayed from a fresh checkout.
