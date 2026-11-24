@@ -126,6 +126,28 @@ is a generated import of `ObjectiveC/ObjectiveC.h`. The same umbrella
 also requests `kernel/kernel.h` and `simd/simd.h`. Check the origin of
 the Objective-C and kernel imports before extending the SIMD scope.
 
+#### SIMD headers for ModelIO
+
+The reported probe independently declared all 14 SIMD types used by the
+generated ModelIO umbrella. With pinned Clang, the declarations matched
+Xcode 26.5 on arm64 and x86_64 for size, alignment, field offsets and
+by-value calling conventions. For example, `vector_float3` has 16-byte
+size and alignment. Re-run the probe from the SDK repository when
+qualifying the generated headers.
+
+The Apple SDK Gen follow-up is to emit `usr/include/simd/` from the
+Objective-C and C declaration variants of its existing Accelerate SIMD
+crawl. Read vector declarations from the type pages and matrix or
+quaternion fields from their member pages. The `columns[4]` and
+`vector` members are examples. Qualify all 14 types against the probe
+on both architectures, then compile the generated ModelIO umbrella.
+Use Xcode 26.5 as the comparison input.
+
+[Clang extended vectors](https://clang.llvm.org/docs/LanguageExtensions.html#vectors-and-extended-vectors)
+· [Apple SIMD documentation](https://developer.apple.com/documentation/simd)
+· [Matrix members](https://developer.apple.com/documentation/simd/simd_float4x4)
+· [Quaternion members](https://developer.apple.com/documentation/simd/simd_quatf)
+
 ### Match Darwin stubs to the 26.5 source lock
 
 [SDK Gen PR #20](https://github.com/apple-cross-toolchain/apple-sdk-gen/pull/20)

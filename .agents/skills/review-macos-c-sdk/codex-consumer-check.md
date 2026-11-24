@@ -325,6 +325,25 @@ The full-bundle header compile gate precedes the native prefix,
 runtime and voice-host suite. Re-run that gate after correcting
 framework ownership.
 
+For the next voice replay, use the local Foundation headers and defer
+SDK Gen's category ownership change. The local
+`build/foundation-voice-qualification/voice-local-foundation` Bazel
+repository adds the Foundation declarations used by GLib to the
+existing header recipe. It stages the previously verified AppKit
+declarations for resource images and the GStreamer event loop.
+The compile-link-run fixture checks Foundation bundle lookup, UTF-8
+conversion, collections, enumeration and scalar values on both CPUs.
+
+[SDK Gen PR #25](https://github.com/apple-cross-toolchain/apple-sdk-gen/pull/25)
+supplies the five AppKit event and activation values. The complete
+26.5 AppKit output emits the same values as the source-backed event
+fixture. The event fixture passed with the emitted values on arm64
+and x86_64. The
+[PR #17 follow-up](https://github.com/apple-cross-toolchain/apple-sdk-gen/pull/17)
+maps `au_asid_t`, `int8_t` and `uint16_t` to the installed
+`bsm/audit.h` and `stdint.h`. The regenerated Foundation header
+imports both and has no `kernel/kernel.h` import.
+
 ## Standalone CLI
 
 The configured action graph for `//codex-rs/cli:codex` has no
