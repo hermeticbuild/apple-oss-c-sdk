@@ -4,8 +4,9 @@ Stage Apple's public `Security.h` and its 76-header Security include
 closure from the matching 26.5 Security gitlink. The compiler reached
 the same [paths](headers.list) on arm64 and x86_64 with Objective-C ARC
 and blocks. `Authorization.h` continues to supply `AuthorizationRef`
-for SystemConfiguration. The XPC object type and libDER dependencies
-come from the standalone C installation.
+for SystemConfiguration. The staged `SecCode.h` patch selects the
+WebKit-derived type from the standalone C installation when a full XPC
+header is absent. The libDER dependencies also come from the C installation.
 
 Compose this recipe as a path overlay on SDK Gen Security. SDK Gen
 supplies the linker stub. The [consumer probe](../../tests/composed_sdk/security.m)

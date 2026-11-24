@@ -11,6 +11,7 @@ Security: require-stage
 		while IFS= read -r source; do \
 			git -C "$(SOURCE_ROOT)/Security" show "$(SECURITY_COMMIT):$$source" > "$$headers/$${source##*/}"; \
 		done < Security/headers.list
+	patch -s -f -F 0 -V none -p1 -d "$(STAGE)/Security.framework" < Security/xpc-object-type.patch
 
 test-Security:
 	$(call test-framework-headers,Security)

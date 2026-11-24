@@ -28,8 +28,8 @@ frameworks. Path overlays preserve generated assets in CoreServices and
 Security. The trial retains the qualified SDK Gen 0.0.4 libSystem and
 the existing standalone stubs.
 
-The expanded trial with the Security overlay produced the same archive
-twice. Its SHA-256 is
+The first expanded trial with the Security overlay produced the same
+archive twice. Its SHA-256 was
 `c573e42bea0f697c1205221394c8f9d40fe547ed7e09752d23d70cfe09509207`.
 The installed framework probes and the DNS-SD, resolver, Foundation
 macros, and Security API probes passed on arm64 and x86_64. The missing
@@ -82,7 +82,7 @@ project or public umbrella was found. The older jceel header carries
 Apple's all-rights-reserved notice. Darling publishes its own GPL-3.0-or-later
 header. Neither is a recipe input.
 
-The approved standalone C recipes install `xpc/xpc.h` for the object
+The approved standalone C recipes install `xpc/_xpc_object.h` for the object
 type and `libDER/DERItem.h` plus `libDER/libDER_config.h` from pinned XNU.
 The XPC client API remains open. The libDER receipt identifies the XNU
 path and the missing upstream public install rule. The C install passed
@@ -108,8 +108,15 @@ the same type at `xpc/_xpc_object.h` and uses it as the fallback in
 Security's staged `SecCode.h`. C and Objective-C include probes passed
 on both CPUs with the public XPC umbrella absent. The pinned
 hermetic-llvm workspace also built `//:tsan_fail` for both CPUs with
-the alternate layout. The checked-in recipe awaits the maintainer's
-decision on that layout.
+the alternate layout. The checked-in recipe uses that layout.
+
+The corrected composition SHA-256 is
+`e75fa8ef968e574cb0eef77ecd94ce8876d64b40c923d762b261cc7ef7298e6f`.
+The SDK payload changes are the relocated type and the staged
+`SecCode.h` include. The C fixture reproduced the false discovery
+on both CPUs with the previous installation and passed with the new
+one. The new composition also passed the Security, DNS-SD, resolver,
+Foundation macro, and framework recipe checks on both CPUs.
 
 [Apple OSS Security umbrella](https://github.com/apple-oss-distributions/Security/blob/97c3a4296c1ea06b0fe1877a7e616aa84450b5b2/base/Security.h)
 · [Pinned WebKit type fallback](https://github.com/apple-oss-distributions/WebKit/blob/2a36545bf8dd89a417b724184900270fb2f523aa/Source/WTF/wtf/spi/darwin/XPCSPI.h)
