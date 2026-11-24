@@ -150,6 +150,42 @@ Port or reconstruct the needed source-backed evidence before pinning
 the new SDK Gen input. Then replay the voice native prefix and runtime
 on both CPUs.
 
+The composer now checks both SDK Gen roots and the C and objc4 source
+locks before planning the install. The previous 27.0 input is accepted
+only for the existing exact-asset consumer archive replay. The test
+against the real 27.0 release failed at version selection before opening
+the header manifest or creating an output directory.
+
+A local 26.5 composition combined PR #20 with the qualified framework
+stack at `62f5e65`. SDK Gen generated CoreGraphics, Network, and
+Security for 26.5. The composer used the Apple OSS Security overlay,
+CoreFoundation and SystemConfiguration recipes, and the pinned header
+installations. DNS-SD, resolver, CoreGraphics, Network, Security,
+CoreFoundation and SystemConfiguration probes passed on both CPUs.
+The initial, smaller preview established that Network still needs the
+Security bundle. The passing preview includes it. The Darwin inventory
+in this experiment came from the local Xcode reference. Replace it
+with the regenerated, reviewed inventory in a separate SDK Gen data PR
+before distributing a new composition.
+
+### Legacy frameworks still missing
+
+| Framework | Evidence and next qualification |
+| --- | --- |
+| OpenGL | Khronos supplies the GL API registry. The macOS umbrella also has CGL declarations and separate libGL and libGLU reexports. Start with one real desktop GL consumer, source the declarations it uses, and check its link and runtime on both architectures. |
+| Carbon | Apple OSS CarbonHeaders supplies common Darwin headers. Xcode 26.5's Carbon framework is a separate umbrella with children such as HIToolbox and OpenScripting. Use an identified child API to qualify the first reexport and header path. |
+| FontServices | The reference stub lives under PrivateFrameworks and there is no header bundle at that path. Keep the gap recorded and check the actual private install name and symbol if a consumer link requires it. |
+
+[Khronos GL registry](https://github.com/KhronosGroup/OpenGL-Registry/blob/main/xml/gl.xml)
+· [Apple OSS CarbonHeaders](https://github.com/apple-oss-distributions/CarbonHeaders)
+
+The Codex workspace's SDK selection lists OpenGL and FontServices.
+The examined voice build disables the GStreamer GL plugin group and
+the packaged macOS runtime's allowed system imports name neither
+framework nor Carbon. Confirm actual framework use from the native
+prefix link actions as the voice build advances. Archive selection is
+a separate check for these two workspace-level requests.
+
 ### Security source closure
 
 Apple's pinned 26.5 Security source supplies the umbrella and its

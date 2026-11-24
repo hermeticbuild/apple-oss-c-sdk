@@ -12,12 +12,13 @@ install rule as links to the unchanged SDK Gen umbrella. This lets
 [Apple Libsystem install rule](https://github.com/apple-oss-distributions/Libsystem/blob/c23b51183e46e613375dc7639fb4bf11fbf59ba8/xcodescripts/create_dylib_symlinks.sh#L14-L31)
 
 Use Python 3.11+, the [verified LLVM tools](../toolchain/README.md), and the
-[C and Objective-C installations](../../locks/README.md). For SDK Gen 0.0.4,
-verify `stub-sdks-27.0.tar.zst` before extracting it:
-
-```text
-sha256:e3ba6081bfcd23973dd80fe76b3c28ce8d3a98d9eb9cbc800225a649c5c07184
-```
+[C and Objective-C installations](../../locks/README.md). Before staging,
+the composer checks their source locks and the SDK Gen input's
+`CanonicalName` and `Version` against the macOS 26.5 profile. When using a
+separate framework SDK Gen tree, both SDK Gen trees must pass the same
+version check. Select a 26.5 preview generated with a matching Darwin
+inventory. The version check reads the input settings and the composition
+manifest records the selected file digests.
 
 Set `SDK_GEN` to the extracted `MacOSX.sdk` and `NEW_SDK` to a new output
 directory named `MacOSX.sdk`. The command below composes a smoke SDK.
@@ -45,15 +46,16 @@ provider.
 
 Use `--all-frameworks` to import every SDK Gen framework under
 `System/Library/Frameworks`. Set `--framework-sdk-gen` when the framework
-archive and the qualified libSystem archive come from separate releases.
+archive and the qualified libSystem archive come from separate builds of
+the same SDK version.
 Use `--prepared-framework` for an entire bundle and
 `--framework-overlay NAME DIRECTORY` for recipe files that add to or
 replace paths in a generated bundle. All three origins appear in
 `composition.json`. If a generated filename differs only in capitalization,
 the overlay supplies the spelling from the source recipe.
 
-Set `SDK_GEN_FRAMEWORKS` to the framework input and keep the C, Objective-C,
-libSystem, and standalone stub inputs from the consumer archive. Stage
+Set `SDK_GEN_FRAMEWORKS` to the 26.5 framework input and use the matching
+C, Objective-C, libSystem, and standalone stub inputs. Stage
 the default recipes, Cocoa, and ApplicationServices. Pass the generated
 CoreServices stub to its recipe to preserve its linker exports.
 
@@ -83,12 +85,14 @@ python3 -m tools.sdk_composition.compose_sdk \
 Run the [composed SDK probes](../../tests/README.md) on the expanded tree.
 The digest check below applies to the original qualified asset selection.
 
-## Consumer archive
+## Reproduce the previous consumer archive
 
 The SDK used by Stage 1 and both consumer suites requires these prepared
 inputs for SDK Gen 0.0.4:
 
-- `SDK_GEN`, the macOS SDK Gen tree with the qualified `libSystem.B.tbd`.
+- `SDK_GEN`, the macOS SDK Gen 27.0 tree with the qualified `libSystem.B.tbd`.
+  The original archive `stub-sdks-27.0.tar.zst` has SHA-256
+  `e3ba6081bfcd23973dd80fe76b3c28ce8d3a98d9eb9cbc800225a649c5c07184`.
   Its compiler-rt document exposes `___divsc3`, `___divdc3`, and `___divxc3`
   on x86_64. It supplies Foundation and the six SDK Gen stubs listed above.
 - `FRAMEWORKS`, the directory containing the framework layers from the
@@ -103,7 +107,8 @@ inputs for SDK Gen 0.0.4:
 Supply these prepared inputs explicitly. The
 [consumer profile](consumer-26.5.json) pins their selected files and symlink
 targets from the passing archive. `--verify-consumer-inputs` checks every
-selected framework and both stub groups before publishing. C and Objective-C
+selected framework and both stub groups before publishing. This flag replays
+that exact SDK Gen 27.0 selection. C and Objective-C
 headers are checked through their own source locks and manifests. The
 [qualification evidence](../../.agents/skills/review-macos-c-sdk/composition-gaps.md)
 records the source revisions and corrections behind the prepared assets.
@@ -140,12 +145,11 @@ and run `make sdk-archive`.
 
 ## Foundation and Cocoa trial
 
-Use the same verified C and Objective-C runtime installations, SDK Gen
-libSystem input, and external stub selection as the consumer archive above.
-Set `FOUNDATION_TBD` to the Foundation stub from the verified SDK Gen 0.0.4
-archive. The recipe checks its digest separately because the Foundation stub
-changed in SDK Gen 0.0.5. Stage the four additional framework profiles before
-composing.
+Use the verified C and Objective-C runtime installations and the matching
+26.5 SDK Gen libSystem and external stubs. The Foundation recipe currently
+pins the verified SDK Gen 0.0.4 Foundation stub. Qualify a 26.5 Foundation
+stub and refresh that pin for a same-version trial. Stage the four
+additional framework profiles before composing.
 
 ```bash
 FRAMEWORKS="$PWD/build/frameworks-objc"

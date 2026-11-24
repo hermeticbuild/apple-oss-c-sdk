@@ -56,7 +56,7 @@ class ComposeTests(unittest.TestCase):
         write(self.c / "uninstalled-scratch.txt", "outside the manifest\n")
         lock, _ = read_lock("macosx26.5")
         (self.c / "source-lock.json").write_bytes(lock)
-        write(self.gen / "SDKSettings.json", '{"CanonicalName":"macosx27.0"}')
+        write(self.gen / "SDKSettings.json", '{"CanonicalName":"macosx26.5","Version":"26.5"}')
         write(self.gen / "usr/lib/libSystem.B.tbd", tbd(PARENT, CHILD))
         (self.gen / "usr/lib/libSystem.tbd").symlink_to("libSystem.B.tbd")
 
@@ -69,11 +69,32 @@ class ComposeTests(unittest.TestCase):
         ], text=True, capture_output=True)
 
     def test_consumer_profile_rejects_unqualified_assets(self):
+        write(self.gen / "SDKSettings.json", '{"CanonicalName":"macosx27.0","Version":"27.0"}')
         objc4, _ = self.objc4_fixture()
         result = self.compose("--objc4-install", objc4, "--verify-consumer-inputs")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("consumer assets differ from the qualified profile", result.stderr)
         self.assertIn("sdk-gen-libsystem", result.stderr)
+        self.assertFalse(self.out.exists())
+
+    def test_rejects_a_mismatched_sdk_gen_before_reading_headers(self):
+        write(self.gen / "SDKSettings.json", '{"CanonicalName":"macosx27.0","Version":"27.0"}')
+        (self.c / "header-manifest.tsv").rename(self.c / "broken-manifest.tsv")
+
+        result = self.compose()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("--sdk-gen requires macosx26.5", result.stderr)
+        self.assertIn("macosx27.0", result.stderr)
+        self.assertFalse(self.out.exists())
+
+    def test_rejects_a_mismatched_framework_sdk_gen(self):
+        frameworks = self.work / "preview"
+        write(frameworks / "SDKSettings.json", '{"CanonicalName":"macosx26.5","Version":"27.0"}')
+
+        result = self.compose("--all-frameworks", "--framework-sdk-gen", frameworks)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("--framework-sdk-gen requires macosx26.5", result.stderr)
+        self.assertIn("Version='27.0'", result.stderr)
         self.assertFalse(self.out.exists())
 
     @unittest.skipUnless(os.getenv("LIBSYSTEM_TEST_LLVM"), "requires the official llvm-readtapi")
@@ -92,7 +113,7 @@ install-name: '{PARENT}'
         self.assertEqual((self.out / "usr/lib/libSystem.tbd").readlink(), Path("libSystem.B.tbd"))
         self.assertFalse((self.out / "usr/include/unselected.h").exists())
         manifest = json.loads((self.out / "composition.json").read_text())
-        self.assertEqual(manifest["sdk_gen"], "macosx27.0")
+        self.assertEqual(manifest["sdk_gen"], "macosx26.5")
         self.assertEqual(manifest["providers"][PARENT], ["usr/lib/libSystem.B.tbd"])
         self.assertEqual(json.loads((self.out / "SDKSettings.json").read_text())["Version"], "26.5")
 
@@ -179,7 +200,7 @@ install-name: '{PARENT}'
     def test_all_frameworks_preserve_generated_files_and_allow_explicit_overrides(self):
         frameworks = self.work / "preview"
         live = frameworks / FRAMEWORK
-        write(frameworks / "SDKSettings.json", '{"CanonicalName":"macosx26.5"}')
+        write(frameworks / "SDKSettings.json", '{"CanonicalName":"macosx26.5","Version":"26.5"}')
         write(live / "Versions/A/Headers/Example.h", "original")
         write(live / "Versions/A/Headers/CASE.h", "generated capitalization")
         (live / "Headers").symlink_to("Versions/A/Headers")
@@ -211,7 +232,7 @@ install-name: '{PARENT}'
         self.assertFalse((self.out / "usr/include/sdk.h").exists())
 
         manifest = json.loads((self.out / "composition.json").read_text())
-        self.assertEqual(manifest["sdk_gen"], "macosx27.0")
+        self.assertEqual(manifest["sdk_gen"], "macosx26.5")
         self.assertEqual(manifest["framework_sdk_gen"], "macosx26.5")
         self.assertEqual(manifest["files"][f"{FRAMEWORK}/Example.tbd"]["layer"], "sdk-gen-framework")
         self.assertEqual(manifest["files"][f"{FRAMEWORK}/Versions/A/Headers/Example.h"]["layer"],

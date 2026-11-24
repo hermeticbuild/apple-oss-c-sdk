@@ -29,6 +29,8 @@ SYSTEM_INSTALL_NAME = "/usr/lib/libSystem.B.dylib"
 # https://github.com/apple-oss-distributions/Libsystem/blob/c23b51183e46e613375dc7639fb4bf11fbf59ba8/xcodescripts/create_dylib_symlinks.sh#L14-L31
 SYSTEM_COMPAT_NAMES = ("c", "dbm", "dl", "gcc_s.1", "info", "m", "poll", "proc", "pthread", "rpcsvc")
 FRAMEWORKS = Path("System/Library/Frameworks")
+SDK_VERSION = "26.5"
+SDK_NAME = "macosx" + SDK_VERSION
 CONSUMER_PROFILE = Path(__file__).with_name("consumer-26.5.json")
 MACHO_MAGIC = {
     b"\xfe\xed\xfa\xce", b"\xce\xfa\xed\xfe", b"\xfe\xed\xfa\xcf", b"\xcf\xfa\xed\xfe",
@@ -200,11 +202,7 @@ def c_install(plan, root):
         plan.file(source.relative_to(root), source, root, "c-install", digest(source))
 
 
-def objc4_headers(plan, root, sdk):
-    expected_lock, projects = read_lock(sdk, "objc4")
-    lock = root / "source-lock.json"
-    if lock.is_symlink() or lock.read_bytes() != expected_lock:
-        raise ValueError(f"objc4 installation does not match the {sdk} source lock")
+def objc4_headers(plan, root):
     files, _ = read_header_manifest(root)
     include = Path("usr/include/objc")
     for name, record in sorted(files.items()):
@@ -216,16 +214,14 @@ def objc4_headers(plan, root, sdk):
         if source.is_symlink() or not source.is_file() or source.resolve() != source:
             raise ValueError(f"objc4 public header must be a regular staged file: {source}")
         plan.file(path, source, root, "objc4-public-headers", record["sha256"])
-    return projects["objc4"]["commit"]
-
 
 def sdk_settings(sdk, receipts):
-    settings = {"CanonicalName": "macosx26.5", "Version": "26.5", "MaximumDeploymentTarget": "26.5",
+    settings = {"CanonicalName": SDK_NAME, "Version": SDK_VERSION, "MaximumDeploymentTarget": SDK_VERSION,
                 "SupportedTargets": {"macosx": {"Archs": ["arm64", "x86_64"], "LLVMTargetTripleVendor": "apple",
                                                  "LLVMTargetTripleSys": "macosx"}}}
     path = sdk / "SDKSettings.json"
     path.write_text(json.dumps(settings, indent=2, sort_keys=True) + "\n")
-    receipts[path.name] = {"layer": "sdk-settings", "source": "c-install:macosx26.5", "sha256": digest(path)}
+    receipts[path.name] = {"layer": "sdk-settings", "source": f"c-install:{SDK_NAME}", "sha256": digest(path)}
 
 
 def framework(plan, sdk_gen, name, *, prepared=None, overlay=None):
@@ -340,9 +336,8 @@ def consumer_assets(files):
     }
 
 
-def verify_consumer_inputs(composition):
-    profile = read_json(CONSUMER_PROFILE.read_bytes())
-    if composition["sdk_gen"] != profile["sdk_gen"] or not composition.get("objc4_revision"):
+def verify_consumer_inputs(composition, profile):
+    if not composition.get("objc4_revision"):
         raise ValueError("consumer profile requires the pinned SDK Gen version and objc4 layer")
     actual = consumer_assets(composition["files"])
     expected = profile["asset_sha256"]
@@ -352,22 +347,48 @@ def verify_consumer_inputs(composition):
         raise ValueError("consumer assets differ from the qualified profile: " + ", ".join(mismatches))
 
 
+def check_sdk_gen_version(root, expected, option):
+    settings = read_json((root / "SDKSettings.json").read_bytes())
+    if not isinstance(settings, dict):
+        raise ValueError(f"{option} has invalid SDKSettings.json at {root}")
+    name, version = settings.get("CanonicalName"), settings.get("Version")
+    if name != expected or version != expected.removeprefix("macosx"):
+        raise ValueError(
+            f"{option} requires {expected}, got CanonicalName={name!r} and Version={version!r} at {root}"
+        )
+
+
 def compose(args):
     out = args.out.parent.resolve() / args.out.name
     if os.path.lexists(out):
         raise ValueError(f"output already exists: {out}")
-    plan = Plan()
     c_root = args.c_install.resolve()
-    c_install(plan, c_root)
-    expected_lock, _ = read_lock("macosx26.5")
-    if (c_root / "source-lock.json").read_bytes() != expected_lock:
-        raise ValueError("composition requires the pinned macosx26.5 C installation")
+    objc_root = args.objc4_install.resolve() if args.objc4_install else None
     sdk_gen = args.sdk_gen.resolve()
-    sdk_gen_libsystem(plan, sdk_gen)
     framework_sdk = args.framework_sdk_gen.resolve() if args.framework_sdk_gen else sdk_gen
+    # Replay the older consumer archive only with its existing exact-asset check.
+    profile = read_json(CONSUMER_PROFILE.read_bytes()) if args.verify_consumer_inputs else None
+    expected_sdk_gen = profile["sdk_gen"] if profile else SDK_NAME
+    check_sdk_gen_version(sdk_gen, expected_sdk_gen, "--sdk-gen")
+    if framework_sdk != sdk_gen:
+        check_sdk_gen_version(framework_sdk, expected_sdk_gen, "--framework-sdk-gen")
+    expected_lock, _ = read_lock(SDK_NAME)
+    lock = c_root / "source-lock.json"
+    if lock.is_symlink() or lock.read_bytes() != expected_lock:
+        raise ValueError(f"composition requires the pinned {SDK_NAME} C installation")
     objc4_revision = None
-    if args.objc4_install:
-        objc4_revision = objc4_headers(plan, args.objc4_install.resolve(), "macosx26.5")
+    if objc_root:
+        expected_lock, projects = read_lock(SDK_NAME, "objc4")
+        lock = objc_root / "source-lock.json"
+        if lock.is_symlink() or lock.read_bytes() != expected_lock:
+            raise ValueError(f"objc4 installation does not match the {SDK_NAME} source lock")
+        objc4_revision = projects["objc4"]["commit"]
+
+    plan = Plan()
+    c_install(plan, c_root)
+    sdk_gen_libsystem(plan, sdk_gen)
+    if objc_root:
+        objc4_headers(plan, objc_root)
     frameworks(plan, framework_sdk, args)
     for spec in args.external_stub:
         external_stub(plan, spec)
@@ -381,17 +402,15 @@ def compose(args):
         composition = {
             "schema": 1,
             "files": receipts,
-            "sdk_gen": read_json((sdk_gen / "SDKSettings.json").read_bytes())["CanonicalName"],
+            "sdk_gen": expected_sdk_gen,
             "providers": providers(plan, sdk, args.llvm.resolve()),
         }
         if objc4_revision:
             composition["objc4_revision"] = objc4_revision
         if args.framework_sdk_gen:
-            composition["framework_sdk_gen"] = read_json(
-                (framework_sdk / "SDKSettings.json").read_bytes()
-            )["CanonicalName"]
-        if args.verify_consumer_inputs:
-            verify_consumer_inputs(composition)
+            composition["framework_sdk_gen"] = expected_sdk_gen
+        if profile:
+            verify_consumer_inputs(composition, profile)
         manifest = sdk / "composition.json"
         manifest.write_text(json.dumps(composition, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         manifest.chmod(0o644)
