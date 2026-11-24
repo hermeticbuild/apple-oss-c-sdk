@@ -99,6 +99,33 @@ CoreGraphics enum values still need independent verification. SDK Gen
 received HTTP 403 for a cross-linked `expm1` DocC page during the crawl.
 SIMD remains deferred.
 
+### Local replay before merging
+
+Replayed SDK Gen PRs #16, #17, #18, and #19 in that order from
+`ca40c02`. The existing #19 head conflicted with the combined enum
+export, C declaration, and callback fixes. The local restack tip
+`3b47e92` has the same Git tree as the qualified `6d0e294` build.
+The four branch tips passed 12, 14, 15, and 18 unit tests using the
+upstream CI commands on native x86_64 Ubuntu 25.04 and in an x86_64
+Ubuntu 24.04 container. Both used Python 3.12. The fresh macOS probes
+ran on Apple Silicon, with the x86_64 binaries running through Rosetta.
+
+A fresh, macOS-only regeneration produced byte-identical CoreGraphics
+and Network bundles. The expanded SDK passed 34 framework recipe checks,
+12 composed SDK checks, and four C ABI probes across arm64 and x86_64.
+Two writes of the archive produced SHA-256
+`fac8077b1a2276decbe7cefcb8e50ccd2706cf96b67120939568cf68dcc1e51d`.
+The Stage 1, hermetic-llvm, and rules_rs results below apply to the prior
+archive.
+
+Regenerating AVRouting, ModelIO, and MetalKit with the same stack still
+leaves three failing probes on both CPUs. AVRouting and MetalKit still
+lack `AVCustomDeviceRoute.h` and `MTKModel.h` respectively. Regenerating
+ModelIO clears the old C linkage macro error. Its first remaining error
+is a generated import of `ObjectiveC/ObjectiveC.h`. The same umbrella
+also requests `kernel/kernel.h` and `simd/simd.h`. Check the origin of
+the Objective-C and kernel imports before extending the SIMD scope.
+
 ### Security source closure
 
 Apple's pinned 26.5 Security source supplies the umbrella and its
