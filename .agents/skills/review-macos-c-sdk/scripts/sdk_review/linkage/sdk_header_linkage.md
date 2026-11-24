@@ -50,9 +50,11 @@ The last two are `___dso_handle` and `__mh_dylib_header`. A separate strict link
 
 The DriverKit result establishes a link against this SDK. It does not establish ordinary macOS application support. Other verified SDK-only examples include `sqlite3.h` (`-lsqlite3`), `resolv.h` (`-lresolv`), `compression.h` (`-lcompression`), `libxml/parser.h` (`-lxml2`), curses, Expat, bzip2, editline, xar and curl. In contrast, clients for `sin` and `pthread_create` already bind through libSystem, including when they pass `-lm` or `-lpthread`.
 
-For example, exercise BSM with a C object that references the declared function. Use `arm64` and `x86_64` in turn. Link once with `-lSystem` alone to observe the missing export, then add the library:
+Exercise BSM with an arm64 C object that references the declared function.
+Link once with `-lSystem` alone to observe the missing export, then add the library.
 
 ```sh
+ARCH=arm64
 printf '%s\n' '#include <sys/types.h>' '#include <bsm/audit_record.h>' \
   '__typeof__(&au_bsm_to_errno) demand = &au_bsm_to_errno;' |
   "$LLVM/bin/clang" --no-default-config -target "$ARCH-apple-macos11" -x c -c - \

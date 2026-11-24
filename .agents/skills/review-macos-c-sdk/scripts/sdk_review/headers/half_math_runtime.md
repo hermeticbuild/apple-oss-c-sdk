@@ -6,7 +6,7 @@ The [runtime fixture](../../../../../../tests/installed_headers/libm_half.c)
 checks each C function type, calls all thirteen functions, verifies the
 provider address with `dladdr`, and prints the binary16 result bits for
 comparison with the same client built using the reference SDK. Use the
-following commands with `T` set to a target such as `x86_64-apple-macos15.0`.
+following commands with `T` set to a target such as `arm64-apple-macos15.0`.
 Set `C_INSTALL` to the standalone header tree and `STUBS` to the composed or reference SDK used for linking.
 
 ```sh
