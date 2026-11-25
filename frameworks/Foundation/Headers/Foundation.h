@@ -262,4 +262,6 @@ CF_EXTERN_C_BEGIN
 CF_EXPORT NSRunLoopMode const NSDefaultRunLoopMode;
 CF_EXPORT void NSLog(NSString *format, ...);
 CF_EXTERN_C_END
+
+#import <Foundation/NSPathUtilities.h>
 #endif

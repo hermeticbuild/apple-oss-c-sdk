@@ -4,6 +4,8 @@
 
 _Static_assert(sizeof(NSRange) == 2 * sizeof(unsigned long), "NSRange ABI");
 _Static_assert(__builtin_offsetof(NSRange, length) == sizeof(unsigned long), "NSRange length offset");
+_Static_assert(NSDesktopDirectory == 12 && NSDownloadsDirectory == 15 && NSUserDomainMask == 1,
+               "NSPathUtilities ABI");
 
 int main(void) {
     @autoreleasepool {
@@ -11,9 +13,11 @@ int main(void) {
         NSString *text = [prefix stringByAppendingString:@" probe"];
         NSRange range = [text rangeOfString:@"probe"];
         NSArray<NSString *> *items = [NSArray arrayWithObject:text];
+        NSArray<NSString *> *desktop = NSSearchPathForDirectoriesInDomains(NSDesktopDirectory, NSUserDomainMask, NO);
 
         if (range.location != 4 || range.length != 5 || NSMaxRange(NSMakeRange(4, 5)) != 9 ||
-            items.count != 1 || ![items.firstObject isEqualToString:@"sdk probe"])
+            items.count != 1 || ![items.firstObject isEqualToString:@"sdk probe"] ||
+            ![desktop.firstObject isEqualToString:@"~/Desktop"])
             return 1;
 
         const unsigned char byte = 42;

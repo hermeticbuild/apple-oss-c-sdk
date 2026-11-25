@@ -1,5 +1,11 @@
 # AppKit
 
+The four pasteboard constants used by Codex are documented `NSString` data
+exports and already ship in SDK Gen 0.0.7. Declaring them in the local
+umbrella lets InstallAPI preserve them in the versioned AppKit stub.
+[Apple pasteboard types](https://developer.apple.com/documentation/appkit/nspasteboard/pasteboardtype?language=objc)
+· [Apple pasteboard reading options](https://developer.apple.com/documentation/appkit/nspasteboard/readingoptionkey)
+
 The local profile exposes the documented NSColor sRGB constructor and
 component properties, plus the common NSResponder, NSApplication, NSView,
 and NSWindow class declarations and the window title property. It gets

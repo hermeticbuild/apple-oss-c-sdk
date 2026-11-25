@@ -62,6 +62,10 @@ CF_EXTERN_C_BEGIN
 CF_EXPORT NSApplication *NSApp;
 CF_EXPORT const double NSAppKitVersionNumber;
 CF_EXPORT NSString *const NSDeviceRGBColorSpace;
+CF_EXPORT NSString *const NSPasteboardTypeHTML;
+CF_EXPORT NSString *const NSPasteboardTypeString;
+CF_EXPORT NSString *const NSPasteboardTypeTIFF;
+CF_EXPORT NSString *const NSPasteboardURLReadingFileURLsOnlyKey;
 CF_EXTERN_C_END
 
 #if __has_include(<CoreGraphics/CGGeometry.h>) && __has_include(<CoreGraphics/CoreGraphics.h>)

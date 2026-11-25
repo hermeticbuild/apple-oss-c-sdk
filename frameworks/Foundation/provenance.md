@@ -66,3 +66,11 @@ Model I/O tests exercise collections and geometry without opening a window.
 - [Apple NSGeometry types](https://developer.apple.com/documentation/foundation/nsrect)
 - [Apple NSRunLoop](https://developer.apple.com/documentation/foundation/runloop?language=objc)
 - [Apple NSUserNotification](https://developer.apple.com/documentation/foundation/nsusernotification?language=objc)
+
+GLib's `gosxutils.m` imports the Foundation umbrella for its path lookup.
+The staged `NSPathUtilities.h` restores the seven directory values, the
+user-domain mask, and the function declaration used by that client. The
+existing SDK Gen Foundation stub supplies the function export. The recipe
+test calls it for the unexpanded Desktop path.
+[Apple directory search documentation](https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/LowLevelFileMgmt/Articles/StandardDirectories.html)
+· [Pinned Swift Foundation values](https://github.com/swiftlang/swift-foundation/blob/511394753aa873fd390674301594b4bb8460a74b/Sources/FoundationEssentials/FileManager/SwiftFileManager.swift#L170-L215)

@@ -44,7 +44,8 @@ define stage-framework-headers
 	@set -eu; { \
 		printf 'framework module %s [system] {\n  umbrella header "%s.h"\n' '$(1)' '$(1)'; \
 		for name in $(2); do \
-			printf '#import <%s/%s.h>\n' '$(1)' '$(1)' > "$(STAGE)/$(1).framework/Headers/$$name.h"; \
+			header="$(STAGE)/$(1).framework/Headers/$$name.h"; \
+			if test ! -f "$$header"; then printf '#import <%s/%s.h>\n' '$(1)' '$(1)' > "$$header"; fi; \
 			printf '  textual header "%s.h"\n' "$$name"; \
 		done; \
 		printf '  export *\n  module * { export * }\n}\n'; \

@@ -16,6 +16,8 @@ static CFErrorDomain error_domain(CFErrorRef error) CF_SWIFT_NAME(probeDomain(_:
 CF_ASSUME_NONNULL_END
 
 int main(void) {
+    if (CFPreferencesAppValueIsForced(CFSTR("sdk.managed.preference.probe"), CFSTR("org.hermeticbuild.sdk-probe")))
+        return 1;
     ProbeIdentifier domain = CFStringCreateCopy(NULL, CFSTR("Framework linkage"));
     if (!domain)
         return 1;

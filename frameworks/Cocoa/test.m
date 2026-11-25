@@ -18,7 +18,9 @@ int main(void) {
                                        windowNumber:0 context:nil
                                             subtype:NSEventSubtypeApplicationActivated data1:0 data2:0];
 
-        return color.redComponent != 0.25 || color.greenComponent != 0.5 ||
+        return !NSPasteboardTypeHTML.length || !NSPasteboardTypeString.length ||
+               !NSPasteboardTypeTIFF.length || !NSPasteboardURLReadingFileURLsOnlyKey.length ||
+               color.redComponent != 0.25 || color.greenComponent != 0.5 ||
                color.blueComponent != 0.75 || color.alphaComponent != 1 ||
                description.length == 0 || model.entities.count != 1 ||
                ![model.entities.firstObject.name isEqualToString:@"TrialEntity"] ||
