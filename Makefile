@@ -44,13 +44,18 @@ test:
 		--fixture tests/installed_headers/target_conditionals.c
 	$(PYTHON) tests/installed_headers/check_fenv_runtime.py
 
-SDK_TREE ?= $(CURDIR)/build/sdk/MacOSX.sdk
+C_ARCHIVE ?= $(CURDIR)/build/apple-oss-c-headers-$(SDK).tar.zst
 
-.PHONY: sdk-archive
-sdk-archive:
-	mkdir -p build/sdk
-	"$(PYTHON)" -m tools.sdk_composition.pack_archive --source "$(SDK_TREE)" \
-		--root-name MacOSX.sdk --output build/sdk/MacOSX.sdk.tar.zst
+.PHONY: c-archive
+c-archive: install test
+	mkdir -p "$(dir $(C_ARCHIVE))"
+	"$(PYTHON)" -m tools.pack_archive --source "$(OUT)" \
+		--root-name "apple-oss-c-headers-$(SDK)" --output "$(C_ARCHIVE)"
+
+# The tests must see the tree produced by install even with parallel Make.
+ifneq ($(filter c-archive,$(MAKECMDGOALS)),)
+test: install
+endif
 
 ifneq ($(strip $(STAGE)),)
 # Each copy writes its full receipt as it stages the file.
