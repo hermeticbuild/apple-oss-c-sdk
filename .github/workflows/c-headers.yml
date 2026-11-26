@@ -2,6 +2,10 @@ name: Build C header archive
 
 on:
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing draft release to attach the C archive to (optional)
+        required: false
 
 permissions:
   contents: read
@@ -27,3 +31,21 @@ jobs:
           name: apple-oss-c-headers-macosx26.5
           path: build/apple-oss-c-headers-macosx26.5.tar.zst
           if-no-files-found: error
+
+  attach-to-draft:
+    needs: headers
+    if: github.ref == 'refs/heads/main' && inputs.release_tag != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: apple-oss-c-headers-macosx26.5
+      - name: Attach archive
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          test "$(gh release view --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft -- "$RELEASE_TAG")" = true
+          gh release upload --repo "$GITHUB_REPOSITORY" -- "$RELEASE_TAG" apple-oss-c-headers-macosx26.5.tar.zst

@@ -55,7 +55,8 @@ make c-archive SDK="$SDK" CLANG="$LLVM_CLANG" OUT="$PWD/build/c-headers"
 
 This builds a fresh C installation, runs its tests, and writes
 `build/apple-oss-c-headers-$SDK.tar.zst`. The manual GitHub Actions workflow
-runs the same target and uploads the archive for review.
+runs the same target and uploads the archive for review. On main, pass an
+existing draft release tag to attach the archive to it.
 
 The full SDK build lives in [HermeticBuild's Apple SDK Gen fork](https://github.com/hermeticbuild/apple-sdk-gen).
 It builds both `make install` and `make install-objc4` from a pinned checkout.
