@@ -9,7 +9,7 @@ import tarfile
 import tempfile
 import unittest
 
-from tools.sdk_composition.pack_archive import pack_archive
+from tools.pack_archive import pack_archive
 
 
 class ArchiveTests(unittest.TestCase):

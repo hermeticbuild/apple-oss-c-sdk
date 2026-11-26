@@ -11,7 +11,7 @@ import re
 import subprocess
 from tempfile import TemporaryDirectory
 
-from tools.sdk_composition.tbd import parse_v5, version
+from tools.tbd import parse_v5, version
 from tools.toolchain.official_llvm import PIN, projection, read_lock, sha256
 
 

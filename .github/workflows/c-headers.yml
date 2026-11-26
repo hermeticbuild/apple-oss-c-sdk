@@ -1,0 +1,29 @@
+name: Build C header archive
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  headers:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: brew install cmake ninja zstd
+      - name: Build and test the C headers
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          clang=$(python3 -m tools.toolchain.official_llvm prepare --cache "$RUNNER_TEMP/llvm")/bin/clang
+          python3 -m tools.sources.locked_sources prepare --sdk macosx26.5
+          make c-archive OUT="$RUNNER_TEMP/c-headers" CLANG="$clang"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: apple-oss-c-headers-macosx26.5
+          path: build/apple-oss-c-headers-macosx26.5.tar.zst
+          if-no-files-found: error

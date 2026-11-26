@@ -47,14 +47,19 @@ make test SDK="$SDK" CLANG="$LLVM_CLANG" OUT=/tmp/apple-oss-c-headers
 
 See [the tests](tests/README.md) for the checks and host requirements.
 
-## Test a composed SDK
+## Package the C installation
 
-Build the [framework replacements](frameworks/README.md) and assemble the
-SDK using the [composition recipe](tools/sdk_composition/README.md).
-Run `make -C frameworks test CLANG="$LLVM_CLANG" SDK="$SDK_TREE"` to check
-the replacement frameworks in the composed tree.
-Run `make sdk-archive` to provide the archive for the
-[Bazel integration workspaces](e2e/README.md).
+```sh
+make c-archive SDK="$SDK" CLANG="$LLVM_CLANG" OUT="$PWD/build/c-headers"
+```
+
+This builds a fresh C installation, runs its tests, and writes
+`build/apple-oss-c-headers-$SDK.tar.zst`. The manual GitHub Actions workflow
+runs the same target and uploads the archive for review.
+
+The full SDK build lives in [HermeticBuild's Apple SDK Gen fork](https://github.com/hermeticbuild/apple-sdk-gen).
+It builds both `make install` and `make install-objc4` from a pinned checkout.
+The raw C archive contains the C header tree and its source receipts.
 
 ## Review SDK coverage
 
