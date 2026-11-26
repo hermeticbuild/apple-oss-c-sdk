@@ -26,6 +26,7 @@ jobs:
           clang=$(python3 -m tools.toolchain.official_llvm prepare --cache "$RUNNER_TEMP/llvm")/bin/clang
           python3 -m tools.sources.locked_sources prepare --sdk macosx26.5
           make c-archive OUT="$RUNNER_TEMP/c-headers" CLANG="$clang"
+          python3 -m unittest discover -s tests -p test_pack_archive.py
       - uses: actions/upload-artifact@v7
         with:
           name: apple-oss-c-headers-macosx26.5
