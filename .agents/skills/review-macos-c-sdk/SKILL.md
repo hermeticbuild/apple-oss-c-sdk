@@ -56,4 +56,4 @@ export PYTHONPATH="$PWD/$REVIEW/scripts${PYTHONPATH:+:$PYTHONPATH}"
 - [Link diagnostics](scripts/sdk_review/linkage/diagnose_links.md) for a
   failing client. Use the [header-to-library workflow](scripts/sdk_review/linkage/sdk_header_linkage.md)
   for a broader provider investigation.
-- [SDK Gen composition evidence](composition-gaps.md) for a framework or stub gap.
+- [SDK Gen composition evidence](https://github.com/hermeticbuild/apple-sdk-gen/blob/main/docs/composition-gaps.md) for a framework or stub gap.
